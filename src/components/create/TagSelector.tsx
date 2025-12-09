@@ -76,8 +76,8 @@ interface TagSelectorProps {
         <div className="flex flex-wrap gap-2">
           {options.map((option) => {
             const isActive = selectedArray.includes(option);
-            const isDisabled = !isActive && isMaxReached;
-  
+            const isDisabled = !isActive && Boolean(isMaxReached);
+
             return (
               <button
                 key={option}
