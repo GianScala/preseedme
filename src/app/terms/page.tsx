@@ -28,7 +28,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold text-white mb-3">2. Description of Service</h2>
             <p>
-              PreseedMe is a platform connecting indie founders with potential micro-investors and the community. 
+              PreseedMe is a platform connecting founders with potential micro-investors and the community. 
               We provide a space for users to post ideas, "like" projects, and view featured content.
             </p>
           </section>

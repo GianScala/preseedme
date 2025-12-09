@@ -25,7 +25,7 @@ export default function Footer() {
 
           <div className="text-center md:text-right">
             <p className="text-xs font-medium text-neutral-400">
-              Indie founders <span className="text-[var(--brand)]">×</span> micro-investors
+              Small founders <span className="text-[var(--brand)]">×</span> micro-investors
             </p>
           </div>
 

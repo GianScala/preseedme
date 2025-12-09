@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 
 type ChatInputProps = {
   text: string;
@@ -17,11 +17,12 @@ export function ChatInput({ text, setText, onSend, disabled }: ChatInputProps) {
     const el = textareaRef.current;
     if (!el) return;
 
-    // Reset height to recalc correctly
+    // Reset height so scrollHeight is measured correctly
     el.style.height = "auto";
 
     const computed = window.getComputedStyle(el);
-    const lineHeight = parseFloat(computed.lineHeight || "20");
+    const lineHeight =
+      parseFloat(computed.lineHeight || computed.fontSize || "20");
     const maxHeight = lineHeight * MAX_LINES;
 
     const newHeight = Math.min(el.scrollHeight, maxHeight);
@@ -31,7 +32,13 @@ export function ChatInput({ text, setText, onSend, disabled }: ChatInputProps) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
     adjustTextareaHeight();
+
+    // Optional: re-adjust on orientation / viewport change
+    const handleResize = () => adjustTextareaHeight();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, [text]);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -46,6 +53,7 @@ export function ChatInput({ text, setText, onSend, disabled }: ChatInputProps) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Enter to send, Shift+Enter for newline
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       if (disabled || !text.trim()) return;
@@ -64,7 +72,10 @@ export function ChatInput({ text, setText, onSend, disabled }: ChatInputProps) {
           onKeyDown={handleKeyDown}
           placeholder="Type a message..."
           aria-label="Type a message"
-          className="max-h-32 w-full resize-none bg-transparent pr-10 text-sm text-white placeholder:text-neutral-500 outline-none leading-[1.4rem] pt-1.5 pb-1.5"
+          enterKeyHint="send"
+          inputMode="text"
+          // IMPORTANT: text-base on mobile (~16px) prevents iOS Safari auto-zoom
+          className="max-h-32 w-full resize-none bg-transparent pr-10 text-base md:text-sm text-white placeholder:text-neutral-500 outline-none leading-[1.4rem] pt-1.5 pb-1.5"
         />
         <button
           type="submit"

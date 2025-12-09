@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     default: "PreseedMe | Discover solopreneurs",
     template: "%s | PreseedME",
   },
-  description: "Connect with indie founders and micro-investors.",
+  description: "Connect with founders and micro-investors.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
