@@ -1,11 +1,16 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ensureProtocol } from "@/lib/utils";
 import HeartIcon from "@/components/icons/HeartIcon";
 import { IdeaMetaChips } from "@/components/ideas/IdeaMetaChips";
 import type { IdeaWithLikes } from "@/app/ideas/[id]/page";
+
+// 🔥 Firestore imports to load founder profile
+import { getFirebaseDb } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 interface IdeaHeaderProps {
   idea: IdeaWithLikes;
@@ -27,6 +32,110 @@ export default function IdeaHeader({
   const isLiked = user ? (idea.likedByUserIds ?? []).includes(user.uid) : false;
   const likeCount = idea.likeCount ?? 0;
 
+  const { founderId, founderUsername } = idea;
+
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState(false);
+
+  const founderInitial =
+    founderUsername?.[0]?.toUpperCase() ??
+    founderUsername?.charAt(0)?.toUpperCase() ??
+    "?";
+
+  const shouldShowInitials = !avatarUrl || avatarError;
+
+  // --- DEBUG: base render info ---
+  useEffect(() => {
+    console.log("[IdeaHeader] Render", {
+      ideaId: idea.id,
+      founderId,
+      founderUsername,
+      currentAvatarUrl: avatarUrl,
+      avatarError,
+    });
+  }, [idea.id, founderId, founderUsername, avatarUrl, avatarError]);
+
+  // --- Load founder avatar from users/{founderId}.photoURL ---
+  useEffect(() => {
+    if (!founderId) {
+      console.warn("[IdeaHeader] No founderId on idea, cannot load avatar", {
+        ideaId: idea.id,
+      });
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadAvatar = async () => {
+      try {
+        console.log("[IdeaHeader] Fetching founder profile for avatar", {
+          ideaId: idea.id,
+          founderId,
+        });
+
+        const db = getFirebaseDb();
+        const ref = doc(db, "users", founderId); // adjust collection name if needed
+        const snap = await getDoc(ref);
+
+        if (!snap.exists()) {
+          console.warn(
+            "[IdeaHeader] Founder profile not found, keeping initials",
+            { ideaId: idea.id, founderId }
+          );
+          return;
+        }
+
+        const data = snap.data() as any;
+        const url: string | null =
+          data.photoURL ?? data.avatarUrl ?? data.avatar ?? null;
+
+        console.log("[IdeaHeader] Loaded founder profile", {
+          ideaId: idea.id,
+          founderId,
+          photoURL: data.photoURL,
+          resolvedAvatarUrl: url,
+        });
+
+        if (!cancelled) {
+          setAvatarUrl(url);
+          setAvatarError(false);
+        }
+      } catch (error) {
+        console.error(
+          "[IdeaHeader] Error loading founder avatar from profile",
+          {
+            ideaId: idea.id,
+            founderId,
+            error,
+          }
+        );
+      }
+    };
+
+    loadAvatar();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [idea.id, founderId]);
+
+  const handleAvatarError = () => {
+    console.warn("[IdeaHeader] Avatar image failed to load", {
+      ideaId: idea.id,
+      founderId,
+      avatarUrl,
+    });
+    setAvatarError(true);
+  };
+
+  const handleAvatarLoad = () => {
+    console.log("[IdeaHeader] Avatar image loaded successfully", {
+      ideaId: idea.id,
+      founderId,
+      avatarUrl,
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Navigation & External Links */}
@@ -40,7 +149,6 @@ export default function IdeaHeader({
             group
           "
         >
-          <span className="group-hover:-translate-x-1 transition-transform">←</span>
           Back Home
         </button>
 
@@ -95,13 +203,27 @@ export default function IdeaHeader({
 
           {/* Founder Profile */}
           <div className="flex items-center gap-3 pt-2">
-            <div className="
-              w-10 h-10 sm:w-12 sm:h-12 rounded-xl 
-              bg-gradient-to-br from-brand to-brand-dark 
-              flex items-center justify-center 
-              text-lg sm:text-xl font-bold text-black shadow-lg shadow-brand/20
-            ">
-              {idea.founderUsername?.[0]?.toUpperCase()}
+            <div
+              className="
+                w-10 h-10 sm:w-12 sm:h-12 rounded-xl 
+                bg-gradient-to-br from-brand to-brand-dark 
+                flex items-center justify-center 
+                text-lg sm:text-xl font-bold text-black shadow-lg shadow-brand/20
+                overflow-hidden
+              "
+            >
+              {shouldShowInitials ? (
+                founderInitial
+              ) : (
+                <img
+                  src={avatarUrl as string}
+                  alt={`${founderUsername}'s avatar`}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                  onError={handleAvatarError}
+                  onLoad={handleAvatarLoad}
+                />
+              )}
             </div>
             <div className="flex flex-col">
               <span className="text-[10px] uppercase tracking-wider text-neutral-500 font-semibold">
@@ -113,7 +235,9 @@ export default function IdeaHeader({
               >
                 <span>{idea.founderUsername}</span>
                 {idea.founderHandle && (
-                  <span className="text-neutral-500 font-normal">@{idea.founderHandle}</span>
+                  <span className="text-neutral-500 font-normal">
+                    @{idea.founderHandle}
+                  </span>
                 )}
               </Link>
             </div>
@@ -150,7 +274,11 @@ export default function IdeaHeader({
                 `}
               >
                 <HeartIcon
-                  className={isLiked ? "text-white" : "text-neutral-400 group-hover:text-rose-400"} 
+                  className={
+                    isLiked
+                      ? "text-white"
+                      : "text-neutral-400 group-hover:text-rose-400"
+                  }
                 />
                 <span>{likeCount}</span>
               </button>
