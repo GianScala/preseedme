@@ -174,7 +174,7 @@ export default function PublicFeaturedCard({
                 {loadingLike ? (
                    <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                 ) : (
-                  <HeartIcon filled={isLiked} className={`w-4 h-4 ${isLiked ? "animate-pulse-fast" : ""}`} />
+                  <HeartIcon className={`w-4 h-4 ${isLiked ? "animate-pulse-fast" : ""}`} />
                 )}
                 <span>{likeCount}</span>
               </button>

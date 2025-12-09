@@ -149,8 +149,7 @@ export default function IdeaHeader({
                   ${isOwner ? "cursor-default opacity-100" : "active:scale-95"}
                 `}
               >
-                <HeartIcon 
-                  filled={isLiked} 
+                <HeartIcon
                   className={isLiked ? "text-white" : "text-neutral-400 group-hover:text-rose-400"} 
                 />
                 <span>{likeCount}</span>

@@ -173,7 +173,7 @@ export default function PublicIdeaCard({
            {loadingLike ? (
               <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
            ) : (
-             <HeartIcon filled={isLiked} className={`w-3.5 h-3.5 ${isLiked ? "animate-pulse-fast" : ""}`} />
+             <HeartIcon className={`w-3.5 h-3.5 ${isLiked ? "animate-pulse-fast" : ""}`} />
            )}
            <span>{likeCount}</span>
         </button>

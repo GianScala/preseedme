@@ -240,7 +240,7 @@ export default function IdeaCard({
                     {loadingLike ? (
                       <span className="w-3">…</span>
                     ) : (
-                      <HeartIcon filled={isLiked} className="w-3.5 h-3.5" />
+                      <HeartIcon className="w-3.5 h-3.5" />
                     )}
 
                     <span className="leading-none">{likeCount}</span>
