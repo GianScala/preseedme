@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default function PrivacyPage() {
   return (
-    <main className="min-h-screen text-neutral-200 pt-10 pb-4">
+    <main className="min-h-screen text-neutral-200 pt-4 pb-4">
       <div className="px-4 sm:px-6 lg:px-8 space-y-8">
         
         {/* Header */}
