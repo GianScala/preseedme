@@ -8,7 +8,7 @@ export default function TermsPage() {
         {/* Header */}
         <div className="border-b border-white/10 pb-6">
           <h1 className="text-3xl font-bold mb-2">
-            Terms of <span className="text-[var(--brand)]">Service</span>
+            Terms of Service
           </h1>
           <p className="text-neutral-500 text-sm">
             Last updated: December 08, 2025

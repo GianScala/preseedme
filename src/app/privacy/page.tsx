@@ -8,7 +8,7 @@ export default function PrivacyPage() {
         {/* Header */}
         <div className="border-b border-white/10 pb-6">
           <h1 className="text-3xl font-bold mb-2">
-            Privacy <span className="text-[var(--brand)]">Policy</span>
+            Privacy Policy
           </h1>
           <p className="text-neutral-500 text-sm">
             Last updated: December 08, 2025
@@ -72,7 +72,7 @@ export default function PrivacyPage() {
             <h2 className="text-xl font-semibold text-white mb-3">6. Contact Us</h2>
             <p>
               If you have any questions about this Privacy Policy, please contact us at:<br />
-              <a href="mailto:support@preseedme.com" className="text-[var(--brand)] hover:underline">support@preseedme.com</a>
+              <a href="mailto:team@preseedme.com" className="text-[var(--brand)] hover:underline">support@preseedme.com</a>
             </p>
           </section>
         </div>
