@@ -1,18 +1,24 @@
+// src/app/.../firebase-admin.ts (wherever this lives)
 import * as admin from "firebase-admin";
-
-// 1. Import the key directly using your alias
-// This automatically finds: src/app/firebase-admin-key.json
-import serviceAccount from "../../firebase-admin-key.json";
 
 export const getFirebaseAdmin = () => {
   if (!admin.apps.length) {
-    console.log("🔑 Loading Firebase Admin from @/app/firebase-admin-key.json...");
+    const json = process.env.FIREBASE_ADMIN_KEY;
 
-    // 2. Initialize using the imported JSON object
-    // We cast to 'any' to avoid strict TypeScript interface mismatches with the JSON
+    if (!json) {
+      throw new Error(
+        "FIREBASE_ADMIN_KEY env var is not set. Make sure it's in your .env.local (for dev) and in Vercel env vars (for prod)."
+      );
+    }
+
+    const serviceAccount = JSON.parse(json);
+
+    console.log("🔑 Initializing Firebase Admin from FIREBASE_ADMIN_KEY env var...");
+
     admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount as any),
+      credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
     });
   }
+
   return admin;
 };
