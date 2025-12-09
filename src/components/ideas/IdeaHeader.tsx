@@ -141,7 +141,7 @@ export default function IdeaHeader({
       {/* Top Navigation & External Links */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <button
-          onClick={() => router.push("/")}
+          onClick={() => router.back()}
           className="
             self-start flex items-center gap-2
             text-xs sm:text-sm text-neutral-400
@@ -149,7 +149,7 @@ export default function IdeaHeader({
             group
           "
         >
-          Back Home
+          Go Back
         </button>
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
