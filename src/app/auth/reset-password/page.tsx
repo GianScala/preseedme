@@ -110,17 +110,21 @@ function ResetPasswordPageInner() {
     e.preventDefault();
     if (submitting || !isValid) return;
 
+    // Clear previous errors
+    setError(null);
+
+    // Validate password length
     if (password.length < 6) {
       return setError("Password must be at least 6 characters.");
     }
 
+    // Validate passwords match
     if (password !== confirmPassword) {
       return setError("Passwords don't match.");
     }
 
     try {
       setSubmitting(true);
-      setError(null);
 
       console.log("🔐 Resetting password for:", userEmail);
 
@@ -135,9 +139,10 @@ function ResetPasswordPageInner() {
       });
 
       const data = await response.json();
-      console.log("API response:", data);
+      console.log("📥 API response:", data);
 
-      if (!response.ok) {
+      // Check both HTTP status and success field
+      if (!response.ok || !data.success) {
         throw new Error(data.error || "Failed to reset password");
       }
 
@@ -199,7 +204,7 @@ function ResetPasswordPageInner() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 bg-black py-16">
+    <div className="flex min-h-screen items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-xl p-8 shadow-2xl shadow-black/50">
           <Link
@@ -250,6 +255,7 @@ function ResetPasswordPageInner() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? (
                     // eye-off
@@ -313,6 +319,7 @@ function ResetPasswordPageInner() {
                     setShowConfirmPassword(!showConfirmPassword)
                   }
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
                 >
                   {showConfirmPassword ? (
                     // eye-off
@@ -377,7 +384,7 @@ function ResetPasswordPageInner() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full rounded-xl bg-[var(--brand)] py-3 text-sm font-bold text.black shadow-[0_0_20px_rgba(33,221,192,0.15)] hover:shadow-[0_0_25px_rgba(33,221,192,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full rounded-xl bg-[var(--brand)] py-3 text-sm font-bold text-black shadow-[0_0_20px_rgba(33,221,192,0.15)] hover:shadow-[0_0_25px_rgba(33,221,192,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {submitting ? "Resetting..." : "Reset Password"}
             </button>

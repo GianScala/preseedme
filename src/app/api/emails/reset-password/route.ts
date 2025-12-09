@@ -12,25 +12,68 @@ export async function POST(request: Request) {
     const { email } = await request.json();
 
     if (!email) {
-      return NextResponse.json({ success: false, error: 'Email is required' }, { status: 400 });
+      console.error('❌ Email is required');
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Email is required' 
+      }, { status: 400 });
     }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      console.error('❌ Invalid email format:', email);
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Invalid email format' 
+      }, { status: 400 });
+    }
+
+    // Check if RESEND_API_KEY exists
+    if (!process.env.RESEND_API_KEY) {
+      console.error('❌ RESEND_API_KEY is not configured');
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Email service not configured. Please contact support.' 
+      }, { status: 500 });
+    }
+
+    // Check if NEXT_PUBLIC_APP_URL exists
+    if (!process.env.NEXT_PUBLIC_APP_URL) {
+      console.error('❌ NEXT_PUBLIC_APP_URL is not configured');
+      return NextResponse.json({ 
+        success: false, 
+        error: 'App URL not configured. Please contact support.' 
+      }, { status: 500 });
+    }
+
+    console.log('🔍 Looking up user:', email);
 
     const db = getFirebaseDb();
     const usersRef = collection(db, 'users');
     const q = query(usersRef, where('email', '==', email));
     const querySnapshot = await getDocs(q);
 
+    // Security: Return success even if user not found (don't leak user existence)
     if (querySnapshot.empty) {
-      return NextResponse.json({ success: true });
+      console.log('⚠️ User not found for email:', email, '(returning success for security)');
+      return NextResponse.json({ 
+        success: true,
+        message: 'If an account exists with this email, a reset link has been sent.'
+      });
     }
 
     const userDoc = querySnapshot.docs[0];
     const userId = userDoc.id;
     const userData = userDoc.data();
 
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    console.log('✅ User found:', userId);
 
+    // Generate secure reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+
+    // Store reset token in Firestore
     await setDoc(doc(db, 'passwordResets', userId), {
       token: resetToken,
       email,
@@ -39,6 +82,8 @@ export async function POST(request: Request) {
       used: false,
       createdAt: new Date(),
     });
+
+    console.log('💾 Reset token stored in Firestore');
 
     const resetLink = `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password?token=${resetToken}&uid=${userId}`;
     const preheader = "Use this link to reset your password. It expires in 1 hour.";
@@ -124,6 +169,10 @@ export async function POST(request: Request) {
                         <p style="margin: 24px 0 0; color: #52525b; font-size: 12px;">
                           This link will expire in 60 minutes.
                         </p>
+                        
+                        <p style="margin: 16px 0 0; color: #52525b; font-size: 11px;">
+                          If you didn't request this, you can safely ignore this email.
+                        </p>
                       </td>
                     </tr>
                     
@@ -148,15 +197,33 @@ export async function POST(request: Request) {
     });
 
     if (error) {
-      console.error('❌ Failed to send reset email:', error);
-      return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+      console.error('❌ Resend API error:', error);
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Failed to send email. Please try again or contact support.' 
+      }, { status: 500 });
     }
 
-    console.log('✅ Reset email sent!', data);
-    return NextResponse.json({ success: true, data });
+    if (!data) {
+      console.error('❌ No data returned from Resend');
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Email service error. Please try again.' 
+      }, { status: 500 });
+    }
+
+    console.log('✅ Reset email sent successfully!', data);
+    return NextResponse.json({ 
+      success: true, 
+      data,
+      message: 'Password reset email sent successfully!'
+    });
 
   } catch (error: any) {
-    console.error('❌ Server error:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error('❌ Server error in reset-password route:', error);
+    return NextResponse.json({ 
+      success: false, 
+      error: error.message || 'Internal server error. Please try again later.' 
+    }, { status: 500 });
   }
 }

@@ -21,8 +21,15 @@ export default function ForgotPasswordPage() {
       return setError("Please enter your email address.");
     }
 
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      return setError("Please enter a valid email address.");
+    }
+
     try {
       setSubmitting(true);
+      console.log('📤 Sending reset request for:', email.trim());
 
       const response = await fetch('/api/emails/reset-password', {
         method: 'POST',
@@ -30,14 +37,19 @@ export default function ForgotPasswordPage() {
         body: JSON.stringify({ email: email.trim() }),
       });
 
+      console.log('📥 Response status:', response.status);
       const data = await response.json();
+      console.log('📥 Response data:', data);
 
-      if (!response.ok) {
+      // Check BOTH HTTP status AND success field
+      if (!response.ok || !data.success) {
         throw new Error(data.error || 'Failed to send reset email');
       }
 
+      console.log('✅ Reset email sent successfully');
       setSuccess(true);
     } catch (err: any) {
+      console.error('❌ Reset error:', err);
       setError(err.message || 'Failed to send reset email. Please try again.');
     } finally {
       setSubmitting(false);

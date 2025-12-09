@@ -111,7 +111,7 @@ function VerifyEmailPageInner() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black px-4">
+    <div className="min-h-screen flex items-center justify-center px-4">
       <div className="max-w-md w-full text-center">
         <div
           className={`p-8 rounded-2xl border ${
