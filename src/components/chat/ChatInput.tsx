@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 type ChatInputProps = {
   text: string;
   setText: (text: string) => void;
@@ -8,22 +10,77 @@ type ChatInputProps = {
 };
 
 export function ChatInput({ text, setText, onSend, disabled }: ChatInputProps) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const MAX_LINES = 3;
+
+  const adjustTextareaHeight = () => {
+    const el = textareaRef.current;
+    if (!el) return;
+
+    // Reset height to recalc correctly
+    el.style.height = "auto";
+
+    const computed = window.getComputedStyle(el);
+    const lineHeight = parseFloat(computed.lineHeight || "20");
+    const maxHeight = lineHeight * MAX_LINES;
+
+    const newHeight = Math.min(el.scrollHeight, maxHeight);
+    el.style.height = `${newHeight}px`;
+    el.style.overflowY = el.scrollHeight > maxHeight ? "auto" : "hidden";
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    adjustTextareaHeight();
+  }, [text]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setText(e.target.value);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (disabled) return;
+    if (!text.trim()) return;
+    onSend(e);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (disabled || !text.trim()) return;
+      onSend(e as unknown as React.FormEvent);
+    }
+  };
+
   return (
-    <form onSubmit={onSend} className="flex gap-2 sm:gap-3">
-      <input
-        className="flex-1 rounded-lg px-3 sm:px-4 py-1 sm:py-3 border border-neutral-700 text-sm focus:border-brand focus:ring-2 focus:ring-amber-500/20 outline-none transition-all bg-black/40 placeholder:text-neutral-500"
-        placeholder="Type a message..."
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        aria-label="Type a message"
-      />
-      <button
-        className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg bg-brand text-black text-sm font-semibold hover:bg-brand-light transition-all shadow-lg shadow-[var(--brand)]/20 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-        type="submit"
-        disabled={disabled}
-      >
-        Send
-      </button>
+    <form onSubmit={handleSubmit} className="w-full">
+      <div className="relative flex w-full items-end rounded-2xl border border-neutral-700 bg-black/40 px-3 py-2 shadow-sm focus-within:border-brand focus-within:ring-2 focus-within:ring-amber-500/20 transition-all">
+        <textarea
+          ref={textareaRef}
+          rows={1}
+          value={text}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          placeholder="Type a message..."
+          aria-label="Type a message"
+          className="max-h-32 w-full resize-none bg-transparent pr-10 text-sm text-white placeholder:text-neutral-500 outline-none leading-[1.4rem] pt-1.5 pb-1.5"
+        />
+        <button
+          type="submit"
+          disabled={disabled || !text.trim()}
+          className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-brand text-black shadow-lg shadow-[var(--brand)]/30 hover:bg-brand-light transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          aria-label="Send message"
+        >
+          {/* Paper-plane icon */}
+          <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
+            <path
+              d="M4 20L20 12L4 4L4 10L14 12L4 14L4 20Z"
+              fill="currentColor"
+            />
+          </svg>
+        </button>
+      </div>
     </form>
   );
 }
