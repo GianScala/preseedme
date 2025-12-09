@@ -90,7 +90,7 @@ export default function TermsPage() {
 
         <div className="pt-8 border-t border-white/10">
           <Link href="/" className="text-sm text-neutral-500 hover:text-[var(--brand)] transition-colors">
-            ← Go Back Home
+            Go Back Home
           </Link>
         </div>
       </div>
