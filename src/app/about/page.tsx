@@ -139,7 +139,7 @@ function BenefitGrid({ items }: { items: { icon: string; title: string; desc: st
 
 export default function AboutPage() {
   return (
-    <div className="space-y-16 sm:space-y-24 pb-12 sm:pb-20 animate-fade-in">
+    <div className="space-y-16 sm:space-y-24 pb-4 animate-fade-in">
       
       {/* 1. Hero Section - Mobile Optimized */}
       <section className="text-center max-w-4xl mx-auto space-y-5 sm:space-y-6 pt-6 sm:pt-10">
