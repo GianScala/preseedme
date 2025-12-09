@@ -67,17 +67,26 @@ export default function ChatThreadPage() {
     return getParticipantIds(conversationId, user.uid);
   }, [conversationId, user?.uid]);
 
-  // Prevent body scroll
+  // Mobile-optimized body scroll prevention
   useEffect(() => {
     const originalOverflow = document.body.style.overflow;
     const originalPosition = document.body.style.position;
+    const originalWidth = document.body.style.width;
+    const originalHeight = document.body.style.height;
+    
+    // Better mobile handling
     document.body.style.overflow = "hidden";
     document.body.style.position = "fixed";
     document.body.style.width = "100%";
+    document.body.style.height = "100%";
+    document.body.style.touchAction = "none"; // Prevent pull-to-refresh
+    
     return () => {
       document.body.style.overflow = originalOverflow;
       document.body.style.position = originalPosition;
-      document.body.style.width = "";
+      document.body.style.width = originalWidth;
+      document.body.style.height = originalHeight;
+      document.body.style.touchAction = "";
     };
   }, []);
 
@@ -148,8 +157,6 @@ export default function ChatThreadPage() {
         setParticipants(profileMap);
 
         const otherId = participantIds.find((p) => p !== user.uid) ?? user.uid;
-        // DEBUG: Check if we actually found the other user
-        console.log("[INIT] Found other user:", otherId, profileMap[otherId]);
         setOtherUser(profileMap[otherId] ?? null);
       } catch (err) {
         console.error("Init failed:", err);
@@ -203,9 +210,7 @@ export default function ChatThreadPage() {
     }
   }, [messages, scrollToBottom]);
 
-  // =================================================================
-  //  SYNC READ STATUS
-  // =================================================================
+  // 4. Sync Read Status
   useEffect(() => {
     if (!conversationId || !user) return;
 
@@ -225,7 +230,6 @@ export default function ChatThreadPage() {
         const myReadMillis = getMillis(myReadTimeVal);
 
         if (myReadMillis < lastMsgMillis) {
-          // console.log("[SYNC-READ] Marking as read..."); // Commented out to reduce noise
           setDoc(
             convRef, 
             { [`lastReadAt.${user.uid}`]: lastMsgTimeVal }, 
@@ -238,15 +242,13 @@ export default function ChatThreadPage() {
     return () => unsubscribe();
   }, [conversationId, user]);
 
-  // 4. SEND HANDLER WITH DEBUG CHECKPOINTS
+  // 5. Send Handler
   const handleSend = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       e.stopPropagation();
       
       if (!user || !conversationId || !text.trim() || sending) return;
-
-      console.log("📍 CHECKPOINT 1: Send started");
 
       const messageText = text.trim();
       const senderName = user.displayName || user.email?.split('@')[0] || "A Founder";
@@ -259,16 +261,12 @@ export default function ChatThreadPage() {
         const db = getFirebaseDb();
         const now = serverTimestamp(); 
 
-        // Save Message
         await addDoc(collection(db, "conversations", conversationId, "messages"), {
           senderId: user.uid,
           text: messageText,
           createdAt: now,
         });
-        
-        console.log("📍 CHECKPOINT 2: Message saved to Firestore");
 
-        // Update Conversation
         await setDoc(
           doc(db, "conversations", conversationId),
           {
@@ -281,12 +279,7 @@ export default function ChatThreadPage() {
           { merge: true }
         );
 
-        console.log("📍 CHECKPOINT 3: Conversation metadata updated");
-
-        // Notify
         if (otherUser?.id) {
-          console.log("📍 CHECKPOINT 4: Sending Notification to:", otherUser.id);
-          
           fetch('/api/emails/send-notification', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -296,18 +289,11 @@ export default function ChatThreadPage() {
               messageText: messageText,
               conversationId: conversationId
             })
-          })
-          .then(async (res) => {
-            const data = await res.json();
-            console.log("📍 CHECKPOINT 5: Notification API Response:", data);
-          })
-          .catch(err => console.error("❌ CHECKPOINT FAIL: Fetch error:", err));
-        } else {
-          console.warn("⚠️ CHECKPOINT FAIL: 'otherUser' is null or missing ID. Notification skipped.", otherUser);
+          }).catch(err => console.error("Notification error:", err));
         }
 
       } catch (err) {
-        console.error("❌ Critical Send Error:", err);
+        console.error("Send error:", err);
         setError("Message failed to send.");
         setText(messageText);
       } finally {
@@ -324,7 +310,7 @@ export default function ChatThreadPage() {
 
   if (authLoading || (loadingConversation && !otherUser)) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
+      <div className="flex flex-col items-center justify-center min-h-screen py-20">
         <div className="w-8 h-8 rounded-full border-2 border-neutral-800 border-t-brand animate-spin" />
       </div>
     );
@@ -333,47 +319,105 @@ export default function ChatThreadPage() {
   if (!user) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-neutral/20 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-4xl h-[90vh] flex flex-col rounded-2xl overflow-hidden shadow-2xl bg-neutral-900/20 border border-neutral-800">
-        {/* HEADER */}
-        <div className="flex-shrink-0 bg-neutral-900/20 border-b border-neutral-800 p-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <button onClick={() => router.back()} className="flex-shrink-0 p-2 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              {otherUser?.photoURL ? (
-                <img src={otherUser.photoURL} alt={otherUser.username} className="flex-shrink-0 w-10 h-10 rounded-full object-cover border border-neutral-700" />
-              ) : (
-                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-neutral-800 flex items-center justify-center font-bold text-white">
-                  {otherUser?.username?.[0] || "?"}
+    <div className="fixed inset-0 z-50 bg-neutral-900/95 backdrop-blur-sm">
+      <div className="h-full w-full flex flex-col md:p-4 md:items-center md:justify-center">
+        <div className="w-full h-full md:h-[90vh] md:max-w-4xl flex flex-col md:rounded-2xl overflow-hidden md:shadow-2xl bg-neutral-900 md:border md:border-neutral-800">
+          {/* HEADER - Mobile optimized with safe-area support */}
+          <div 
+            className="flex-shrink-0 bg-neutral-900 border-b border-neutral-800 pt-safe"
+            style={{ paddingTop: 'max(env(safe-area-inset-top), 0.5rem)' }}
+          >
+            <div className="px-3 py-3 sm:px-4 sm:py-4 flex items-center justify-between gap-2 sm:gap-3">
+              <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                {/* Close Button */}
+                <button 
+                  onClick={() => router.back()} 
+                  className="flex-shrink-0 p-1.5 sm:p-2 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors active:scale-95"
+                  aria-label="Close chat"
+                >
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+
+                {/* User Info */}
+                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                  {otherUser?.photoURL ? (
+                    <img 
+                      src={otherUser.photoURL} 
+                      alt={otherUser.username} 
+                      className="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-neutral-700" 
+                    />
+                  ) : (
+                    <div className="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-neutral-800 flex items-center justify-center font-bold text-white text-sm sm:text-base">
+                      {otherUser?.username?.[0] || "?"}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h1 className="text-base sm:text-lg font-bold text-white truncate">
+                      {otherUser?.username || "Chat"}
+                    </h1>
+                    {otherUser?.handle && (
+                      <p className="text-xs sm:text-sm text-neutral-400 truncate">
+                        @{otherUser.handle}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <h1 className="text-lg font-bold text-white truncate">{otherUser?.username || "Chat"}</h1>
-                {otherUser?.handle && <p className="text-sm text-neutral-400 truncate">@{otherUser.handle}</p>}
               </div>
+
+              {/* Profile Button */}
+              <button 
+                onClick={handleVisitProfile}
+                className="flex-shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 active:scale-95 text-white transition-all text-xs sm:text-sm font-medium"
+              >
+                <span className="hidden xs:inline">Visit</span>
+                <span className="xs:hidden">Profile</span>
+              </button>
             </div>
           </div>
-          <button onClick={handleVisitProfile} className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-white transition-colors">
-            <span className="hidden sm:inline text-sm font-medium">Visit Profile</span>
-          </button>
-        </div>
 
-        {/* MESSAGES */}
-        <div ref={scrollContainerRef} onScroll={updateScrollPosition} className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
-          <div className="p-4 space-y-4">
-            {error && <div className="p-3 bg-red-900/20 border border-red-900/50 rounded-lg text-red-200 text-sm text-center">{error}</div>}
-            <MessageList messages={messages} participants={participants} currentUserId={user.uid} loading={loadingConversation} error={error} />
-            <div ref={messagesEndRef} className="h-px" />
+          {/* MESSAGES - Better mobile scrolling */}
+          <div 
+            ref={scrollContainerRef} 
+            onScroll={updateScrollPosition} 
+            className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain touch-pan-y"
+            style={{ 
+              WebkitOverflowScrolling: 'touch',
+              overscrollBehavior: 'contain'
+            }}
+          >
+            <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+              {error && (
+                <div className="p-3 bg-red-900/20 border border-red-900/50 rounded-lg text-red-200 text-xs sm:text-sm text-center">
+                  {error}
+                </div>
+              )}
+              <MessageList 
+                messages={messages} 
+                participants={participants} 
+                currentUserId={user.uid} 
+                loading={loadingConversation} 
+                error={error} 
+              />
+              <div ref={messagesEndRef} className="h-px" />
+            </div>
           </div>
-        </div>
 
-        {/* INPUT */}
-        <div className="flex-shrink-0 border-t border-neutral-800 bg-neutral-900 p-4">
-          <ChatInput text={text} setText={setText} onSend={handleSend} disabled={!text.trim() || sending || !!error} />
+          {/* INPUT - Fixed zoom issue with 16px minimum font size */}
+          <div 
+            className="flex-shrink-0 border-t border-neutral-800 bg-neutral-900 pb-safe"
+            style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.5rem)' }}
+          >
+            <div className="px-3 py-3 sm:px-4 sm:py-4">
+              <ChatInput 
+                text={text} 
+                setText={setText} 
+                onSend={handleSend} 
+                disabled={!text.trim() || sending || !!error} 
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>
