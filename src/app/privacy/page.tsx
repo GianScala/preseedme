@@ -72,7 +72,7 @@ export default function PrivacyPage() {
             <h2 className="text-xl font-semibold text-white mb-3">6. Contact Us</h2>
             <p>
               If you have any questions about this Privacy Policy, please contact us at:<br />
-              <a href="mailto:team@preseedme.com" className="text-[var(--brand)] hover:underline">support@preseedme.com</a>
+              <a href="mailto:team@preseedme.com" className="text-[var(--brand)] hover:underline">team@preseedme.com</a>
             </p>
           </section>
         </div>
