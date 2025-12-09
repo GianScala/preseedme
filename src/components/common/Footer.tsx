@@ -27,9 +27,6 @@ export default function Footer() {
             <p className="text-xs font-medium text-neutral-400">
               Indie founders <span className="text-[var(--brand)]">×</span> micro-investors
             </p>
-            <p className="text-[10px] text-neutral-600 mt-1">
-              Made by founders backing founders
-            </p>
           </div>
 
         </div>

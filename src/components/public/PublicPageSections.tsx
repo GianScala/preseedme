@@ -10,7 +10,6 @@ import {
   type WeeklyWinner,
 } from "@/lib/weeklyWinners";
 
-
 // --- Featured Section ---
 
 type FeaturedIdeaSectionProps = {
@@ -41,7 +40,9 @@ export function FeaturedIdeaSection({
         <div className="w-full h-96 rounded-2xl bg-white/5 animate-pulse border border-white/5" />
       ) : !featuredIdea ? (
         <div className="p-12 text-center bg-white/[0.02] border border-white/5 rounded-2xl backdrop-blur-sm">
-          <p className="text-neutral-500">No featured idea selected for today.</p>
+          <p className="text-neutral-500">
+            No featured idea selected for today.
+          </p>
         </div>
       ) : (
         <PublicFeaturedCard
@@ -54,6 +55,8 @@ export function FeaturedIdeaSection({
     </section>
   );
 }
+
+// --- Weekly Winners Section ---
 
 type WeeklyWinnersSectionProps = {
   currentUserId: string | null;
@@ -82,7 +85,9 @@ export function WeeklyWinnersSection({
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const scroll = (direction: "left" | "right") => {
@@ -90,7 +95,9 @@ export function WeeklyWinnersSection({
     if (!container) return;
     const scrollAmount = 360; // Card width + gap
     container.scrollTo({
-      left: container.scrollLeft + (direction === "left" ? -scrollAmount : scrollAmount),
+      left:
+        container.scrollLeft +
+        (direction === "left" ? -scrollAmount : scrollAmount),
       behavior: "smooth",
     });
   };
@@ -98,17 +105,67 @@ export function WeeklyWinnersSection({
   const hasWinners = winners.length > 0;
   const topFour = winners.slice(0, 4);
 
+  // 🔥 Optimistic like toggle for Weekly Winners
+  const handleToggleLike = (ideaId: string) => {
+    console.log("[WeeklyWinnersSection] handleToggleLike called", {
+      ideaId,
+      currentUserId,
+    });
+
+    if (currentUserId) {
+      setWinners((prev) =>
+        prev.map((winner) => {
+          if (winner.idea.id !== ideaId) return winner;
+
+          const idea = winner.idea;
+          const likedBy = idea.likedByUserIds ?? [];
+          const alreadyLiked = likedBy.includes(currentUserId);
+          const updatedLikedBy = alreadyLiked
+            ? likedBy.filter((id) => id !== currentUserId)
+            : [...likedBy, currentUserId];
+
+          const currentLikeCount = idea.likeCount ?? 0;
+          const updatedLikeCount = alreadyLiked
+            ? currentLikeCount - 1
+            : currentLikeCount + 1;
+
+          const updatedIdea: IdeaWithLikes = {
+            ...idea,
+            likedByUserIds: updatedLikedBy,
+            likeCount: updatedLikeCount,
+          };
+
+          console.log("[WeeklyWinnersSection] Optimistically updated winner", {
+            ideaId,
+            alreadyLiked,
+            updatedLikeCount,
+          });
+
+          return { ...winner, idea: updatedIdea };
+        })
+      );
+    } else {
+      console.warn(
+        "[WeeklyWinnersSection] No currentUserId; calling parent onToggleLike only",
+        { ideaId }
+      );
+    }
+
+    // Call the parent handler so Firestore / global state gets updated too
+    onToggleLike(ideaId);
+  };
+
   return (
     <section className="pb-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-           <div className="p-1.5 bg-yellow-500/10 border border-yellow-500/20 rounded-lg flex items-center justify-center">
-             <CrownIcon className="w-5 h-5 text-yellow-500" />
-           </div>
-           <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-             Weekly winners
-           </h2>
+          <div className="p-1.5 bg-yellow-500/10 border border-yellow-500/20 rounded-lg flex items-center justify-center">
+            <CrownIcon className="w-5 h-5 text-yellow-500" />
+          </div>
+          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+            Weekly winners
+          </h2>
         </div>
 
         {/* Scroll Buttons */}
@@ -118,16 +175,36 @@ export function WeeklyWinnersSection({
               onClick={() => scroll("left")}
               className="p-2 rounded-full bg-white/5 border border-white/10 text-neutral-400 hover:text-white hover:bg-white/10 transition-all active:scale-95"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
               </svg>
             </button>
             <button
               onClick={() => scroll("right")}
               className="p-2 rounded-full bg-white/5 border border-white/10 text-neutral-400 hover:text-white hover:bg-white/10 transition-all active:scale-95"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
               </svg>
             </button>
           </div>
@@ -138,7 +215,10 @@ export function WeeklyWinnersSection({
       {loading && !hasWinners ? (
         <div className="flex gap-4 overflow-hidden">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="flex-shrink-0 w-[300px] sm:w-[340px] h-[450px] bg-white/5 rounded-2xl animate-pulse border border-white/5" />
+            <div
+              key={i}
+              className="flex-shrink-0 w-[300px] sm:w-[340px] h-[450px] bg-white/5 rounded-2xl animate-pulse border border-white/5"
+            />
           ))}
         </div>
       ) : !hasWinners ? (
@@ -157,7 +237,7 @@ export function WeeklyWinnersSection({
                 <PublicWeeklyWinner
                   idea={idea}
                   currentUserId={currentUserId}
-                  onToggleLike={() => onToggleLike(idea.id)}
+                  onToggleLike={() => handleToggleLike(idea.id)}
                   loadingLike={loadingLikeId === idea.id}
                   rank={rank}
                 />

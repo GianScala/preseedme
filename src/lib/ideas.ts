@@ -19,13 +19,17 @@ import { Idea } from "@/types";
 export type IdeaWithLikes = Idea & {
   likeCount?: number;
   likedByUserIds?: string[];
+  // 🔹 Add this: avatar for the founder
+  founderAvatarUrl?: string | null;
 };
 
 export function mapIdeaDoc(snapshot: any): IdeaWithLikes {
   const data = snapshot.data() || {};
-  // Basic safety check for data integrity
+
   if (!data.title) {
-     console.warn(`[DEBUG] Warning: Mapping document ${snapshot.id} which seems missing essential data (title).`);
+    console.warn(
+      `[DEBUG] Warning: Mapping document ${snapshot.id} which seems missing essential data (title).`
+    );
   }
 
   return {
@@ -37,6 +41,14 @@ export function mapIdeaDoc(snapshot: any): IdeaWithLikes {
     founderHandle: data.founderHandle,
     founderUsername: data.founderUsername,
     createdAt: data.createdAt?.toMillis?.() ?? data.createdAt ?? Date.now(),
+
+    // 🔹 NEW: map the avatar URL coming from Firestore
+    // (pick the name you actually use in your docs)
+    founderAvatarUrl:
+      data.founderAvatarUrl ??
+      data.founderPhotoURL ?? // if you used a different key
+      data.founderProfileImage ??
+      null,
 
     // Links & media
     websiteUrl: data.websiteUrl,
@@ -87,12 +99,10 @@ export function mapIdeaDoc(snapshot: any): IdeaWithLikes {
 export async function getLatestIdeas(
   limitCount = 50
 ): Promise<IdeaWithLikes[]> {
-  // console.log(`[DEBUG] Fetching latest ${limitCount} ideas...`);
   const db = getFirebaseDb();
   const ideasRef = collection(db, "ideas");
   const q = query(ideasRef, orderBy("createdAt", "desc"), limit(limitCount));
   const snap = await getDocs(q);
-  // console.log(`[DEBUG] Fetched ${snap.size} latest ideas.`);
   return snap.docs.map(mapIdeaDoc);
 }
 
@@ -100,25 +110,30 @@ export async function getLatestIdeas(
 // SECTION: FEATURED PROJECT
 // ------------------------------------------------------------------
 
-/**
- * STEP 1: Get the ID string from the 'featured_projects' collection
- */
 export async function getFeaturedProjectId(): Promise<string | null> {
-  console.log("[DEBUG] STEP 1: Attempting to fetch Project ID from 'featured_projects' collection...");
+  console.log(
+    "[DEBUG] STEP 1: Attempting to fetch Project ID from 'featured_projects' collection..."
+  );
   const db = getFirebaseDb();
-  
+
   try {
     const featuredRef = collection(db, "featured_projects");
     const q = query(featuredRef, limit(1));
-    
-    console.log("[DEBUG] Executing query against Firestore 'featured_projects'...");
+
+    console.log(
+      "[DEBUG] Executing query against Firestore 'featured_projects'..."
+    );
     const snap = await getDocs(q);
 
-    console.log(`[DEBUG] Query complete. Found ${snap.size} documents in 'featured_projects'.`);
+    console.log(
+      `[DEBUG] Query complete. Found ${snap.size} documents in 'featured_projects'.`
+    );
 
     if (snap.empty) {
-        console.warn("[DEBUG] WARNING: 'featured_projects' collection is empty or unreadable.");
-        return null;
+      console.warn(
+        "[DEBUG] WARNING: 'featured_projects' collection is empty or unreadable."
+      );
+      return null;
     }
 
     const docData = snap.docs[0].data();
@@ -126,56 +141,66 @@ export async function getFeaturedProjectId(): Promise<string | null> {
 
     const projectId = docData.projectId as string;
 
-    if (!projectId || typeof projectId !== 'string') {
-       console.error("[DEBUG] CRITICAL: Found document, but 'projectId' field is missing or not a string.");
-       return null;
+    if (!projectId || typeof projectId !== "string") {
+      console.error(
+        "[DEBUG] CRITICAL: Found document, but 'projectId' field is missing or not a string."
+      );
+      return null;
     }
-    
-    console.log(`[DEBUG] SUCCESS: Found featured projectId string: '${projectId}'`);
-    return projectId.trim(); // trimming just in case of whitespace
 
+    console.log(
+      `[DEBUG] SUCCESS: Found featured projectId string: '${projectId}'`
+    );
+    return projectId.trim();
   } catch (error) {
     console.error("[DEBUG] ERROR in getFeaturedProjectId:", error);
     return null;
   }
 }
 
-/**
- * STEP 2: Use the ID to fetch the actual full Idea document
- */
 export async function getFeaturedIdea(): Promise<IdeaWithLikes | null> {
   console.log("--- [DEBUG] Starting full featured idea fetch sequence ---");
-  
-  // 1. Run Step 1 above
+
   const projectId = await getFeaturedProjectId();
 
   if (!projectId) {
-    console.warn("[DEBUG] Aborting sequence because no valid projectId string was found in Step 1.");
+    console.warn(
+      "[DEBUG] Aborting sequence because no valid projectId string was found in Step 1."
+    );
     console.log("------------------------------------------------------------");
     return null;
   }
 
-  // 2. Fetch the actual document
-  console.log(`[DEBUG] STEP 2: Attempting to fetch actual document from 'ideas' collection using ID: '${projectId}'...`);
+  console.log(
+    `[DEBUG] STEP 2: Attempting to fetch actual document from 'ideas' collection using ID: '${projectId}'...`
+  );
   const db = getFirebaseDb();
   const ideaRef = doc(db, "ideas", projectId);
-  
+
   try {
     const snap = await getDoc(ideaRef);
 
     if (!snap.exists()) {
-      console.error(`[DEBUG] CRITICAL ERROR: The ID '${projectId}' was found in 'featured_projects', BUT that document ID does NOT exist in the 'ideas' collection. Check for typos in the ID.`);
+      console.error(
+        `[DEBUG] CRITICAL ERROR: The ID '${projectId}' was found in 'featured_projects', BUT that document ID does NOT exist in the 'ideas' collection. Check for typos in the ID.`
+      );
       console.log("------------------------------------------------------------");
       return null;
     }
 
-    console.log(`[DEBUG] SUCCESS: Found the actual idea document for ID '${projectId}'. Mapping data now...`);
+    console.log(
+      `[DEBUG] SUCCESS: Found the actual idea document for ID '${projectId}'. Mapping data now...`
+    );
     const mappedDoc = mapIdeaDoc(snap);
-    console.log("--- [DEBUG] Finished featured idea fetch sequence successfully ---");
+    console.log(
+      "--- [DEBUG] Finished featured idea fetch sequence successfully ---"
+    );
     return mappedDoc;
-
   } catch (err) {
-    console.error("[DEBUG] ERROR trying to fetch the specific idea document:", err);
+    console.error(
+      "[DEBUG] ERROR trying to fetch the specific idea document:",
+      err
+    );
     console.log("------------------------------------------------------------");
     return null;
   }
@@ -185,25 +210,30 @@ export async function getFeaturedIdea(): Promise<IdeaWithLikes | null> {
 // SECTION: PROJECT DAILY
 // ------------------------------------------------------------------
 
-/**
- * STEP 1 (Daily): Get the ID string from the 'project_daily' collection
- */
 export async function getProjectDailyId(): Promise<string | null> {
-  console.log("[DEBUG] STEP 1 (Daily): Attempting to fetch Project ID from 'project_daily' collection...");
+  console.log(
+    "[DEBUG] STEP 1 (Daily): Attempting to fetch Project ID from 'project_daily' collection..."
+  );
   const db = getFirebaseDb();
-  
+
   try {
     const dailyRef = collection(db, "project_daily");
     const q = query(dailyRef, limit(1));
-    
-    console.log("[DEBUG] Executing query against Firestore 'project_daily'...");
+
+    console.log(
+      "[DEBUG] Executing query against Firestore 'project_daily'..."
+    );
     const snap = await getDocs(q);
 
-    console.log(`[DEBUG] Query complete. Found ${snap.size} documents in 'project_daily'.`);
+    console.log(
+      `[DEBUG] Query complete. Found ${snap.size} documents in 'project_daily'.`
+    );
 
     if (snap.empty) {
-        console.warn("[DEBUG] WARNING: 'project_daily' collection is empty or unreadable.");
-        return null;
+      console.warn(
+        "[DEBUG] WARNING: 'project_daily' collection is empty or unreadable."
+      );
+      return null;
     }
 
     const docData = snap.docs[0].data();
@@ -211,56 +241,66 @@ export async function getProjectDailyId(): Promise<string | null> {
 
     const projectId = docData.projectId as string;
 
-    if (!projectId || typeof projectId !== 'string') {
-       console.error("[DEBUG] CRITICAL: Found document in 'project_daily', but 'projectId' field is missing or not a string.");
-       return null;
+    if (!projectId || typeof projectId !== "string") {
+      console.error(
+        "[DEBUG] CRITICAL: Found document in 'project_daily', but 'projectId' field is missing or not a string."
+      );
+      return null;
     }
-    
-    console.log(`[DEBUG] SUCCESS: Found daily projectId string: '${projectId}'`);
-    return projectId.trim();
 
+    console.log(
+      `[DEBUG] SUCCESS: Found daily projectId string: '${projectId}'`
+    );
+    return projectId.trim();
   } catch (error) {
     console.error("[DEBUG] ERROR in getProjectDailyId:", error);
     return null;
   }
 }
 
-/**
- * STEP 2 (Daily): Use the ID to fetch the actual full Idea document
- */
 export async function getProjectDaily(): Promise<IdeaWithLikes | null> {
   console.log("--- [DEBUG] Starting full project_daily fetch sequence ---");
-  
-  // 1. Run Step 1 above
+
   const projectId = await getProjectDailyId();
 
   if (!projectId) {
-    console.warn("[DEBUG] Aborting sequence because no valid projectId string was found in Step 1 (Daily).");
+    console.warn(
+      "[DEBUG] Aborting sequence because no valid projectId string was found in Step 1 (Daily)."
+    );
     console.log("------------------------------------------------------------");
     return null;
   }
 
-  // 2. Fetch the actual document
-  console.log(`[DEBUG] STEP 2 (Daily): Attempting to fetch actual document from 'ideas' collection using ID: '${projectId}'...`);
+  console.log(
+    `[DEBUG] STEP 2 (Daily): Attempting to fetch actual document from 'ideas' collection using ID: '${projectId}'...`
+  );
   const db = getFirebaseDb();
   const ideaRef = doc(db, "ideas", projectId);
-  
+
   try {
     const snap = await getDoc(ideaRef);
 
     if (!snap.exists()) {
-      console.error(`[DEBUG] CRITICAL ERROR: The ID '${projectId}' was found in 'project_daily', BUT that document ID does NOT exist in the 'ideas' collection.`);
+      console.error(
+        `[DEBUG] CRITICAL ERROR: The ID '${projectId}' was found in 'project_daily', BUT that document ID does NOT exist in the 'ideas' collection.`
+      );
       console.log("------------------------------------------------------------");
       return null;
     }
 
-    console.log(`[DEBUG] SUCCESS: Found the actual idea document for daily project ID '${projectId}'. Mapping data now...`);
+    console.log(
+      `[DEBUG] SUCCESS: Found the actual idea document for daily project ID '${projectId}'. Mapping data now...`
+    );
     const mappedDoc = mapIdeaDoc(snap);
-    console.log("--- [DEBUG] Finished project_daily fetch sequence successfully ---");
+    console.log(
+      "--- [DEBUG] Finished project_daily fetch sequence successfully ---"
+    );
     return mappedDoc;
-
   } catch (err) {
-    console.error("[DEBUG] ERROR trying to fetch the specific daily idea document:", err);
+    console.error(
+      "[DEBUG] ERROR trying to fetch the specific daily idea document:",
+      err
+    );
     console.log("------------------------------------------------------------");
     return null;
   }
