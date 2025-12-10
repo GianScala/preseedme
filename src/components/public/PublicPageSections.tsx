@@ -32,7 +32,7 @@ export function FeaturedIdeaSection({
       <div className="flex items-center gap-2 mb-6">
         <span className="w-1 h-6 rounded-full bg-[var(--brand)]" />
         <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-          Project of the day
+         Daily Pick
         </h2>
       </div>
 
@@ -164,7 +164,7 @@ export function WeeklyWinnersSection({
             <CrownIcon className="w-5 h-5 text-yellow-500" />
           </div>
           <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-            Weekly winners
+            Weekly Winners
           </h2>
         </div>
 

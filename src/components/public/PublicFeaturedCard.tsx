@@ -226,7 +226,7 @@ export default function PublicFeaturedCard({
 
             <div className="absolute top-4 left-4">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-blue-400/80 text-blue-400 text-[10px] font-bold uppercase tracking-wider shadow-lg">
-                Today&apos;s Pick
+                Today&apos;s Idea
               </span>
             </div>
           </div>

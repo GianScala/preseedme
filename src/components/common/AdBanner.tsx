@@ -1,175 +1,121 @@
 // src/components/AdBanner.tsx
 "use client";
 
-import { useState, useEffect } from "react";
-
-interface Ad {
-  id: string;
-  title: string;
-  description: string;
-  ctaText: string;
-  url: string;
-  backgroundColor: string;
-  textColor: string;
-  logoEmoji?: string;
-}
-
-// Mockup ads - in production these would come from an ad network
-const MOCK_ADS: Ad[] = [
-  {
-    id: "ad-1",
-    title: "Scale Your Startup",
-    description: "AWS credits up to $100k for early-stage startups",
-    ctaText: "Apply Now",
-    url: "https://aws.amazon.com/activate/",
-    backgroundColor: "linear-gradient(135deg, #FF9900 0%, #FF6600 100%)",
-    textColor: "#FFFFFF",
-    logoEmoji: "☁️",
-  },
-  {
-    id: "ad-2",
-    title: "Ship Faster",
-    description: "Vercel Pro - Deploy in seconds, scale to millions",
-    ctaText: "Start Free",
-    url: "https://vercel.com/",
-    backgroundColor: "linear-gradient(135deg, #000000 0%, #333333 100%)",
-    textColor: "#FFFFFF",
-    logoEmoji: "▲",
-  },
-  {
-    id: "ad-3",
-    title: "Build Better APIs",
-    description: "Postman - The API platform used by 25M developers",
-    ctaText: "Get Started",
-    url: "https://www.postman.com/",
-    backgroundColor: "linear-gradient(135deg, #FF6C37 0%, #FF9A56 100%)",
-    textColor: "#FFFFFF",
-    logoEmoji: "🚀",
-  },
-];
+import { useState, useEffect, useMemo, useCallback } from "react";
+import Image from "next/image";
+import { MASTER_AD_LIST } from "@/components/common/affiliate";
+import { X, ArrowRight } from "lucide-react";
 
 export default function AdBanner() {
-  const [currentAdIndex, setCurrentAdIndex] = useState(0);
-  const [isClosed, setIsClosed] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
+  const [isPaused, setIsPaused] = useState(false);
 
-  const currentAd = MOCK_ADS[currentAdIndex];
+  const ads = MASTER_AD_LIST ?? [];
+  const hasMultiple = ads.length > 1;
 
-  // Rotate ads every 8 seconds
+  const currentAd = useMemo(() => ads[currentIndex], [ads, currentIndex]);
+
+  const nextSlide = useCallback(() => {
+    setCurrentIndex((prev) => (prev + 1) % ads.length);
+  }, [ads.length]);
+
   useEffect(() => {
-    if (isClosed) return;
+    if (!isVisible || isPaused || !hasMultiple) return;
 
-    const interval = setInterval(() => {
-      setCurrentAdIndex((prev) => (prev + 1) % MOCK_ADS.length);
-    }, 8000);
+    const id = setInterval(nextSlide, 6000);
+    return () => clearInterval(id);
+  }, [isVisible, isPaused, hasMultiple, nextSlide]);
 
-    return () => clearInterval(interval);
-  }, [isClosed]);
-
-  const handleClose = () => {
-    setIsVisible(false);
-    setTimeout(() => setIsClosed(true), 300);
-  };
-
-  const handleAdClick = () => {
-    // Track click (integrate with analytics)
-    console.log(`Ad clicked: ${currentAd.id}`);
-    window.open(currentAd.url, "_blank", "noopener,noreferrer");
-  };
-
-  if (isClosed) return null;
+  if (!isVisible || ads.length === 0) return null;
 
   return (
-    <div
-      className={`relative w-full rounded-lg overflow-hidden shadow-lg transition-all duration-300 ${
-        isVisible ? "opacity-100 scale-100" : "opacity-0 scale-95"
-      }`}
-      style={{
-        background: currentAd.backgroundColor,
-        minHeight: "80px",
-      }}
-    >
-      {/* Close button */}
-      <button
-        onClick={handleClose}
-        className="absolute top-2 right-2 z-10 p-1.5 rounded-full bg-black/20 hover:bg-black/40 transition-colors"
-        aria-label="Close ad"
+    <div className="w-full sm:px-0 mb-2">
+      <article
+        className="relative w-full rounded-xl overflow-hidden shadow-xl hover:shadow-2xl transition-shadow duration-300 group"
+        style={{ background: currentAd.background }}
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+        role="complementary"
+        aria-label="Advertisement"
       >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          style={{ color: currentAd.textColor }}
-        >
-          <line x1="18" y1="6" x2="6" y2="18" />
-          <line x1="6" y1="6" x2="18" y2="18" />
-        </svg>
-      </button>
-
-      {/* Ad content */}
-      <div
-        onClick={handleAdClick}
-        className="cursor-pointer h-full px-4 sm:px-6 py-4 flex items-center gap-3 sm:gap-4"
-      >
-        {/* Logo/Emoji */}
-        {currentAd.logoEmoji && (
-          <div className="text-3xl sm:text-4xl flex-shrink-0">
-            {currentAd.logoEmoji}
-          </div>
-        )}
-
-        {/* Text content */}
-        <div className="flex-1 min-w-0">
-          <h3
-            className="font-bold text-sm sm:text-base mb-0.5 truncate"
-            style={{ color: currentAd.textColor }}
-          >
-            {currentAd.title}
-          </h3>
-          <p
-            className="text-xs sm:text-sm opacity-90 line-clamp-1"
-            style={{ color: currentAd.textColor }}
-          >
-            {currentAd.description}
-          </p>
-        </div>
-
-        {/* CTA Button */}
+        {/* Close */}
         <button
-          className="flex-shrink-0 px-3 sm:px-4 py-1.5 sm:py-2 rounded-md font-medium text-xs sm:text-sm bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors"
-          style={{ color: currentAd.textColor }}
+          onClick={() => setIsVisible(false)}
+          aria-label="Dismiss"
+          className="absolute -top-1.5 -right-1.5 z-20 p-1.5 bg-black/30 hover:bg-black/50 text-white/90 rounded-full shadow-md backdrop-blur-sm group/close transition-all"
         >
-          {currentAd.ctaText}
+          <X size={14} strokeWidth={2.5} className="transition-transform duration-200 group-hover/close:rotate-90" />
         </button>
-      </div>
 
-      {/* Ad indicator dots */}
-      <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex gap-1.5">
-        {MOCK_ADS.map((_, index) => (
-          <div
-            key={index}
-            className={`h-1 rounded-full transition-all duration-300 ${
-              index === currentAdIndex ? "w-6 opacity-100" : "w-1 opacity-50"
-            }`}
-            style={{ backgroundColor: currentAd.textColor }}
-          />
-        ))}
-      </div>
-
-      {/* Sponsored label */}
-      <div className="absolute top-2 left-2">
-        <span
-          className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-black/20 backdrop-blur-sm"
-          style={{ color: currentAd.textColor }}
+        {/* Main */}
+        <a
+          href={currentAd.url}
+          target="_blank"
+          rel="noopener noreferrer sponsored"
+          className="flex items-center justify-between w-full px-4 py-3 sm:px-6 sm:py-5 gap-3 min-h-[80px] sm:min-h-[110px]"
         >
-          Ad
-        </span>
-      </div>
+          {/* Left */}
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="flex-shrink-0 w-10 h-10 sm:w-14 sm:h-14 flex items-center justify-center bg-white/15 backdrop-blur-sm rounded-xl shadow border border-white/20 overflow-hidden">
+              {currentAd.logoImage ? (
+                <Image
+                  src={currentAd.logoImage}
+                  alt={`${currentAd.title} logo`}
+                  width={56}
+                  height={56}
+                  className="object-cover w-full h-full"
+                />
+              ) : (
+                <span className="text-xl">{currentAd.logoEmoji ?? "🎯"}</span>
+              )}
+            </div>
+
+            <div className="flex flex-col min-w-0">
+              <h3 className="font-bold text-[13px] sm:text-lg text-white leading-tight">
+                <span className="truncate flex items-center gap-2">
+                  {currentAd.title}
+                </span>
+              </h3>
+              <p className="text-[10px] sm:text-sm text-white/95 font-medium leading-tight line-clamp-2 sm:line-clamp-1">
+                {currentAd.description}
+              </p>
+            </div>
+          </div>
+
+          {/* CTA */}
+          <div className="flex-shrink-0 pl-3 sm:pl-5 border-l border-white/15 flex items-center">
+            <span className="hidden sm:flex items-center gap-2 px-5 py-2.5 bg-white text-gray-900 text-sm font-bold rounded-full shadow-lg hover:bg-gray-50 transition">
+              {currentAd.ctaText}
+              <ArrowRight size={16} />
+            </span>
+
+            <span className="sm:hidden flex items-center justify-center w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm border border-white/25 text-white shadow-sm">
+              <ArrowRight size={14} strokeWidth={2.5} />
+            </span>
+          </div>
+        </a>
+      </article>
+
+      {/* Pagination */}
+      {hasMultiple && (
+        <div className="flex justify-center mt-3">
+          <div className="flex gap-1.5 px-3 py-1.5 bg-black/20 backdrop-blur-md rounded-full">
+            {ads.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setCurrentIndex(idx)}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  idx === currentIndex
+                    ? "w-8 bg-gray-800 shadow-sm"
+                    : "w-1.5 bg-gray-400 hover:bg-gray-600 hover:w-3"
+                }`}
+                aria-label={`Go to slide ${idx + 1}`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
