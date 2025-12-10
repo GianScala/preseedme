@@ -374,9 +374,9 @@ export default function IdeasPage() {
         {/* Featured */}
         {featuredIdea && !searchQuery && (
           <section>
-            <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-              <span className="px-3 py-2 rounded-sm bg-[var(--brand)]/10 text-brand text-xs font-semibold whitespace-nowrap">
-                ⭐ Featured
+            <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-4">
+              <span className="px-3 py-1 rounded-lg bg-[var(--brand)]/10 text-brand text-xs font-semibold whitespace-nowrap">
+                Featured
               </span>
             </div>
 

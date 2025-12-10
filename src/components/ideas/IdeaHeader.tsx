@@ -261,7 +261,6 @@ export default function IdeaHeader({
                   `}
                 >
                   <HeartIcon
-                    className={isLiked ? "text-white" : "text-neutral-400"}
                   />
                   <span>{likeCount}</span>
                 </button>

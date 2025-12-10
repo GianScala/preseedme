@@ -313,20 +313,20 @@ export default function PublicFeaturedCard({
                 disabled={loadingLike}
                 onClick={handleLikeClick}
                 className={`
-                  flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-300
-                  ${
-                    isLiked
-                      ? "bg-rose-500/10 text-rose-400 border border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.2)]"
-                      : "bg-white/5 text-neutral-300 border border-white/10 hover:bg-white/10 hover:text-white"
-                  }
-                  disabled:opacity-60 disabled:cursor-not-allowed
-                `}
+                    flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-300
+                    ${
+                      isLiked
+                        ? "bg-rose-500/10 text-rose-400 border border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.2)]"
+                        : "bg-white/5 text-neutral-300 border border-white/10 hover:bg-white/10 hover:text-white"
+                    }
+                    disabled:opacity-60 disabled:cursor-not-allowed
+                  `}
               >
                 {loadingLike ? (
                   <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                 ) : (
                   <HeartIcon
-                    className={`w-4 h-4 ${isLiked ? "animate-pulse-fast" : ""}`}
+                    className={`w-4 h-4`}
                   />
                 )}
                 <span>{likeCount}</span>

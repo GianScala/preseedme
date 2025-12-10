@@ -313,7 +313,7 @@ export default function FeaturedCard({
                   <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                 ) : (
                   <HeartIcon
-                    className={`w-4 h-4 ${isLiked ? "animate-pulse-fast" : ""}`}
+                    className={`w-4 h-4`}
                   />
                 )}
                 <span>{likeCount}</span>
