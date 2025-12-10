@@ -29,28 +29,24 @@ const getRankConfig = (rank: number) => {
   switch (rank) {
     case 1:
       return {
-        emoji: "🏆",
         label: "1st Place",
         badgeClass:
           "bg-yellow-500/10 border-yellow-500/50 text-yellow-200 shadow-[0_0_15px_rgba(234,179,8,0.2)]",
       };
     case 2:
       return {
-        emoji: "🥈",
         label: "2nd Place",
         badgeClass:
           "bg-neutral-400/10 border-neutral-400/50 text-neutral-200 shadow-[0_0_15px_rgba(163,163,163,0.1)]",
       };
     case 3:
       return {
-        emoji: "🥉",
         label: "3rd Place",
         badgeClass:
           "bg-amber-700/10 border-amber-700/50 text-amber-200 shadow-[0_0_15px_rgba(180,83,9,0.2)]",
       };
     default:
       return {
-        emoji: "⭐",
         label: `#${rank} Top Rated`,
         badgeClass: "bg-white/5 border-white/10 text-neutral-300 shadow-none",
       };
@@ -251,7 +247,6 @@ export default function PublicWeeklyWinner({
       <div
         className={`absolute top-4 left-4 z-20 inline-flex items-center gap-1.5 px-3 py-1 rounded-full backdrop-blur-md border ${rankConfig.badgeClass}`}
       >
-        <span className="text-sm shadow-sm">{rankConfig.emoji}</span>
         <span className="text-[11px] font-bold tracking-wide uppercase">
           {rankConfig.label}
         </span>
