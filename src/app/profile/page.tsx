@@ -35,8 +35,6 @@ import type { Idea } from "@/types";
 import Link from "next/link";
 import ProfileIdeaCard from "@/components/profile/ProfileIdeaCard";
 import {
-  User,
-  Mail,
   Phone,
   MapPin,
   Globe,
@@ -45,10 +43,8 @@ import {
   Twitter,
   Save,
   Loader2,
-  LogOut,
   AlertTriangle,
   X,
-  Plus,
 } from "lucide-react";
 
 import { CameraIcon } from "@/components/icons/CameraIcon";
@@ -82,7 +78,25 @@ type StatusState =
 type ProjectsView = "created" | "liked";
 type ProfileTab = "basic" | "contact" | "links";
 
-/* ---------- Small reusable layout/input helpers ---------- */
+/**
+ * Ensure we always have a proper protocol:
+ * - "", null, undefined -> null
+ * - "www.foo.com" -> "https://www.foo.com"
+ * - "foo.com" -> "https://foo.com"
+ * - "https://foo.com" / "http://foo.com" stay as is
+ */
+const ensureHttps = (url?: string | null): string | null => {
+  if (!url) return null;
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+
+  // If user already typed a protocol (http, https, custom), keep it
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `https://${trimmed}`;
+};
 
 function SectionCard({
   title,
@@ -170,45 +184,38 @@ function IconInput({
   );
 }
 
-/* ---------- Main page component ---------- */
-
 export default function ProfilePage() {
   const { user, loading: authLoading, signOutUser } = useAuth();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Global loading / saving
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Projects
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [likedIdeas, setLikedIdeas] = useState<Idea[]>([]);
   const [projectsView, setProjectsView] = useState<ProjectsView>("created");
 
-  // Account deletion
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Form state
   const [formData, setFormData] = useState(INITIAL_DATA);
   const [originalData, setOriginalData] = useState(INITIAL_DATA);
   const [photoPreview, setPhotoPreview] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  // UI
   const [activeTab, setActiveTab] = useState<"profile" | "ideas">("profile");
   const [profileTab, setProfileTab] = useState<ProfileTab>("basic");
   const [status, setStatus] = useState<StatusState>(null);
 
-  // 1. Auth guard
+  // Auth guard
   useEffect(() => {
     if (!authLoading && !user) {
       router.push("/auth");
     }
   }, [authLoading, user, router]);
 
-  // 2. Fetch user + projects + liked projects
+  // Fetch user + projects
   useEffect(() => {
     if (!user || authLoading) return;
 
@@ -217,7 +224,7 @@ export default function ProfilePage() {
       try {
         const db = getFirebaseDb();
 
-        // --- Fetch user profile ---
+        // User profile
         const userRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userRef);
 
@@ -243,17 +250,18 @@ export default function ProfilePage() {
           address: data.address ?? "",
           photoURL: data.photoURL ?? "",
           location: data.location ?? "",
-          twitterUrl: data.twitterUrl ?? "",
-          linkedinUrl: data.linkedinUrl ?? "",
-          websiteUrl: data.websiteUrl ?? "",
-          githubUrl: data.githubUrl ?? "",
+          // normalize URLs on load so next save will clean DB
+          twitterUrl: ensureHttps(data.twitterUrl) ?? "",
+          linkedinUrl: ensureHttps(data.linkedinUrl) ?? "",
+          websiteUrl: ensureHttps(data.websiteUrl) ?? "",
+          githubUrl: ensureHttps(data.githubUrl) ?? "",
         };
 
         setFormData(loadedData);
         setOriginalData(loadedData);
         setPhotoPreview(loadedData.photoURL);
 
-        // --- Fetch projects created by user & liked projects in parallel ---
+        // Projects
         const createdIdeasQuery = query(
           collection(db, "ideas"),
           where("founderId", "==", user.uid)
@@ -302,7 +310,6 @@ export default function ProfilePage() {
     fetchData();
   }, [user, authLoading, router]);
 
-  // Helpers
   const handleChange = (field: keyof typeof INITIAL_DATA, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -329,7 +336,6 @@ export default function ProfilePage() {
     JSON.stringify(formData) !== JSON.stringify(originalData) ||
     !!selectedFile;
 
-  // 3. Save profile
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!user || !formData.username?.trim()) {
@@ -343,7 +349,7 @@ export default function ProfilePage() {
     try {
       let finalPhotoURL = formData.photoURL;
 
-      // Handle photo upload (replace previous)
+      // Upload new photo if selected
       if (selectedFile) {
         const storage = getFirebaseStorage();
 
@@ -366,8 +372,25 @@ export default function ProfilePage() {
         finalPhotoURL = await getDownloadURL(snap.ref);
       }
 
+      // Normalize + trim everything before saving
       const cleanData = Object.fromEntries(
-        Object.entries(formData).map(([k, v]) => [k, v === "" ? null : v])
+        Object.entries(formData).map(([k, v]) => {
+          if (typeof v === "string") {
+            const trimmed = v.trim();
+            if (trimmed === "") return [k, null];
+
+            if (
+              ["twitterUrl", "linkedinUrl", "websiteUrl", "githubUrl"].includes(
+                k
+              )
+            ) {
+              return [k, ensureHttps(trimmed)];
+            }
+
+            return [k, trimmed];
+          }
+          return [k, v];
+        })
       );
 
       await updateDoc(doc(getFirebaseDb(), "users", user.uid), {
@@ -375,7 +398,16 @@ export default function ProfilePage() {
         photoURL: finalPhotoURL,
       });
 
-      const newData = { ...formData, photoURL: finalPhotoURL };
+      // Update local form with normalized URLs
+      const newData = {
+        ...formData,
+        twitterUrl: ensureHttps(formData.twitterUrl) ?? "",
+        linkedinUrl: ensureHttps(formData.linkedinUrl) ?? "",
+        websiteUrl: ensureHttps(formData.websiteUrl) ?? "",
+        githubUrl: ensureHttps(formData.githubUrl) ?? "",
+        photoURL: finalPhotoURL,
+      };
+
       setFormData(newData);
       setOriginalData(newData);
       setSelectedFile(null);
@@ -396,7 +428,6 @@ export default function ProfilePage() {
     }
   };
 
-  // 4. Delete a single project
   const handleDeleteIdea = async (ideaId: string) => {
     if (!user) return;
     const confirmed = window.confirm(
@@ -413,7 +444,6 @@ export default function ProfilePage() {
         }),
       ]);
       setIdeas((prev) => prev.filter((i) => i.id !== ideaId));
-      // If that idea was also in liked list, remove it there too
       setLikedIdeas((prev) => prev.filter((i) => i.id !== ideaId));
     } catch (err) {
       console.error("Delete idea error:", err);
@@ -424,7 +454,6 @@ export default function ProfilePage() {
     }
   };
 
-  // 5. Full account deletion
   const handleAccountDeletion = async () => {
     if (!user) return;
     setIsDeleting(true);
@@ -541,7 +570,7 @@ export default function ProfilePage() {
       </div>
 
       <div className="grid lg:grid-cols-[1fr_350px] gap-10 items-start">
-        {/* ========== LEFT: PROFILE & ACCOUNT SETTINGS ========== */}
+        {/* LEFT: PROFILE */}
         <div className={activeTab === "profile" ? "block" : "hidden sm:block"}>
           <form onSubmit={handleSubmit} className="space-y-6 animate-fade-in">
             {/* Profile sub-tabs */}
@@ -565,7 +594,6 @@ export default function ProfilePage() {
             {/* BASIC TAB */}
             {profileTab === "basic" && (
               <SectionCard>
-                {/* Profile Photo */}
                 <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center">
                   <div className="relative group">
                     {photoPreview ? (
@@ -604,7 +632,6 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {/* Basic fields */}
                 <div className="grid gap-4 md:grid-cols-2 mt-4">
                   <IconInput
                     label="Display Name"
@@ -691,31 +718,30 @@ export default function ProfilePage() {
                     icon={Twitter}
                     value={formData.twitterUrl || ""}
                     onChange={(v) => handleChange("twitterUrl", v)}
-                    placeholder="X / Twitter URL"
+                    placeholder="twitter.com/you"
                   />
                   <IconInput
                     icon={Linkedin}
                     value={formData.linkedinUrl || ""}
                     onChange={(v) => handleChange("linkedinUrl", v)}
-                    placeholder="LinkedIn URL"
+                    placeholder="linkedin.com/in/you"
                   />
                   <IconInput
                     icon={Github}
                     value={formData.githubUrl || ""}
                     onChange={(v) => handleChange("githubUrl", v)}
-                    placeholder="GitHub URL"
+                    placeholder="github.com/you"
                   />
                   <IconInput
                     icon={Globe}
                     value={formData.websiteUrl || ""}
                     onChange={(v) => handleChange("websiteUrl", v)}
-                    placeholder="Website URL"
+                    placeholder="www.yourstartup.com"
                   />
                 </div>
               </SectionCard>
             )}
 
-            {/* Status */}
             {status && (
               <div
                 className={`p-4 rounded-lg flex items-center gap-2 text-sm ${
@@ -728,7 +754,6 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {/* Save Button */}
             <div className="sticky bottom-4 z-10 pt-2 bg-gradient-to-t from-neutral-950/80 via-neutral-950/60 to-transparent">
               <button
                 type="submit"
@@ -745,7 +770,6 @@ export default function ProfilePage() {
             </div>
           </form>
 
-          {/* Account actions */}
           <SectionCard
             title="Account"
             description="Manage your account access and data."
@@ -769,15 +793,13 @@ export default function ProfilePage() {
           </SectionCard>
         </div>
 
-        {/* ========== RIGHT: PROJECTS (CREATED / LIKED) ========== */}
+        {/* RIGHT: PROJECTS */}
         <div
           className={`space-y-8 ${
             activeTab === "ideas" ? "block" : "hidden sm:block"
           }`}
         >
           <div className="space-y-6 animate-fade-in">
-            {/* Header with Title (Hidden on mobile) - Button REMOVED from here */}
-            {/* Since button is gone, and title is hidden md:block, hide entire row on mobile */}
             <div className="hidden md:flex justify-between items-center">
               <div>
                 <h2 className="text-xl font-bold">Your Projects</h2>
@@ -789,7 +811,6 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Created / Liked toggle */}
             <div className="flex p-1 bg-neutral-900/20 rounded-full border border-neutral-800 text-xs font-medium w-full">
               <button
                 type="button"
@@ -815,7 +836,6 @@ export default function ProfilePage() {
               </button>
             </div>
 
-            {/* Created or Liked list */}
             {projectsView === "created" ? (
               ideas.length === 0 ? (
                 <div className="text-center py-12 bg-neutral-900/30 rounded-2xl border border-neutral-800 border-dashed">
@@ -831,7 +851,6 @@ export default function ProfilePage() {
                 </div>
               ) : (
                 <>
-                  {/* NEW LOCATION: Create button above the list */}
                   <Link
                     href="/ideas/new"
                     className="mb-4 w-full py-3 rounded-xl border border-dashed border-neutral-800 hover:border-brand/50 text-neutral-400 hover:text-brand transition-all flex items-center justify-center gap-2 group"
@@ -850,6 +869,7 @@ export default function ProfilePage() {
                         <ProfileIdeaCard
                           idea={idea}
                           showEdit={idea.founderId === user?.uid}
+                          onDelete={() => handleDeleteIdea(idea.id)}
                         />
                       </div>
                     ))}

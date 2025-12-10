@@ -41,6 +41,20 @@ type RestrictedSectionProps = {
 
 type IconComponent = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 
+// ✅ FIX: Helper to ensure links are absolute (external)
+const ensureHttp = (url?: string | null): string | undefined => {
+  if (!url) return undefined;
+  const trimmed = url.trim();
+  if (!trimmed) return undefined;
+
+  // Checks for http://, https://, or other protocols
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed)) {
+    return trimmed;
+  }
+  // Otherwise append https://
+  return `https://${trimmed}`;
+};
+
 export default function PublicProfilePage() {
   const params = useParams<{ id: string }>();
   const userId = params?.id;
@@ -180,6 +194,12 @@ export default function PublicProfilePage() {
 
   const isOwnProfile = user?.uid === profile.id;
 
+  // ✅ Prepare safe social links
+  const safeTwitter = ensureHttp(profile.twitterUrl);
+  const safeLinkedin = ensureHttp(profile.linkedinUrl);
+  const safeGithub = ensureHttp(profile.githubUrl);
+  const safeWebsite = ensureHttp(profile.websiteUrl);
+
   // ---------------- MAIN UI ----------------
   return (
     <div className="py-4 sm:py-6 px-4 sm:px-6 space-y-8 animate-fade-in">
@@ -240,25 +260,25 @@ export default function PublicProfilePage() {
             {/* Socials (blurred for non-auth users) */}
             <RestrictedSection className="pt-2 inline-block" hideOverlay>
               <div className="flex flex-wrap gap-2">
-                {profile.twitterUrl && (
-                  <SocialLink href={profile.twitterUrl} icon={Twitter} />
+                {safeTwitter && (
+                  <SocialLink href={safeTwitter} icon={Twitter} />
                 )}
-                {profile.linkedinUrl && (
-                  <SocialLink href={profile.linkedinUrl} icon={Linkedin} />
+                {safeLinkedin && (
+                  <SocialLink href={safeLinkedin} icon={Linkedin} />
                 )}
-                {profile.githubUrl && (
-                  <SocialLink href={profile.githubUrl} icon={Github} />
+                {safeGithub && (
+                  <SocialLink href={safeGithub} icon={Github} />
                 )}
-                {profile.websiteUrl && (
-                  <SocialLink href={profile.websiteUrl} icon={Globe} />
+                {safeWebsite && (
+                  <SocialLink href={safeWebsite} icon={Globe} />
                 )}
 
                 {/* Placeholder if no socials but we still want to hint there is gated content */}
                 {!user &&
-                  !profile.twitterUrl &&
-                  !profile.linkedinUrl &&
-                  !profile.githubUrl &&
-                  !profile.websiteUrl && (
+                  !safeTwitter &&
+                  !safeLinkedin &&
+                  !safeGithub &&
+                  !safeWebsite && (
                     <div className="flex gap-2 opacity-50">
                       <div className="w-8 h-8 bg-neutral-800 rounded-lg" />
                       <div className="w-8 h-8 bg-neutral-800 rounded-lg" />

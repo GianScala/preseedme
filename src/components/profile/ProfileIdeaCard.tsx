@@ -4,30 +4,48 @@ import Link from "next/link";
 import { Idea } from "@/types";
 import { formatCurrencyShort, formatNumberShort } from "@/lib/formatters";
 import HeartIcon from "@/components/icons/HeartIcon";
-import {EditIcon} from "@/components/icons/EditIcon";
+import { EditIcon } from "@/components/icons/EditIcon";
 
 type IdeaWithLikes = Idea & {
   likeCount?: number;
   likedByUserIds?: string[];
-  // make sure this matches your actual field name (photoURL / avatarUrl, etc.)
   founderPhotoUrl?: string | null;
+  // Included directly here so we don't need 'as any' casting later
+  websiteUrl?: string | null;
+  sector?: string;
+  targetAudience?: string;
+  foundedYear?: string | number;
+  founderUsername?: string;
 };
 
 type IdeaCardProps = {
   idea: IdeaWithLikes;
   featured?: boolean;
-  /** Only true in contexts where the owner can edit (e.g. profile page) */
   showEdit?: boolean;
   currentUserId?: string | null;
   onToggleLike?: () => void;
   loadingLike?: boolean;
-  /** Called when owner clicks delete */
   onDelete?: () => void;
 };
 
 const pillBase =
   "inline-flex items-center rounded-full border border-neutral-800/40 " +
   "bg-neutral-900/70 backdrop-blur-sm px-2.5 py-0.5 text-[10px] sm:text-xs";
+
+// ✅ CRITICAL HELPER: Adds https:// if missing so links go external, not internal
+const buildExternalHref = (raw?: string | null): string | undefined => {
+  if (!raw) return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+
+  // Already has http/https/mailto/etc → leave it
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed)) {
+    return trimmed;
+  }
+
+  // No protocol → force https://
+  return `https://${trimmed}`;
+};
 
 const MetricBadge = ({
   value,
@@ -71,10 +89,10 @@ export default function IdeaCard({
     if (!loadingLike) onToggleLike();
   };
 
-  const sector = (idea as any).sector;
-  const targetAudience = (idea as any).targetAudience;
-
   const showFounderInfo = Boolean(idea.founderUsername) && !showEdit;
+
+  // ✅ Normalize the website URL
+  const websiteHref = buildExternalHref(idea.websiteUrl);
 
   return (
     <div
@@ -128,18 +146,18 @@ export default function IdeaCard({
           <div className="flex-1 flex flex-col min-w-0">
             {/* Sector / tag row */}
             <div className="flex items-center gap-1.5 sm:gap-2 mb-1 sm:mb-1.5 overflow-x-auto scrollbar-hide">
-              {sector && (
+              {idea.sector && (
                 <span
                   className={`${pillBase} font-medium text-neutral-300 whitespace-nowrap`}
                 >
-                  {sector}
+                  {idea.sector}
                 </span>
               )}
-              {targetAudience && (
+              {idea.targetAudience && (
                 <span
                   className={`${pillBase} text-neutral-400 whitespace-nowrap hidden xs:inline-flex sm:inline-flex`}
                 >
-                  {targetAudience}
+                  {idea.targetAudience}
                 </span>
               )}
             </div>
@@ -157,6 +175,35 @@ export default function IdeaCard({
             <p className="text-xs sm:text-sm text-neutral-400 mb-2 sm:mb-3 line-clamp-2">
               {idea.oneLiner}
             </p>
+
+            {/* ✅ Optional website link (normalized external URL) */}
+            {websiteHref && (
+              <div className="mb-2 sm:mb-3">
+                <Link
+                  href={websiteHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1 text-[11px] sm:text-xs text-brand hover:underline"
+                >
+                  <span>Visit site</span>
+                  <svg
+                    className="w-3 h-3"
+                    viewBox="0 0 14 14"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M3.5 10.5L10.5 3.5M10.5 3.5H4.375M10.5 3.5V9.625"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </Link>
+              </div>
+            )}
 
             {/* Metrics row */}
             {hasMetrics && (
@@ -269,7 +316,6 @@ export default function IdeaCard({
                   className="absolute inset-0 h-full w-full object-cover opacity-90 transition-all duration-300 group-hover:opacity-100 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/60 via-transparent to-transparent" />
-                
               </div>
             </div>
           )}
