@@ -324,7 +324,7 @@ export default function PublicWeeklyWinner({
             )}
           </div>
           <span className="text-xs text-neutral-400 group-hover:text-neutral-200 transition-colors">
-            @{founderUsername}
+            By {founderUsername}
           </span>
         </div>
 

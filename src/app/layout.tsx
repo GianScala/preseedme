@@ -24,26 +24,20 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={titillium.variable}>
-      {/* 1. min-h-screen & flex-col: Forces footer to bottom if content is short
-         2. relative: Establish context for children
-      */}
       <body className="min-h-screen flex flex-col antialiased relative selection:bg-[var(--brand)]/30 selection:text-[var(--brand-light)]">
         <AuthProvider>
-          {/* LAYER 0: Background (Fixed, z-index: -10) */}
+          {/* Background */}
           <InteractiveBackground />
           
-          {/* LAYER 1: Header (Fixed inside component, z-index: 50) */}
+          {/* Navbar (fixed) */}
           <Navbar />
 
-          {/* LAYER 2: Main Content 
-              flex-1: Pushes footer down
-              pt-24: IMPORTANT! Adds space so content isn't hidden behind Fixed Navbar
-          */}
-          <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12">
+          {/* Main content */}
+          <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-4">
             {children}
           </main>
           
-          {/* LAYER 3: Footer */}
+          {/* Footer */}
           <Footer />
         </AuthProvider>
       </body>
