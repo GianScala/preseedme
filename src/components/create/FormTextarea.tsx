@@ -39,7 +39,6 @@ interface FormTextareaProps {
                 focus:border-brand focus:ring-1 focus:ring-brand/10 outline-none
                 transition-all resize-y min-h-[100px] max-h-[300px]
             "
-            maxLength={500}
             />
   
         {helpText && (
