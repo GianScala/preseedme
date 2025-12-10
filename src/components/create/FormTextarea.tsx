@@ -34,9 +34,9 @@ interface FormTextareaProps {
           placeholder={placeholder}
           rows={rows}
           className="
-            w-full rounded-xl px-4 py-3 bg-neutral-900 border-2 border-neutral-800 
+            w-full rounded-xl px-4 py-3 bg-neutral-900/40 border-1 border-neutral-800 
             text-sm text-neutral-100 placeholder:text-neutral-500
-            focus:border-brand focus:ring-4 focus:ring-brand/10 outline-none 
+            focus:border-brand focus:ring-1 focus:ring-brand/10 outline-none 
             transition-all resize-y min-h-[100px]
           "
         />

@@ -36,7 +36,7 @@ export default function SectionWrapper({
     ? "bg-brand/10 ring-2 ring-brand/40 text-brand shadow-[0_0_15px_-3px_rgba(var(--brand-rgb),0.3)]"
     : isComplete
     ? "bg-emerald-500/10 ring-1 ring-emerald-500/30 text-emerald-400" // Complete State (Subtle Green)
-    : "bg-neutral-900 ring-1 ring-neutral-800 text-neutral-400 group-hover:text-neutral-200";
+    : "bg-neutral-900/50 ring-1 ring-neutral-800 text-neutral-400 group-hover:text-neutral-200";
 
   return (
     <section
