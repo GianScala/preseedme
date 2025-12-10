@@ -319,7 +319,7 @@ export default function ChatThreadPage() {
   if (!user) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-neutral-900/95 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 bg-neutral-900/10 backdrop-blur-sm">
       <div className="h-full w-full flex flex-col md:p-4 md:items-center md:justify-center">
         <div className="w-full h-full md:h-[90vh] md:max-w-4xl flex flex-col md:rounded-2xl overflow-hidden md:shadow-2xl bg-neutral-900 md:border md:border-neutral-800">
           {/* HEADER - Mobile optimized with safe-area support */}

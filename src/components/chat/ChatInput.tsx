@@ -63,7 +63,7 @@ export function ChatInput({ text, setText, onSend, disabled }: ChatInputProps) {
 
   return (
     <form onSubmit={handleSubmit} className="w-full">
-      <div className="relative flex w-full items-end rounded-2xl border border-neutral-700 bg-black/40 px-3 py-2 shadow-sm focus-within:border-brand focus-within:ring-2 focus-within:ring-amber-500/20 transition-all">
+      <div className="relative flex w-full items-end rounded-xl border border-neutral-700 bg-black/10 px-4 py-2 shadow-sm focus-within:border-brand focus-within:ring-1 focus-within:ring-amber-500/20 transition-all">
         <textarea
           ref={textareaRef}
           rows={1}
