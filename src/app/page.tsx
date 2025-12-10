@@ -100,7 +100,7 @@ export default function Page() {
   }
 
   return (
-    <div className="space-y-12 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       <SignInModal
         isOpen={showSignInModal}
         onClose={() => setShowSignInModal(false)}
