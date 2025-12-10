@@ -34,13 +34,14 @@ interface FormInputProps {
           {label}
           {required && <span className="text-red-400 ml-1">*</span>}
         </label>
-        
+  
         <div className="relative">
           {icon && (
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500">
               {icon}
             </div>
           )}
+  
           <input
             type={type}
             value={value}
@@ -50,11 +51,11 @@ interface FormInputProps {
             min={min}
             max={max}
             className={`
-              w-full rounded-xl px-4 py-2.5 bg-neutral-900/40 border-1 border-neutral-800 
-              text-sm text-neutral-100 placeholder:text-neutral-500
-              focus:border-brand focus:ring-1 focus:ring-brand/10 outline-none 
+              w-full rounded-xl px-4 py-2.5 bg-neutral-900/40 border border-neutral-800
+              text-[16px] text-neutral-100 placeholder:text-neutral-500
+              focus:border-brand focus:ring-1 focus:ring-brand/10 outline-none
               transition-all
-              ${icon ? 'pl-10' : ''}
+              ${icon ? "pl-10" : ""}
             `}
           />
         </div>
@@ -63,9 +64,13 @@ interface FormInputProps {
           <div className="flex justify-between items-start gap-2 text-xs">
             <p className="text-neutral-500 flex-1">{helpText}</p>
             {showCounter && maxLength && (
-              <span className={`font-medium flex-shrink-0 ${
-                value.length > maxLength * 0.9 ? 'text-yellow-400' : 'text-neutral-500'
-              }`}>
+              <span
+                className={`font-medium flex-shrink-0 ${
+                  value.length > maxLength * 0.9
+                    ? "text-yellow-400"
+                    : "text-neutral-500"
+                }`}
+              >
                 {value.length}/{maxLength}
               </span>
             )}
@@ -74,3 +79,4 @@ interface FormInputProps {
       </div>
     );
   }
+  
