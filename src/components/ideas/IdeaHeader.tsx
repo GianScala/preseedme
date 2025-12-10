@@ -22,7 +22,6 @@ interface IdeaHeaderProps {
 export default function IdeaHeader({
   idea,
   user,
-  isOwner,
   onToggleLike,
   likeLoading,
 }: IdeaHeaderProps) {
@@ -95,7 +94,7 @@ export default function IdeaHeader({
   };
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-6">
       {/* DESKTOP GO BACK (sm+) */}
       <div className="hidden sm:flex justify-end">
         <button
