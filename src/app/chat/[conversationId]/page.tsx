@@ -371,7 +371,6 @@ export default function ChatThreadPage() {
                 onClick={handleVisitProfile}
                 className="flex-shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 active:scale-95 text-white transition-all text-xs sm:text-sm font-medium"
               >
-                <span className="hidden xs:inline">Visit</span>
                 <span className="xs:hidden">Profile</span>
               </button>
             </div>
