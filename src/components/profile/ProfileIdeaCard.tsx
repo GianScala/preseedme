@@ -4,10 +4,13 @@ import Link from "next/link";
 import { Idea } from "@/types";
 import { formatCurrencyShort, formatNumberShort } from "@/lib/formatters";
 import HeartIcon from "@/components/icons/HeartIcon";
+import {EditIcon} from "@/components/icons/EditIcon";
 
 type IdeaWithLikes = Idea & {
   likeCount?: number;
   likedByUserIds?: string[];
+  // make sure this matches your actual field name (photoURL / avatarUrl, etc.)
+  founderPhotoUrl?: string | null;
 };
 
 type IdeaCardProps = {
@@ -15,12 +18,11 @@ type IdeaCardProps = {
   featured?: boolean;
   /** Only true in contexts where the owner can edit (e.g. profile page) */
   showEdit?: boolean;
-  /** Authenticated user id (used to know if they liked this idea) */
   currentUserId?: string | null;
-  /** Called when the user clicks the like button */
   onToggleLike?: () => void;
-  /** Show loading state for the like action */
   loadingLike?: boolean;
+  /** Called when owner clicks delete */
+  onDelete?: () => void;
 };
 
 const pillBase =
@@ -50,6 +52,7 @@ export default function IdeaCard({
   currentUserId,
   onToggleLike,
   loadingLike,
+  onDelete,
 }: IdeaCardProps) {
   const mrrLabel = formatCurrencyShort(idea.monthlyRecurringRevenue as any);
   const usersLabel = formatNumberShort(idea.userCount as any);
@@ -71,6 +74,8 @@ export default function IdeaCard({
   const sector = (idea as any).sector;
   const targetAudience = (idea as any).targetAudience;
 
+  const showFounderInfo = Boolean(idea.founderUsername) && !showEdit;
+
   return (
     <div
       className={`group relative rounded-lg sm:rounded-xl border transition-all duration-200 ${
@@ -86,6 +91,20 @@ export default function IdeaCard({
           : undefined
       }
     >
+      {/* EDIT: top-right */}
+      {showEdit && (
+        <Link
+          href={`/ideas/${idea.id}/edit`}
+          className="absolute top-2 right-2 sm:top-3 sm:right-3 inline-flex items-center justify-center rounded-full bg-neutral-900/90 border border-neutral-700/80 p-1.5 text-neutral-400 hover:text-brand hover:border-brand/60 hover:bg-neutral-900 transition-all z-20"
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
+          title="Edit idea"
+        >
+          <EditIcon className="w-4 h-4" />
+        </Link>
+      )}
+
       {/* Featured badge */}
       {featured && (
         <div className="flex items-center gap-2 mb-2 sm:mb-3">
@@ -102,41 +121,8 @@ export default function IdeaCard({
         </div>
       )}
 
-      {/* Edit icon */}
-      {showEdit && (
-        <Link
-          href={`/ideas/${idea.id}/edit`}
-          className="absolute top-2 right-2 sm:top-3 sm:right-3 inline-flex items-center justify-center rounded-full bg-neutral-900/90 border border-neutral-700/80 p-1.5 text-neutral-400 hover:text-brand hover:border-brand/60 hover:bg-neutral-900 transition-all z-10"
-          onClick={(e) => {
-            e.stopPropagation();
-          }}
-        >
-          <svg
-            className="w-3 h-3 sm:w-3.5 sm:h-3.5"
-            viewBox="0 0 20 20"
-            fill="none"
-          >
-            <path
-              d="M4 13.5V16h2.5l7.086-7.086-2.5-2.5L4 13.5z"
-              stroke="currentColor"
-              strokeWidth={1.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M11.5 4.5l2.5 2.5"
-              stroke="currentColor"
-              strokeWidth={1.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </Link>
-      )}
-
       {/* Main clickable content */}
       <Link href={`/ideas/${idea.id}`} className="block">
-        {/* Thumbnail + content layout */}
         <div className="flex gap-3 sm:gap-4">
           {/* Main content */}
           <div className="flex-1 flex flex-col min-w-0">
@@ -198,12 +184,21 @@ export default function IdeaCard({
               </div>
             )}
 
-            {/* Founder info + Like button */}
-            {idea.founderUsername && (
+            {/* Founder info + Like button row */}
+            {showFounderInfo && (
               <div className="mt-auto flex items-center gap-2 pt-2 sm:pt-3 border-t border-neutral-800">
-                <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-[var(--brand)] to-[var(--brand-dark)] flex items-center justify-center text-[10px] sm:text-xs font-bold text-black flex-shrink-0">
-                  {idea.founderUsername.charAt(0).toUpperCase()}
-                </div>
+                {idea.founderPhotoUrl ? (
+                  <img
+                    src={idea.founderPhotoUrl}
+                    alt={idea.founderUsername!}
+                    className="w-6 h-6 sm:w-7 sm:h-7 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-[var(--brand)] to-[var(--brand-dark)] flex items-center justify-center text-[10px] sm:text-xs font-bold text-black flex-shrink-0">
+                    {idea.founderUsername!.charAt(0).toUpperCase()}
+                  </div>
+                )}
+
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] sm:text-xs text-neutral-500 truncate">
                     by{" "}
@@ -266,7 +261,7 @@ export default function IdeaCard({
 
           {/* Thumbnail */}
           {idea.thumbnailUrl && (
-            <div className="w-16 sm:w-20 md:w-24 lg:w-28 xl:w-32 flex-shrink-0">
+            <div className="w-16 sm:w-20 md:w-24 lg:w-28 xl:w-32 flex-shrink-0 relative">
               <div className="relative h-full min-h-[90px] sm:min-h-[100px] md:min-h-[120px] overflow-hidden rounded-md sm:rounded-lg border border-neutral-800/50 bg-neutral-900/40">
                 <img
                   src={idea.thumbnailUrl}
@@ -274,6 +269,7 @@ export default function IdeaCard({
                   className="absolute inset-0 h-full w-full object-cover opacity-90 transition-all duration-300 group-hover:opacity-100 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/60 via-transparent to-transparent" />
+                
               </div>
             </div>
           )}

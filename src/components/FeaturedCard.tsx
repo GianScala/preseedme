@@ -24,7 +24,6 @@ type FeaturedCardProps = {
   loadingLike: boolean;
 };
 
-// Reusable micro-components (consistent with PublicIdeaCard)
 const TagPill = ({ text, className }: { text: string; className?: string }) => (
   <span
     className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-medium border border-white/5 bg-white/5 backdrop-blur-md ${className}`}

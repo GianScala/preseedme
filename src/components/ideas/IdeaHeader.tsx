@@ -83,9 +83,19 @@ export default function IdeaHeader({
 
   const handleAvatarError = () => setAvatarError(true);
 
+  // NEW: safe like handler that allows owner to like/unlike too
+  const handleLikeClick = () => {
+    if (likeLoading) return;
+    if (!user) {
+      // optionally redirect to auth; or just return
+      router.push("/auth");
+      return;
+    }
+    onToggleLike();
+  };
+
   return (
     <div className="space-y-6">
-
       {/* DESKTOP GO BACK (sm+) */}
       <div className="hidden sm:flex justify-end">
         <button
@@ -113,12 +123,9 @@ export default function IdeaHeader({
 
       {/* MAIN GRID */}
       <div className="grid gap-8 lg:grid-cols-3 lg:gap-12">
-
         {/* LEFT COLUMN */}
         <div className="lg:col-span-2 flex flex-col justify-center space-y-6">
-
           <div className="space-y-4">
-
             {/* MOBILE GO BACK (<sm) */}
             <div className="flex items-start justify-between gap-2 sm:hidden">
               <h1 className="flex-1 text-3xl font-bold text-white leading-tight">
@@ -193,7 +200,9 @@ export default function IdeaHeader({
               >
                 {idea.founderUsername}
                 {idea.founderHandle && (
-                  <span className="text-neutral-500">@{idea.founderHandle}</span>
+                  <span className="text-neutral-500">
+                    @{idea.founderHandle}
+                  </span>
                 )}
               </Link>
             </div>
@@ -203,7 +212,6 @@ export default function IdeaHeader({
         {/* RIGHT COLUMN */}
         {idea.thumbnailUrl && (
           <div className="lg:col-span-1 space-y-4">
-
             {/* CTAs ABOVE IMAGE */}
             {(idea.websiteUrl || idea.demoVideoUrl) && (
               <div className="flex flex-wrap justify-end gap-2">
@@ -240,8 +248,8 @@ export default function IdeaHeader({
               {/* Like Button */}
               <div className="absolute top-3 right-3 z-10">
                 <button
-                  onClick={onToggleLike}
-                  disabled={likeLoading || isOwner}
+                  onClick={handleLikeClick}
+                  disabled={likeLoading}
                   className={`
                     flex items-center gap-2 px-3 py-1.5 rounded-xl 
                     backdrop-blur-md border shadow-lg text-xs sm:text-sm
@@ -250,12 +258,11 @@ export default function IdeaHeader({
                         ? "bg-rose-500/90 border-rose-500 text-white hover:bg-rose-600"
                         : "bg-neutral-900/80 border-neutral-700 text-neutral-300 hover:bg-neutral-800"
                     }
+                    disabled:opacity-60 disabled:cursor-not-allowed
                   `}
                 >
                   <HeartIcon
-                    className={
-                      isLiked ? "text-white" : "text-neutral-400"
-                    }
+                    className={isLiked ? "text-white" : "text-neutral-400"}
                   />
                   <span>{likeCount}</span>
                 </button>
@@ -263,7 +270,6 @@ export default function IdeaHeader({
             </div>
           </div>
         )}
-
       </div>
     </div>
   );

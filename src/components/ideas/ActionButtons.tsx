@@ -7,7 +7,9 @@ import { getFirebaseDb } from "@/lib/firebase";
 import { doc, deleteDoc, updateDoc, arrayRemove } from "firebase/firestore";
 import type { IdeaWithLikes } from "@/app/ideas/[id]/page";
 import SignInModal from "@/components/common/modal/SignInModal";
-import { MessageCircle, Trash2, Info, CheckCircle2, Loader2 } from "lucide-react";
+import { MessageCircle, Info, CheckCircle2, Loader2 } from "lucide-react";
+
+import {TrashIcon} from "@/components/icons/TrashIcon";
 
 interface ActionButtonsProps {
   idea: IdeaWithLikes;
@@ -143,7 +145,7 @@ export default function ActionButtons({
                 </>
               ) : (
                 <>
-                  <Trash2 className="w-4 h-4" />
+                  <TrashIcon className="w-4 h-4" />
                   <span>Delete Idea</span>
                 </>
               )}

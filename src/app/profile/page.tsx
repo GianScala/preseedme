@@ -1,12 +1,18 @@
-// src/app/profile/page.tsx
 "use client";
 
-import { useEffect, useState, FormEvent, ChangeEvent, useRef } from "react";
+import {
+  useEffect,
+  useState,
+  FormEvent,
+  ChangeEvent,
+  useRef,
+  type ReactNode,
+  type ComponentType,
+} from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { getFirebaseDb, getFirebaseStorage } from "@/lib/firebase";
-// IMPORT THE HELPER FUNCTION
-import { performAccountArchivalAndCleanup } from "@/lib/accountUtils"; 
+import { performAccountArchivalAndCleanup } from "@/lib/accountUtils";
 import {
   doc,
   updateDoc,
@@ -27,12 +33,29 @@ import {
 } from "firebase/storage";
 import type { Idea } from "@/types";
 import Link from "next/link";
-import IdeaCard from "@/components/IdeaCard";
-import { 
-  Camera, User, Mail, Phone, MapPin, Globe, 
-  Linkedin, Github, Twitter, Save, Loader2, Trash2, 
-  LogOut, AlertTriangle, X 
+import ProfileIdeaCard from "@/components/profile/ProfileIdeaCard";
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Globe,
+  Linkedin,
+  Github,
+  Twitter,
+  Save,
+  Loader2,
+  LogOut,
+  AlertTriangle,
+  X,
 } from "lucide-react";
+
+import {CameraIcon} from "@/components/icons/CameraIcon";
+import AddNewIcon from "@/components/icons/AddNewIcon";
+import { TrashIcon } from "@/components/icons/TrashIcon";
+import { SignoutIcon } from "@/components/icons/SignOutIcon";
+import { ProfileIcon } from "@/components/icons/ProfileIcon";
+import { MailIcon } from "@/components/icons/MailIcon";
 
 const INITIAL_DATA = {
   email: "",
@@ -50,96 +73,237 @@ const INITIAL_DATA = {
   githubUrl: "",
 };
 
+type StatusState =
+  | { type: "error"; message: string }
+  | { type: "success"; message: string }
+  | null;
+
+type ProjectsView = "created" | "liked";
+type ProfileTab = "basic" | "contact" | "links";
+
+/* ---------- Small reusable layout/input helpers ---------- */
+
+function SectionCard({
+  title,
+  description,
+  children,
+  className = "",
+}: {
+  title?: string;
+  description?: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`bg-neutral-900/30 p-4 md:p-5 rounded-2xl border border-neutral-800 space-y-4 ${className}`}
+    >
+      {(title || description) && (
+        <div>
+          {title && (
+            <h3 className="text-lg font-semibold text-white">{title}</h3>
+          )}
+          {description && (
+            <p className="text-sm text-neutral-400 mt-1">{description}</p>
+          )}
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+type IconInputProps = {
+  label?: string;
+  icon?: ComponentType<{ className?: string }>;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  type?: string;
+  readOnly?: boolean;
+  prefix?: ReactNode;
+};
+
+function IconInput({
+  label,
+  icon: Icon,
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+  readOnly,
+  prefix,
+}: IconInputProps) {
+  return (
+    <div className="space-y-2">
+      {label && (
+        <label className="text-sm font-medium text-neutral-300">
+          {label}
+        </label>
+      )}
+      <div
+        className={`relative ${
+          readOnly ? "opacity-60 cursor-not-allowed" : ""
+        }`}
+      >
+        {Icon && (
+          <Icon className="absolute left-3 top-2.5 w-4 h-4 text-neutral-500" />
+        )}
+        {prefix && !Icon && (
+          <span className="absolute left-3 top-2.5 text-neutral-500 text-sm">
+            {prefix}
+          </span>
+        )}
+        <input
+          type={type}
+          value={value || ""}
+          readOnly={readOnly}
+          onChange={(e) => !readOnly && onChange(e.target.value)}
+          className={`w-full bg-neutral-900/50 border border-neutral-800 rounded-lg py-2 ${
+            Icon || prefix ? "pl-10" : "pl-3"
+          } pr-4 text-sm focus:ring-1 focus:ring-brand focus:border-brand outline-none`}
+          placeholder={placeholder}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Main page component ---------- */
+
 export default function ProfilePage() {
   const { user, loading: authLoading, signOutUser } = useAuth();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Consolidated State
+  // Global loading / saving
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Projects
   const [ideas, setIdeas] = useState<Idea[]>([]);
-  
-  // Deletion State
+  const [likedIdeas, setLikedIdeas] = useState<Idea[]>([]);
+  const [projectsView, setProjectsView] = useState<ProjectsView>("created");
+
+  // Account deletion
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  
-  // Form Data
+
+  // Form state
   const [formData, setFormData] = useState(INITIAL_DATA);
   const [originalData, setOriginalData] = useState(INITIAL_DATA);
   const [photoPreview, setPhotoPreview] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  
-  // UI State
-  const [activeTab, setActiveTab] = useState<"profile" | "ideas">("profile");
-  const [status, setStatus] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
 
-  // 1. Auth Check
+  // UI
+  const [activeTab, setActiveTab] = useState<"profile" | "ideas">("profile");
+  const [profileTab, setProfileTab] = useState<ProfileTab>("basic");
+  const [status, setStatus] = useState<StatusState>(null);
+
+  // 1. Auth guard
   useEffect(() => {
-    if (!authLoading && !user) router.push("/auth");
+    if (!authLoading && !user) {
+      router.push("/auth");
+    }
   }, [authLoading, user, router]);
 
-  // 2. Data Fetching
+  // 2. Fetch user + projects + liked projects
   useEffect(() => {
-    if (!user) return;
+    if (!user || authLoading) return;
 
     const fetchData = async () => {
       setLoading(true);
       try {
         const db = getFirebaseDb();
-        
-        // Fetch User
-        const userSnap = await getDoc(doc(db, "users", user.uid));
-        if (userSnap.exists()) {
-          const data = userSnap.data();
-          
-          if (!data.handle) {
-            router.replace("/onboarding/handle");
-            return;
-          }
 
-          const loadedData = {
-            ...INITIAL_DATA,
-            ...data,
-            email: data.email ?? user.email ?? "",
-            bio: data.bio ?? "",
-            username: data.username ?? "",
-            preferredPhoneNumber: data.preferredPhoneNumber ?? "",
-            address: data.address ?? "",
-            photoURL: data.photoURL ?? "",
-            location: data.location ?? "",
-            twitterUrl: data.twitterUrl ?? "",
-            linkedinUrl: data.linkedinUrl ?? "",
-            websiteUrl: data.websiteUrl ?? "",
-            githubUrl: data.githubUrl ?? "",
-          };
+        // --- Fetch user profile ---
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
 
-          setFormData(loadedData);
-          setOriginalData(loadedData);
-          setPhotoPreview(loadedData.photoURL);
-        } else {
+        if (!userSnap.exists()) {
           router.replace("/onboarding/handle");
           return;
         }
 
-        // Fetch Ideas
-        const q = query(collection(db, "ideas"), where("founderId", "==", user.uid));
-        const ideaSnap = await getDocs(q);
-        setIdeas(ideaSnap.docs.map(d => ({ id: d.id, ...d.data() } as Idea)));
+        const data = userSnap.data() || {};
 
+        if (!data.handle) {
+          router.replace("/onboarding/handle");
+          return;
+        }
+
+        const loadedData = {
+          ...INITIAL_DATA,
+          ...data,
+          email: data.email ?? user.email ?? "",
+          bio: data.bio ?? "",
+          username: data.username ?? "",
+          preferredPhoneNumber: data.preferredPhoneNumber ?? "",
+          address: data.address ?? "",
+          photoURL: data.photoURL ?? "",
+          location: data.location ?? "",
+          twitterUrl: data.twitterUrl ?? "",
+          linkedinUrl: data.linkedinUrl ?? "",
+          websiteUrl: data.websiteUrl ?? "",
+          githubUrl: data.githubUrl ?? "",
+        };
+
+        setFormData(loadedData);
+        setOriginalData(loadedData);
+        setPhotoPreview(loadedData.photoURL);
+
+        // --- Fetch projects created by user & liked projects in parallel ---
+        const createdIdeasQuery = query(
+          collection(db, "ideas"),
+          where("founderId", "==", user.uid)
+        );
+
+        const likedIdeasQuery = query(
+          collection(db, "ideas"),
+          where("likedByUserIds", "array-contains", user.uid)
+        );
+
+        const [createdSnap, likedSnap] = await Promise.all([
+          getDocs(createdIdeasQuery),
+          getDocs(likedIdeasQuery),
+        ]);
+
+        setIdeas(
+          createdSnap.docs.map(
+            (d) =>
+              ({
+                id: d.id,
+                ...d.data(),
+              } as Idea)
+          )
+        );
+
+        setLikedIdeas(
+          likedSnap.docs.map(
+            (d) =>
+              ({
+                id: d.id,
+                ...d.data(),
+              } as Idea)
+          )
+        );
       } catch (err) {
         console.error("Fetch error:", err);
+        setStatus({
+          type: "error",
+          message: "Failed to load your profile. Please try again.",
+        });
       } finally {
         setLoading(false);
       }
     };
 
-    if (!authLoading) fetchData();
+    fetchData();
   }, [user, authLoading, router]);
 
-  // 3. Helpers
+  // Helpers
   const handleChange = (field: keyof typeof INITIAL_DATA, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
@@ -147,7 +311,10 @@ export default function ProfilePage() {
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      setStatus({ type: 'error', message: "Image must be smaller than 5MB" });
+      setStatus({
+        type: "error",
+        message: "Image must be smaller than 5MB",
+      });
       return;
     }
 
@@ -157,13 +324,15 @@ export default function ProfilePage() {
     reader.readAsDataURL(file);
   };
 
-  const hasChanges = JSON.stringify(formData) !== JSON.stringify(originalData) || !!selectedFile;
+  const hasChanges =
+    JSON.stringify(formData) !== JSON.stringify(originalData) ||
+    !!selectedFile;
 
-  // 4. Submission Logic
+  // 3. Save profile
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!user || !formData.username?.trim()) {
-      setStatus({ type: 'error', message: "Username is required" });
+      setStatus({ type: "error", message: "Username is required" });
       return;
     }
 
@@ -173,16 +342,25 @@ export default function ProfilePage() {
     try {
       let finalPhotoURL = formData.photoURL;
 
+      // Handle photo upload (replace previous)
       if (selectedFile) {
         const storage = getFirebaseStorage();
+
         try {
-            const listRef = ref(storage, `profile-photos/${user.uid}`);
-            const listRes = await listAll(listRef);
-            await Promise.all(listRes.items.map(ref => deleteObject(ref)));
-        } catch (e) { console.warn("Cleanup warning:", e); }
+          const listRef = ref(storage, `profile-photos/${user.uid}`);
+          const listRes = await listAll(listRef);
+          await Promise.all(
+            listRes.items.map((itemRef) => deleteObject(itemRef))
+          );
+        } catch (err) {
+          console.warn("Profile photo cleanup warning:", err);
+        }
 
         const ext = selectedFile.name.split(".").pop() || "jpg";
-        const fileRef = ref(storage, `profile-photos/${user.uid}/profile_${Date.now()}.${ext}`);
+        const fileRef = ref(
+          storage,
+          `profile-photos/${user.uid}/profile_${Date.now()}.${ext}`
+        );
         const snap = await uploadBytes(fileRef, selectedFile);
         finalPhotoURL = await getDownloadURL(snap.ref);
       }
@@ -193,64 +371,83 @@ export default function ProfilePage() {
 
       await updateDoc(doc(getFirebaseDb(), "users", user.uid), {
         ...cleanData,
-        photoURL: finalPhotoURL
+        photoURL: finalPhotoURL,
       });
 
       const newData = { ...formData, photoURL: finalPhotoURL };
       setFormData(newData);
       setOriginalData(newData);
       setSelectedFile(null);
-      setStatus({ type: 'success', message: "Profile saved successfully" });
+      setStatus({
+        type: "success",
+        message: "Profile saved successfully",
+      });
 
       setTimeout(() => setStatus(null), 3000);
     } catch (err: any) {
-      setStatus({ type: 'error', message: err.message || "Failed to save" });
+      console.error("Save error:", err);
+      setStatus({
+        type: "error",
+        message: err.message || "Failed to save profile",
+      });
     } finally {
       setSaving(false);
     }
   };
 
+  // 4. Delete a single project
   const handleDeleteIdea = async (ideaId: string) => {
-    if (!user || !confirm("Delete this idea? This cannot be undone.")) return;
+    if (!user) return;
+    const confirmed = window.confirm(
+      "Delete this idea? This cannot be undone."
+    );
+    if (!confirmed) return;
+
     try {
       const db = getFirebaseDb();
       await Promise.all([
         deleteDoc(doc(db, "ideas", ideaId)),
-        updateDoc(doc(db, "users", user.uid), { publishedIdeaIds: arrayRemove(ideaId) })
+        updateDoc(doc(db, "users", user.uid), {
+          publishedIdeaIds: arrayRemove(ideaId),
+        }),
       ]);
-      setIdeas(prev => prev.filter(i => i.id !== ideaId));
+      setIdeas((prev) => prev.filter((i) => i.id !== ideaId));
+      // If that idea was also in liked list, remove it there too
+      setLikedIdeas((prev) => prev.filter((i) => i.id !== ideaId));
     } catch (err) {
-      console.error(err);
+      console.error("Delete idea error:", err);
+      setStatus({
+        type: "error",
+        message: "Failed to delete idea. Please try again.",
+      });
     }
   };
 
-  // 5. Account Deletion Logic
+  // 5. Full account deletion
   const handleAccountDeletion = async () => {
     if (!user) return;
     setIsDeleting(true);
 
     try {
-      // A. Archive Data & Cleanup Likes
       await performAccountArchivalAndCleanup(user.uid);
-      
-      // B. Delete Authentication Account
       await user.delete();
-      
-      // C. Route will change automatically due to AuthContext, but force it just in case
       router.push("/");
     } catch (error: any) {
       console.error("Deletion Error:", error);
       setIsDeleting(false);
       setShowDeleteModal(false);
-      
-      // Handle the case where user needs to re-login to delete
-      if (error.code === 'auth/requires-recent-login') {
-        setStatus({ 
-          type: 'error', 
-          message: "Security check: Please log out and log back in to delete your account." 
+
+      if (error.code === "auth/requires-recent-login") {
+        setStatus({
+          type: "error",
+          message:
+            "Security check: Please log out and log back in to delete your account.",
         });
       } else {
-        setStatus({ type: 'error', message: "Failed to delete account. Please try again." });
+        setStatus({
+          type: "error",
+          message: "Failed to delete account. Please try again.",
+        });
       }
     }
   };
@@ -264,14 +461,14 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 relative">
+    <div className="relative">
       <h1 className="text-3xl font-bold mb-8">Settings</h1>
 
       {/* Delete Account Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
           <div className="bg-neutral-900 border border-red-900/50 rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
-            <button 
+            <button
               onClick={() => setShowDeleteModal(false)}
               className="absolute top-4 right-4 text-neutral-500 hover:text-white"
             >
@@ -283,9 +480,12 @@ export default function ProfilePage() {
                 <AlertTriangle className="w-6 h-6 text-red-500" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-white">Delete Account?</h3>
+                <h3 className="text-xl font-bold text-white">
+                  Delete Account?
+                </h3>
                 <p className="text-neutral-400 text-sm mt-1">
-                  This action cannot be undone. Your projects will be taken offline and archived.
+                  This action cannot be undone. Your projects will be taken
+                  offline and archived.
                 </p>
               </div>
             </div>
@@ -311,7 +511,11 @@ export default function ProfilePage() {
                 disabled={isDeleting}
                 className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
               >
-                {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Yes, Delete It"}
+                {isDeleting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  "Yes, Delete It"
+                )}
               </button>
             </div>
           </div>
@@ -319,203 +523,308 @@ export default function ProfilePage() {
       )}
 
       {/* Mobile Tabs */}
-      <div className="sm:hidden mb-6 flex p-1 bg-neutral-900 rounded-xl border border-neutral-800">
-        {(['profile', 'ideas'] as const).map(tab => (
+      <div className="sm:hidden mb-2 flex p-1 bg-neutral-900/10 rounded-xl border border-neutral-800">
+        {(["profile", "ideas"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`flex-1 py-2 text-sm font-medium rounded-lg capitalize transition-all ${
-              activeTab === tab ? 'bg-neutral-800 text-white shadow-sm' : 'text-neutral-400'
+              activeTab === tab
+                ? "bg-neutral-800/50 text-white shadow-sm"
+                : "text-neutral-400"
             }`}
           >
-            {tab}
+            {tab === "ideas" ? "Projects" : "Profile"}
           </button>
         ))}
       </div>
 
       <div className="grid lg:grid-cols-[1fr_350px] gap-10 items-start">
-        {/* === SECTION 1: PROFILE FORM === */}
-        <div className={activeTab === 'profile' ? 'block' : 'hidden sm:block'}>
-            <form onSubmit={handleSubmit} className="space-y-8 animate-fade-in">
-              {/* Header Image Section */}
-              <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center bg-neutral-900/30 p-4 rounded-2xl border border-neutral-800">
-                <div className="relative group">
-                  {photoPreview ? (
-                    <img 
-                      src={photoPreview} 
-                      alt="Profile" 
-                      className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-2 border-neutral-700 group-hover:border-brand transition-colors" 
+        {/* ========== LEFT: PROFILE & ACCOUNT SETTINGS ========== */}
+        <div className={activeTab === "profile" ? "block" : "hidden sm:block"}>
+          <form onSubmit={handleSubmit} className="space-y-6 animate-fade-in">
+            {/* Profile sub-tabs */}
+            <div className="flex p-1 bg-neutral-900/20 rounded-full border border-neutral-800 text-xs font-medium max-w-md">
+              {(["basic", "contact", "links"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setProfileTab(tab)}
+                  className={`flex-1 py-1.5 rounded-full capitalize transition-all ${
+                    profileTab === tab
+                      ? "bg-brand/50 text-white shadow-sm"
+                      : "text-neutral-400"
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            {/* BASIC TAB */}
+            {profileTab === "basic" && (
+              <SectionCard>
+                {/* Profile Photo */}
+                <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center">
+                  <div className="relative group">
+                    {photoPreview ? (
+                      <img
+                        src={photoPreview}
+                        alt="Profile"
+                        className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-2 border-neutral-700 group-hover:border-brand transition-colors"
+                      />
+                    ) : (
+                      <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-neutral-800 flex items-center justify-center text-2xl font-bold border-2 border-neutral-700">
+                        {formData.username?.[0]?.toUpperCase() || <ProfileIcon />}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute bottom-0 right-0 p-2 bg-neutral-800 rounded-full border border-neutral-600 hover:bg-brand hover:text-black transition-colors shadow-lg"
+                    >
+                      <CameraIcon className="w-4 h-4" />
+                    </button>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      accept="image/*"
                     />
-                  ) : (
-                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-neutral-800 flex items-center justify-center text-2xl font-bold border-2 border-neutral-700">
-                      {formData.username?.[0]?.toUpperCase() || <User />}
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="absolute bottom-0 right-0 p-2 bg-neutral-800 rounded-full border border-neutral-600 hover:bg-brand hover:text-black transition-colors shadow-lg"
-                  >
-                    <Camera className="w-4 h-4" />
-                  </button>
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    onChange={handleFileSelect} 
-                    className="hidden" 
-                    accept="image/*" 
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Profile</h2>
+                    <p className="text-sm text-neutral-400">
+                      Update how others see you across the app.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Basic fields */}
+                <div className="grid gap-4 md:grid-cols-2 mt-4">
+                  <IconInput
+                    label="Display Name"
+                    icon={ProfileIcon}
+                    value={formData.username || ""}
+                    onChange={(v) => handleChange("username", v)}
+                    placeholder="Your name"
+                  />
+
+                  <IconInput
+                    label="Handle"
+                    prefix="@"
+                    value={formData.handle || ""}
+                    onChange={() => {}}
+                    readOnly
                   />
                 </div>
-                <div className="flex-1">
-                  <h2 className="text-xl font-bold text-white">Profile Photo</h2>
-                  <p className="text-sm text-neutral-400">Recommended: Square JPG, PNG, or WEBP (Max 5MB)</p>
-                </div>
-              </div>
 
-              {/* Main Info Grid */}
-              <div className="grid gap-6 md:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-neutral-300">Display Name</label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-2.5 w-4 h-4 text-neutral-500" />
-                    <input
-                      value={formData.username || ""}
-                      onChange={e => handleChange("username", e.target.value)}
-                      className="w-full bg-neutral-900/50 border border-neutral-800 rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-1 focus:ring-brand focus:border-brand outline-none transition-all"
-                      placeholder="Your Name"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-neutral-300">Handle</label>
-                  <div className="relative opacity-60 cursor-not-allowed">
-                    <span className="absolute left-3 top-2.5 text-neutral-500 text-sm">@</span>
-                    <input
-                      value={formData.handle || ""}
-                      readOnly
-                      className="w-full bg-neutral-900/50 border border-neutral-800 rounded-lg py-2 pl-8 pr-4 text-sm outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-sm font-medium text-neutral-300">Bio</label>
+                <div className="space-y-2 mt-4">
+                  <label className="text-sm font-medium text-neutral-300">
+                    Bio
+                  </label>
                   <textarea
                     value={formData.bio || ""}
-                    onChange={e => handleChange("bio", e.target.value)}
-                    className="w-full bg-neutral-900/50 border border-neutral-800 rounded-lg p-3 text-sm focus:ring-1 focus:ring-brand focus:border-brand outline-none transition-all min-h-[100px]"
+                    onChange={(e) => handleChange("bio", e.target.value)}
+                    className="w-full bg-neutral-900/50 border border-neutral-800 rounded-lg p-3 text-sm focus:ring-1 focus:ring-brand focus:border-brand outline-none transition-all min-h-[90px]"
                     placeholder="Tell us about yourself..."
                     maxLength={500}
                   />
                   <div className="flex justify-end">
-                    <span className="text-xs text-neutral-500">{(formData.bio || "").length}/500</span>
+                    <span className="text-xs text-neutral-500">
+                      {(formData.bio || "").length}/500
+                    </span>
                   </div>
                 </div>
-              </div>
+              </SectionCard>
+            )}
 
-              {/* Contact Details */}
-              <div className="space-y-4 pt-4 border-t border-neutral-800">
-                <h3 className="text-lg font-semibold text-white">Contact Info</h3>
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-neutral-300">Email</label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-2.5 w-4 h-4 text-neutral-500" />
-                      <input
-                        value={formData.email || ""}
-                        onChange={e => handleChange("email", e.target.value)}
-                        className="w-full bg-neutral-900/50 border border-neutral-800 rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-1 focus:ring-brand focus:border-brand outline-none"
-                        placeholder="you@example.com"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-neutral-300">Phone</label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-2.5 w-4 h-4 text-neutral-500" />
-                      <input
-                        value={formData.preferredPhoneNumber || ""}
-                        onChange={e => handleChange("preferredPhoneNumber", e.target.value)}
-                        className="w-full bg-neutral-900/50 border border-neutral-800 rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-1 focus:ring-brand focus:border-brand outline-none"
-                        placeholder="+1 (555) 000-0000"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <label className="text-sm font-medium text-neutral-300">Address</label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-2.5 w-4 h-4 text-neutral-500" />
-                      <input
-                        value={formData.address || ""}
-                        onChange={e => handleChange("address", e.target.value)}
-                        className="w-full bg-neutral-900/50 border border-neutral-800 rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-1 focus:ring-brand focus:border-brand outline-none"
-                        placeholder="Full business address"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Social Links */}
-              <div className="space-y-4 pt-4 border-t border-neutral-800">
-                <h3 className="text-lg font-semibold text-white">Socials</h3>
+            {/* CONTACT TAB */}
+            {profileTab === "contact" && (
+              <SectionCard title="Contact Info">
                 <div className="grid gap-4 md:grid-cols-2">
-                  {[
-                    { key: "twitterUrl", icon: Twitter, placeholder: "X / Twitter URL" },
-                    { key: "linkedinUrl", icon: Linkedin, placeholder: "LinkedIn URL" },
-                    { key: "githubUrl", icon: Github, placeholder: "GitHub URL" },
-                    { key: "websiteUrl", icon: Globe, placeholder: "Website URL" },
-                  ].map((item) => (
-                    <div key={item.key} className="relative">
-                      <item.icon className="absolute left-3 top-2.5 w-4 h-4 text-neutral-500" />
-                      <input
-                        value={formData[item.key as keyof typeof formData] || ""}
-                        onChange={e => handleChange(item.key as keyof typeof INITIAL_DATA, e.target.value)}
-                        className="w-full bg-neutral-900/50 border border-neutral-800 rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-1 focus:ring-brand focus:border-brand outline-none"
-                        placeholder={item.placeholder}
-                      />
-                    </div>
-                  ))}
+                  <IconInput
+                    label="Email"
+                    icon={MailIcon}
+                    value={formData.email || ""}
+                    onChange={(v) => handleChange("email", v)}
+                    placeholder="you@example.com"
+                  />
+                  <IconInput
+                    label="Phone"
+                    icon={Phone}
+                    value={formData.preferredPhoneNumber || ""}
+                    onChange={(v) => handleChange("preferredPhoneNumber", v)}
+                    placeholder="+1 (555) 000-0000"
+                  />
                 </div>
-              </div>
 
-              {/* Status Messages */}
-              {status && (
-                <div className={`p-4 rounded-lg flex items-center gap-2 text-sm ${
-                  status.type === 'error' ? 'bg-red-950/50 text-red-300 border border-red-900' : 'bg-green-950/50 text-green-300 border border-green-900'
-                }`}>
-                  {status.message}
+                {/* "Advanced" details collapsed by default */}
+                <details className="mt-3 rounded-lg bg-neutral-900/40 border border-neutral-800">
+                  <summary className="cursor-pointer py-2 px-3 text-xs uppercase tracking-wide text-neutral-400 select-none">
+                    Advanced details
+                  </summary>
+                  <div className="p-3 pt-1">
+                    <IconInput
+                      label="Address"
+                      icon={MapPin}
+                      value={formData.address || ""}
+                      onChange={(v) => handleChange("address", v)}
+                      placeholder="Full business address"
+                    />
+                  </div>
+                </details>
+              </SectionCard>
+            )}
+
+            {/* LINKS TAB */}
+            {profileTab === "links" && (
+              <SectionCard
+                title="Socials"
+                description="Share where people can find you."
+              >
+                <div className="grid gap-4 md:grid-cols-2">
+                  <IconInput
+                    icon={Twitter}
+                    value={formData.twitterUrl || ""}
+                    onChange={(v) => handleChange("twitterUrl", v)}
+                    placeholder="X / Twitter URL"
+                  />
+                  <IconInput
+                    icon={Linkedin}
+                    value={formData.linkedinUrl || ""}
+                    onChange={(v) => handleChange("linkedinUrl", v)}
+                    placeholder="LinkedIn URL"
+                  />
+                  <IconInput
+                    icon={Github}
+                    value={formData.githubUrl || ""}
+                    onChange={(v) => handleChange("githubUrl", v)}
+                    placeholder="GitHub URL"
+                  />
+                  <IconInput
+                    icon={Globe}
+                    value={formData.websiteUrl || ""}
+                    onChange={(v) => handleChange("websiteUrl", v)}
+                    placeholder="Website URL"
+                  />
                 </div>
-              )}
+              </SectionCard>
+            )}
 
-              {/* Action Bar */}
-              <div className="sticky bottom-4 z-10 pt-4">
-                <button
-                  type="submit"
-                  disabled={saving || !hasChanges}
-                  className="w-full shadow-lg shadow-brand/10 bg-brand text-black font-bold py-3 rounded-xl hover:bg-brand-light transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {saving ? <Loader2 className="animate-spin w-5 h-5" /> : <Save className="w-5 h-5" />}
-                  {saving ? "Saving Changes..." : "Save Profile"}
-                </button>
+            {/* Status */}
+            {status && (
+              <div
+                className={`p-4 rounded-lg flex items-center gap-2 text-sm ${
+                  status.type === "error"
+                    ? "bg-red-950/50 text-red-300 border border-red-900"
+                    : "bg-green-950/50 text-green-300 border border-green-900"
+                }`}
+              >
+                {status.message}
               </div>
-            </form>
+            )}
+
+            {/* Save Button */}
+            <div className="sticky bottom-4 z-10 pt-2 bg-gradient-to-t from-neutral-950/80 via-neutral-950/60 to-transparent">
+              <button
+                type="submit"
+                disabled={saving || !hasChanges}
+                className="w-full shadow-lg shadow-brand/10 bg-brand text-black font-bold py-3 rounded-xl hover:bg-brand-light transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {saving ? (
+                  <Loader2 className="animate-spin w-5 h-5" />
+                ) : (
+                  <Save className="w-5 h-5" />
+                )}
+                {saving ? "Saving Changes..." : "Save Profile"}
+              </button>
+            </div>
+          </form>
+
+          {/* Account actions */}
+          <SectionCard
+            title="Account"
+            description="Manage your account access and data."
+            className="mt-6"
+          >
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={signOutUser}
+                className="w-full py-2.5 px-4 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-neutral-300 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+              >
+                <SignoutIcon className="w-4 h-4" /> Sign Out
+              </button>
+
+              <button
+                onClick={() => setShowDeleteModal(true)}
+                className="w-full py-2.5 px-4 rounded-lg border border-red-900/30 bg-red-950/10 hover:bg-red-900/20 text-red-400 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+              >
+                <TrashIcon className="w-4 h-4" /> Delete Account
+              </button>
+            </div>
+          </SectionCard>
         </div>
-        
-        {/* === SECTION 2: IDEAS LIST & ACCOUNT ACTIONS === */}
-        <div className={`space-y-8 ${activeTab === 'ideas' ? 'block' : 'hidden sm:block'}`}>
-           <div className="space-y-6 animate-fade-in">
-              <div className="flex justify-between items-center">
+
+        {/* ========== RIGHT: PROJECTS (CREATED / LIKED) ========== */}
+        <div
+          className={`space-y-8 ${
+            activeTab === "ideas" ? "block" : "hidden sm:block"
+          }`}
+        >
+          <div className="space-y-6 animate-fade-in">
+            <div className="flex justify-between items-center">
+              <div>
                 <h2 className="text-xl font-bold">Your Projects</h2>
-                <Link href="/ideas/new" className="text-sm text-brand hover:underline">
-                  + New Idea
-                </Link>
+                <p className="text-xs text-neutral-400 mt-1">
+                  {projectsView === "created"
+                    ? "Projects you've published"
+                    : "Projects you've liked"}
+                </p>
               </div>
-              
-              {ideas.length === 0 ? (
+              <Link
+                href="/ideas/new"
+                className="flex items-center gap-2 px-4 py-0.5 bg-brand/50 text-white rounded-full hover:bg-brand/80 transition font-medium"
+              >
+                <AddNewIcon className="w-4 h-4" />
+                <span>New</span>
+              </Link>
+            </div>
+
+            {/* Created / Liked toggle */}
+            <div className="flex p-1 bg-neutral-900/20 rounded-full border border-neutral-800 text-xs font-medium w-full">
+              <button
+                type="button"
+                onClick={() => setProjectsView("created")}
+                className={`flex-1 py-1.5 rounded-full transition-all ${
+                  projectsView === "created"
+                    ? "bg-neutral-800/50 text-white shadow-sm"
+                    : "text-neutral-400"
+                }`}
+              >
+                Created
+              </button>
+              <button
+                type="button"
+                onClick={() => setProjectsView("liked")}
+                className={`flex-1 py-1.5 rounded-full transition-all ${
+                  projectsView === "liked"
+                    ? "bg-neutral-800/50 text-white shadow-sm"
+                    : "text-neutral-400"
+                }`}
+              >
+                Liked
+              </button>
+            </div>
+
+            {/* Created or Liked list */}
+            {projectsView === "created" ? (
+              ideas.length === 0 ? (
                 <div className="text-center py-12 bg-neutral-900/30 rounded-2xl border border-neutral-800 border-dashed">
-                  <p className="text-neutral-400 mb-4">No ideas published yet.</p>
+                  <p className="text-neutral-400 mb-4">
+                    No ideas published yet.
+                  </p>
                   <Link
                     href="/ideas/new"
                     className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-sm text-white transition-colors"
@@ -525,45 +834,36 @@ export default function ProfilePage() {
                 </div>
               ) : (
                 <div className="grid gap-6">
-                  {ideas.map(idea => (
+                  {ideas.map((idea) => (
                     <div key={idea.id} className="relative group">
-                      <IdeaCard idea={idea} showEdit />
-                      <button
-                        onClick={() => handleDeleteIdea(idea.id)}
-                        className="absolute top-4 right-4 p-2 bg-red-500/10 text-red-400 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/20"
-                        title="Delete Idea"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <ProfileIdeaCard
+                        idea={idea}
+                        showEdit={idea.founderId === user?.uid}
+                      />
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-           
-           {/* === DANGER ZONE === */}
-           <div className="p-6 rounded-2xl bg-neutral-900/30 border border-neutral-800 space-y-6">
-             <div>
-               <h3 className="font-semibold text-lg text-white mb-1">Account</h3>
-               <p className="text-sm text-neutral-400">Manage your account access and data</p>
-             </div>
-             
-             <div className="flex flex-col gap-3">
-               <button 
-                 onClick={signOutUser}
-                 className="w-full py-2.5 px-4 rounded-lg border border-neutral-700 hover:bg-neutral-800 text-neutral-300 transition-colors text-sm font-medium flex items-center justify-center gap-2"
-               >
-                 <LogOut className="w-4 h-4" /> Sign Out
-               </button>
-
-               <button 
-                 onClick={() => setShowDeleteModal(true)}
-                 className="w-full py-2.5 px-4 rounded-lg border border-red-900/30 bg-red-950/10 hover:bg-red-900/20 text-red-400 transition-colors text-sm font-medium flex items-center justify-center gap-2"
-               >
-                 <Trash2 className="w-4 h-4" /> Delete Account
-               </button>
-             </div>
-           </div>
+              )
+            ) : likedIdeas.length === 0 ? (
+              <div className="text-center py-12 bg-neutral-900/30 rounded-2xl border border-neutral-800 border-dashed">
+                <p className="text-neutral-400 mb-2">
+                  You haven&apos;t liked any projects yet.
+                </p>
+                <p className="text-xs text-neutral-500">
+                  Browse the explore page and tap the heart on projects you
+                  love.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-6">
+                {likedIdeas.map((idea) => (
+                  <div key={idea.id} className="relative group">
+                    <ProfileIdeaCard idea={idea} showEdit={false} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
