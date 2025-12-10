@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react"; // 1. Added useState
 
 interface FiltersSectionProps {
   sortBy: "newest" | "mostLiked";
@@ -30,6 +30,9 @@ const FiltersSection = memo(function FiltersSection({
   onClearAll,
 }: FiltersSectionProps) {
   
+  // 2. New state for toggling the tags section
+  const [isTagsOpen, setIsTagsOpen] = useState(false);
+
   // Calculate slider background percentage for the fill effect
   const sliderPercentage = maxLikeCount > 0 ? (minLikes / maxLikeCount) * 100 : 0;
   
@@ -104,16 +107,40 @@ const FiltersSection = memo(function FiltersSection({
               className="w-full h-1.5 rounded-lg appearance-none cursor-pointer focus:outline-none"
               style={gradientStyle}
             />
-            {/* Custom Thumb Styling is handled via simple CSS or global CSS, 
-                but Tailwind `accent-[var(--brand)]` in the props works for modern browsers */}
           </div>
         </div>
       </div>
 
-      {/* Tags Cloud */}
+      {/* Tags Cloud (Collapsible) */}
       <div className="space-y-3 pt-2 border-t border-white/5">
         <div className="flex items-center justify-between px-1">
-          <p className="text-xs font-medium text-neutral-400">Filter by tags</p>
+          {/* 3. The Toggle Button */}
+          <button 
+            type="button" 
+            onClick={() => setIsTagsOpen(!isTagsOpen)}
+            className="flex items-center gap-2 group focus:outline-none"
+          >
+            <p className="text-xs font-medium text-neutral-400 group-hover:text-neutral-200 transition-colors">
+              Filter by tags
+            </p>
+            {/* 4. The Arrow Icon that rotates */}
+            <svg 
+              className={`w-3.5 h-3.5 text-neutral-500 transition-transform duration-200 ${isTagsOpen ? 'rotate-180' : ''}`} 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+            
+            {/* Optional: Show count if closed */}
+            {!isTagsOpen && selectedTags.length > 0 && (
+               <span className="text-[10px] bg-neutral-800 text-neutral-300 px-1.5 py-0.5 rounded-full border border-white/10">
+                 {selectedTags.length} active
+               </span>
+            )}
+          </button>
+
           {selectedTags.length > 0 && (
             <button type="button" onClick={onClearTags} className="text-[10px] text-neutral-500 hover:text-white transition-colors">
               Clear tags
@@ -121,27 +148,32 @@ const FiltersSection = memo(function FiltersSection({
           )}
         </div>
         
-        {allTags.length > 0 ? (
-          <div className="flex gap-2 flex-wrap max-h-36 overflow-y-auto custom-scrollbar p-1 -m-1">
-            {allTags.map((tag) => (
-              <button
-                key={tag}
-                type="button"
-                onClick={() => onToggleTag(tag)}
-                className={`
-                  px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 border
-                  ${selectedTags.includes(tag)
-                    ? "bg-[var(--brand)] text-black border-[var(--brand)] shadow-[0_0_10px_rgba(33,221,192,0.3)] scale-105"
-                    : "bg-white/5 border-white/5 text-neutral-400 hover:text-neutral-200 hover:border-white/20 hover:bg-white/10"
-                  }
-                `}
-              >
-                {tag}
-              </button>
-            ))}
+        {/* 5. Conditional Rendering for the body */}
+        {isTagsOpen && (
+          <div className="animate-in fade-in slide-in-from-top-1 duration-200">
+            {allTags.length > 0 ? (
+              <div className="flex gap-2 flex-wrap max-h-36 overflow-y-auto custom-scrollbar p-1 -m-1">
+                {allTags.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => onToggleTag(tag)}
+                    className={`
+                      px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 border
+                      ${selectedTags.includes(tag)
+                        ? "bg-[var(--brand)] text-black border-[var(--brand)] shadow-[0_0_10px_rgba(33,221,192,0.3)] scale-105"
+                        : "bg-white/5 border-white/5 text-neutral-400 hover:text-neutral-200 hover:border-white/20 hover:bg-white/10"
+                      }
+                    `}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-neutral-600 italic px-1">No tags found.</p>
+            )}
           </div>
-        ) : (
-          <p className="text-xs text-neutral-600 italic px-1">No tags found.</p>
         )}
       </div>
     </div>
