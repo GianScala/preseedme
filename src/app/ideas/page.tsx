@@ -9,15 +9,15 @@ import PublicIdeaCard from "@/components/public/PublicIdeaCard";
 import SignInModal from "@/components/common/modal/SignInModal";
 import HeroSearchSection from "@/components/search/HeroSearchSection";
 import FiltersSection from "@/components/search/FiltersSection";
-import AdBanner from "@/components/common/AdBanner"; // Added for consistency with Home
+import AdBanner from "@/components/common/AdBanner";
 
 // Context & Lib
 import { useAuth } from "@/context/AuthContext";
-import { 
-  IdeaWithLikes, 
-  getLatestIdeas, 
-  toggleLikeIdea, 
-  getFeaturedProjectId 
+import {
+  IdeaWithLikes,
+  getLatestIdeas,
+  toggleLikeIdea,
+  getFeaturedProjectId,
 } from "@/lib/ideas";
 
 // ============================================================================
@@ -142,9 +142,10 @@ export default function IdeasPage() {
   const [error, setError] = useState<string | null>(null);
   const [loadingLikeId, setLoadingLikeId] = useState<string | null>(null);
   const [showSignInModal, setShowSignInModal] = useState(false);
-  const [clickedButtonRef, setClickedButtonRef] = useState<HTMLElement | null>(null);
+  const [clickedButtonRef, setClickedButtonRef] =
+    useState<HTMLElement | null>(null);
 
-  // Filter state
+  // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<"newest" | "mostLiked">("newest");
@@ -162,12 +163,11 @@ export default function IdeasPage() {
         setLoading(true);
         setError(null);
 
-        // Fetch ideas list AND featured ID in parallel
         const [ideasData, featuredIdData] = await Promise.all([
           getLatestIdeas(50),
-          getFeaturedProjectId()
+          getFeaturedProjectId(),
         ]);
-        
+
         if (cancelled) return;
 
         setIdeas(ideasData);
@@ -196,17 +196,14 @@ export default function IdeasPage() {
   const handleToggleLike = useCallback(
     async (ideaId: string, event?: React.MouseEvent) => {
       if (!user) {
-        if (event) {
-          setClickedButtonRef(event.currentTarget as HTMLElement);
-        }
+        if (event) setClickedButtonRef(event.currentTarget as HTMLElement);
         setShowSignInModal(true);
         return;
       }
 
       try {
         setLoadingLikeId(ideaId);
-        
-        // Optimistic update logic
+
         setIdeas((prev) =>
           prev.map((idea) => {
             if (idea.id !== ideaId) return idea;
@@ -215,26 +212,21 @@ export default function IdeasPage() {
             const likeCount = idea.likeCount ?? 0;
             const alreadyLiked = likedByUserIds.includes(user.uid);
 
-            const updatedLikedBy = alreadyLiked
-              ? likedByUserIds.filter((id) => id !== user.uid) // Remove like
-              : [...likedByUserIds, user.uid]; // Add like
-
-            const updatedCount = likeCount + (alreadyLiked ? -1 : 1);
+            const updatedLikes = alreadyLiked
+              ? likedByUserIds.filter((id) => id !== user.uid)
+              : [...likedByUserIds, user.uid];
 
             return {
               ...idea,
-              likedByUserIds: updatedLikedBy,
-              likeCount: Math.max(0, updatedCount),
+              likedByUserIds: updatedLikes,
+              likeCount: Math.max(0, likeCount + (alreadyLiked ? -1 : 1)),
             };
           })
         );
 
-        // Actual API call
         await toggleLikeIdea(ideaId, user.uid);
-
       } catch (err) {
-        console.error("Failed to toggle like on idea:", err);
-        // Optionally revert optimistic update here if needed
+        console.error("Failed to toggle like:", err);
       } finally {
         setLoadingLikeId(null);
       }
@@ -243,149 +235,82 @@ export default function IdeasPage() {
   );
 
   // ============================================================================
-  // Derived Data & Computations
+  // Derived Data
   // ============================================================================
 
-  const hasIdeas = ideas.length > 0;
   const currentUserId = user?.uid ?? null;
 
-  // 1. Find the featured idea object based on the ID we fetched
   const featuredIdea = useMemo(() => {
     if (!featuredId) return null;
     return ideas.find((i) => i.id === featuredId) || null;
   }, [ideas, featuredId]);
 
-  // 2. Extract all unique tags
   const allTags = useMemo(() => {
-    const tagSet = new Set<string>();
-    
+    const tags = new Set<string>();
+
     ideas.forEach((idea) => {
-      const allTagFields: string[] = [
+      const all: string[] = [
         ...(idea.tags ?? []),
         ...(idea.sectors ?? []),
         ...(idea.targetAudiences ?? []),
         ...(idea.targetDemographics ?? []),
-        ...(idea.revenueModels ?? []),
       ];
-      
-      if (idea.category) allTagFields.push(idea.category);
-      if (idea.sector) allTagFields.push(idea.sector);
-      if (idea.targetAudience) allTagFields.push(idea.targetAudience);
-      if (idea.targetMarket) allTagFields.push(idea.targetMarket);
-      
-      allTagFields.forEach((tag) => {
-        if (tag && typeof tag === "string" && tag.trim()) {
-          tagSet.add(tag.trim());
-        }
+      if (idea.category) all.push(idea.category);
+      if (idea.sector) all.push(idea.sector);
+      if (idea.targetAudience) all.push(idea.targetAudience);
+
+      all.forEach((tag) => {
+        if (tag && typeof tag === "string") tags.add(tag);
       });
     });
-    
-    return Array.from(tagSet).sort((a, b) => a.localeCompare(b));
+
+    return Array.from(tags).sort();
   }, [ideas]);
 
-  // 3. Calculate max like count
   const maxLikeCount = useMemo(() => {
-    if (!ideas.length) return 0;
-    return ideas.reduce(
-      (max, idea) => Math.max(max, idea.likeCount ?? 0),
-      0
-    );
+    return ideas.reduce((max, idea) => Math.max(max, idea.likeCount ?? 0), 0);
   }, [ideas]);
 
-  // 4. Filter and sort ideas
   const filteredIdeas = useMemo(() => {
     let result = [...ideas];
 
     // Text search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      result = result.filter((idea) => {
-        const searchableFields = [
-          idea.title,
-          idea.oneLiner,
-          idea.description,
-          idea.category,
-          idea.sector,
-          idea.targetAudience,
-          idea.targetMarket,
-          idea.founderUsername,
-          idea.founderHandle,
-        ].filter(Boolean);
-        
-        const arrayFields = [
-          ...(idea.tags ?? []),
-          ...(idea.sectors ?? []),
-          ...(idea.targetAudiences ?? []),
-          ...(idea.targetDemographics ?? []),
-        ];
-        
-        const searchableText = [...searchableFields, ...arrayFields]
-          .join(" ")
-          .toLowerCase();
-        
-        return searchableText.includes(q);
-      });
+      result = result.filter((idea) =>
+        `${idea.title} ${idea.oneLiner} ${idea.description}`
+          .toLowerCase()
+          .includes(q)
+      );
     }
 
-    // Tag filter
+    // Tags
     if (selectedTags.length > 0) {
       result = result.filter((idea) => {
-        const allIdeaTags: string[] = [
+        const ideaTags = new Set([
           ...(idea.tags ?? []),
           ...(idea.sectors ?? []),
           ...(idea.targetAudiences ?? []),
-          ...(idea.targetDemographics ?? []),
-          ...(idea.revenueModels ?? []),
-        ];
-        
-        if (idea.category) allIdeaTags.push(idea.category);
-        if (idea.sector) allIdeaTags.push(idea.sector);
-        if (idea.targetAudience) allIdeaTags.push(idea.targetAudience);
-        if (idea.targetMarket) allIdeaTags.push(idea.targetMarket);
-        
-        if (allIdeaTags.length === 0) return false;
-        
-        return selectedTags.every((selectedTag) =>
-          allIdeaTags.some((ideaTag) => ideaTag === selectedTag)
-        );
+        ]);
+
+        return selectedTags.every((t) => ideaTags.has(t));
       });
     }
 
-    // Min likes filter
+    // Min likes
     if (minLikes > 0) {
-      result = result.filter((idea) => (idea.likeCount ?? 0) >= minLikes);
+      result = result.filter((i) => (i.likeCount ?? 0) >= minLikes);
     }
 
-    // Sort
+    // Sorting
     if (sortBy === "mostLiked") {
       result.sort((a, b) => (b.likeCount ?? 0) - (a.likeCount ?? 0));
     }
 
     return result;
-  }, [ideas, searchQuery, selectedTags, sortBy, minLikes]);
+  }, [ideas, searchQuery, selectedTags, minLikes, sortBy]);
 
-  // ============================================================================
-  // Filter Handlers
-  // ============================================================================
-
-  const toggleTag = useCallback((tag: string) => {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
-  }, []);
-
-  const clearAllFilters = useCallback(() => {
-    setSearchQuery("");
-    setSelectedTags([]);
-    setSortBy("newest");
-    setMinLikes(0);
-  }, []);
-
-  const hasActiveFilters =
-    searchQuery !== "" ||
-    selectedTags.length > 0 ||
-    minLikes > 0 ||
-    sortBy !== "newest";
+  const hasIdeas = ideas.length > 0;
 
   // ============================================================================
   // Render States
@@ -433,13 +358,11 @@ export default function IdeasPage() {
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-fade-in">
-      {/* Sign In Modal */}
       <SignInModal
         isOpen={showSignInModal}
         onClose={() => setShowSignInModal(false)}
       />
 
-      {/* Hero Search Section */}
       <HeroSearchSection
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -447,22 +370,13 @@ export default function IdeasPage() {
         isLoading={false}
       />
 
-      {/* Content Sections */}
       <div className="space-y-6 sm:space-y-8">
-        
-        {/* Featured Section */}
+        {/* Featured */}
         {featuredIdea && !searchQuery && (
           <section>
             <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-              <span className="px-3 py-2 rounded-sm bg-[var(--brand)]/10 text-brand text-xs font-semibold whitespace-nowrap flex items-center gap-1.5">
-                <svg
-                  className="w-3.5 h-3.5"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                </svg>
-                Featured
+              <span className="px-3 py-2 rounded-sm bg-[var(--brand)]/10 text-brand text-xs font-semibold whitespace-nowrap">
+                ⭐ Featured
               </span>
             </div>
 
@@ -475,7 +389,7 @@ export default function IdeasPage() {
           </section>
         )}
 
-        {/* Filters Section */}
+        {/* Filters */}
         {ideas.length > 0 && (
           <FiltersSection
             sortBy={sortBy}
@@ -484,19 +398,42 @@ export default function IdeasPage() {
             onMinLikesChange={setMinLikes}
             maxLikeCount={maxLikeCount}
             selectedTags={selectedTags}
-            onToggleTag={toggleTag}
+            onToggleTag={(tag) =>
+              setSelectedTags((prev) =>
+                prev.includes(tag)
+                  ? prev.filter((t) => t !== tag)
+                  : [...prev, tag]
+              )
+            }
             onClearTags={() => setSelectedTags([])}
             allTags={allTags}
-            hasActiveFilters={hasActiveFilters}
-            onClearAll={clearAllFilters}
+            hasActiveFilters={
+              searchQuery !== "" ||
+              selectedTags.length > 0 ||
+              minLikes > 0 ||
+              sortBy !== "newest"
+            }
+            onClearAll={() => {
+              setSearchQuery("");
+              setSelectedTags([]);
+              setSortBy("newest");
+              setMinLikes(0);
+            }}
           />
         )}
 
-        {/* Results Grid */}
+        {/* Grid */}
         {ideas.length > 0 && (
           <section>
             {filteredIdeas.length === 0 ? (
-              <NoResultsState onClearFilters={clearAllFilters} />
+              <NoResultsState
+                onClearFilters={() => {
+                  setSearchQuery("");
+                  setSelectedTags([]);
+                  setSortBy("newest");
+                  setMinLikes(0);
+                }}
+              />
             ) : (
               <>
                 <div className="flex items-center justify-between mb-4 sm:mb-5">
@@ -509,13 +446,14 @@ export default function IdeasPage() {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                {/* HERE IS THE UPDATED GRID (LESS HORIZONTAL GAP) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-2 gap-y-4">
                   {filteredIdeas.map((idea) => (
                     <PublicIdeaCard
                       key={idea.id}
                       idea={idea}
                       currentUserId={currentUserId}
-                      onToggleLike={() => handleToggleLike(idea.id)}
+                      onToggleLike={() => { void handleToggleLike(idea.id); }}
                       loadingLike={loadingLikeId === idea.id}
                     />
                   ))}

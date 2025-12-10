@@ -101,7 +101,7 @@ export default function PublicWeeklyWinner({
     likedByUserIds = [],
     founderUsername,
     sector,
-    founderId, // <- from Idea type
+    founderId,
   } = idea;
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -119,17 +119,6 @@ export default function PublicWeeklyWinner({
     founderUsername?.charAt(0).toUpperCase() || founderUsername || "U";
   const shouldShowInitials = !avatarUrl || avatarError;
 
-  // --- DEBUG: log basic render info ---
-  useEffect(() => {
-    console.log("[WeeklyWinner] Render", {
-      ideaId: id,
-      founderId,
-      founderUsername,
-      currentAvatarUrl: avatarUrl,
-      avatarError,
-    });
-  }, [id, founderId, founderUsername, avatarUrl, avatarError]);
-
   // --- Load avatar from users/{founderId}.photoURL ---
   useEffect(() => {
     if (!founderId) {
@@ -143,13 +132,8 @@ export default function PublicWeeklyWinner({
 
     const loadAvatar = async () => {
       try {
-        console.log("[WeeklyWinner] Fetching founder profile for avatar", {
-          ideaId: id,
-          founderId,
-        });
-
         const db = getFirebaseDb();
-        const ref = doc(db, "users", founderId); // adjust collection name if needed
+        const ref = doc(db, "users", founderId);
         const snap = await getDoc(ref);
 
         if (!snap.exists()) {
@@ -163,13 +147,6 @@ export default function PublicWeeklyWinner({
         const data = snap.data() as any;
         const url: string | null =
           data.photoURL ?? data.avatarUrl ?? data.avatar ?? null;
-
-        console.log("[WeeklyWinner] Loaded founder profile", {
-          ideaId: id,
-          founderId,
-          photoURL: data.photoURL,
-          resolvedAvatarUrl: url,
-        });
 
         if (!cancelled) {
           setAvatarUrl(url);
@@ -195,20 +172,11 @@ export default function PublicWeeklyWinner({
   }, [id, founderId]);
 
   const handleAvatarError = () => {
-    console.warn("[WeeklyWinner] Avatar image failed to load", {
-      ideaId: id,
-      founderId,
-      avatarUrl,
-    });
     setAvatarError(true);
   };
 
   const handleAvatarLoad = () => {
-    console.log("[WeeklyWinner] Avatar image loaded successfully", {
-      ideaId: id,
-      founderId,
-      avatarUrl,
-    });
+    // Avatar loaded successfully; nothing else to do for now.
   };
 
   const handleLikeClick = (event: MouseEvent<HTMLButtonElement>) => {
@@ -236,7 +204,7 @@ export default function PublicWeeklyWinner({
             alt=""
             loading="lazy"
             decoding="async"
-            className="w-full h-full object-cover blur-xl scale-110 opacity-40 will-change-transform transition-transform duration-1000 ease-out group-hover:scale-100"
+            className="w-full h-full object-cover blur-xl opacity-40 will-change-transform transition-transform duration-1000 ease-out"
           />
           {/* Gradient Overlay for text readability */}
           <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/80 to-transparent" />
@@ -263,7 +231,7 @@ export default function PublicWeeklyWinner({
 
           {/* Mini Thumbnail */}
           {thumbnailUrl && (
-            <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-white/10 bg-neutral-800 shadow-sm shrink-0 group-hover:scale-105 transition-transform duration-500">
+            <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-white/10 bg-neutral-800 shadow-sm shrink-0">
               <img
                 src={thumbnailUrl}
                 alt={title}
@@ -334,7 +302,7 @@ export default function PublicWeeklyWinner({
           disabled={loadingLike}
           className={`
             pointer-events-auto
-            relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-300 active:scale-95
+            relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-300
             ${
               isLiked
                 ? "bg-rose-500/10 text-rose-400 border border-rose-500/30 shadow-[0_0_10px_rgba(244,63,94,0.2)]"
