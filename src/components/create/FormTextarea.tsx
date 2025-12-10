@@ -29,17 +29,18 @@ interface FormTextareaProps {
         </label>
   
         <textarea
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          rows={rows}
-          className="
-            w-full rounded-xl px-4 py-3 bg-neutral-900/40 border border-neutral-800
-            text-[16px] text-neutral-100 placeholder:text-neutral-500
-            focus:border-brand focus:ring-1 focus:ring-brand/10 outline-none
-            transition-all resize-y min-h-[100px]
-          "
-        />
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            rows={rows}
+            className="
+                w-full rounded-xl px-4 py-3 bg-neutral-900/40 border border-neutral-800
+                text-[16px] text-neutral-100 placeholder:text-neutral-500
+                focus:border-brand focus:ring-1 focus:ring-brand/10 outline-none
+                transition-all resize-y min-h-[100px] max-h-[300px]
+            "
+            maxLength={500}
+            />
   
         {helpText && (
           <p className="text-xs text-neutral-500">{helpText}</p>
