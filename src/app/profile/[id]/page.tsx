@@ -182,7 +182,7 @@ export default function PublicProfilePage() {
 
   // ---------------- MAIN UI ----------------
   return (
-    <div className="max-w-4xl mx-auto py-4 sm:py-6 px-4 sm:px-6 space-y-8 animate-fade-in">
+    <div className="py-4 sm:py-6 px-4 sm:px-6 space-y-8 animate-fade-in">
       <SignInModal
         isOpen={isSignInModalOpen}
         onClose={() => setIsSignInModalOpen(false)}

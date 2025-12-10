@@ -8,7 +8,6 @@ import HeartIcon from "@/components/icons/HeartIcon";
 import { IdeaMetaChips } from "@/components/ideas/IdeaMetaChips";
 import type { IdeaWithLikes } from "@/app/ideas/[id]/page";
 
-// 🔥 Firestore imports to load founder profile
 import { getFirebaseDb } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 
@@ -44,156 +43,116 @@ export default function IdeaHeader({
 
   const shouldShowInitials = !avatarUrl || avatarError;
 
-  // --- DEBUG: base render info ---
+  // -----------------------------
+  // LOAD FOUNDER AVATAR
+  // -----------------------------
   useEffect(() => {
-    console.log("[IdeaHeader] Render", {
-      ideaId: idea.id,
-      founderId,
-      founderUsername,
-      currentAvatarUrl: avatarUrl,
-      avatarError,
-    });
-  }, [idea.id, founderId, founderUsername, avatarUrl, avatarError]);
-
-  // --- Load founder avatar from users/{founderId}.photoURL ---
-  useEffect(() => {
-    if (!founderId) {
-      console.warn("[IdeaHeader] No founderId on idea, cannot load avatar", {
-        ideaId: idea.id,
-      });
-      return;
-    }
+    if (!founderId) return;
 
     let cancelled = false;
 
-    const loadAvatar = async () => {
+    (async () => {
       try {
-        console.log("[IdeaHeader] Fetching founder profile for avatar", {
-          ideaId: idea.id,
-          founderId,
-        });
-
         const db = getFirebaseDb();
-        const ref = doc(db, "users", founderId); // adjust collection name if needed
+        const ref = doc(db, "users", founderId);
         const snap = await getDoc(ref);
 
-        if (!snap.exists()) {
-          console.warn(
-            "[IdeaHeader] Founder profile not found, keeping initials",
-            { ideaId: idea.id, founderId }
-          );
-          return;
-        }
+        if (!snap.exists()) return;
 
         const data = snap.data() as any;
-        const url: string | null =
-          data.photoURL ?? data.avatarUrl ?? data.avatar ?? null;
 
-        console.log("[IdeaHeader] Loaded founder profile", {
-          ideaId: idea.id,
-          founderId,
-          photoURL: data.photoURL,
-          resolvedAvatarUrl: url,
-        });
+        const url: string | null =
+          data.photoURL ??
+          data.avatarUrl ??
+          data.avatar ??
+          null;
 
         if (!cancelled) {
           setAvatarUrl(url);
           setAvatarError(false);
         }
-      } catch (error) {
-        console.error(
-          "[IdeaHeader] Error loading founder avatar from profile",
-          {
-            ideaId: idea.id,
-            founderId,
-            error,
-          }
-        );
+      } catch (err) {
+        console.error("Failed loading founder avatar:", err);
       }
-    };
-
-    loadAvatar();
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [idea.id, founderId]);
+  }, [founderId]);
 
-  const handleAvatarError = () => {
-    console.warn("[IdeaHeader] Avatar image failed to load", {
-      ideaId: idea.id,
-      founderId,
-      avatarUrl,
-    });
-    setAvatarError(true);
-  };
-
-  const handleAvatarLoad = () => {
-    console.log("[IdeaHeader] Avatar image loaded successfully", {
-      ideaId: idea.id,
-      founderId,
-      avatarUrl,
-    });
-  };
+  const handleAvatarError = () => setAvatarError(true);
 
   return (
     <div className="space-y-6">
-      {/* Top Navigation & External Links */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+
+      {/* DESKTOP GO BACK (sm+) */}
+      <div className="hidden sm:flex justify-end">
         <button
           onClick={() => router.back()}
           className="
-            self-start flex items-center gap-2
-            text-xs sm:text-sm text-neutral-400
-            hover:text-neutral-200 transition-colors
-            group
+            flex items-center gap-2
+            text-sm text-neutral-400 hover:text-white
+            transition-colors px-3 py-1.5 rounded-lg 
+            bg-neutral-900/70 border border-neutral-800
           "
         >
-          Go Back
+          <svg viewBox="0 0 24 24" className="w-4 h-4">
+            <path
+              d="M15 6L9 12L15 18"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          Go back
         </button>
-
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          {idea.websiteUrl && (
-            <a
-              href={ensureProtocol(idea.websiteUrl)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="
-                text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2
-                rounded-lg border border-neutral-800 bg-neutral-900/50
-                hover:bg-neutral-800 transition-all hover:border-neutral-700
-                text-neutral-300
-              "
-            >
-              Visit website
-            </a>
-          )}
-          {idea.demoVideoUrl && (
-            <a
-              href={ensureProtocol(idea.demoVideoUrl)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="
-                text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2
-                rounded-lg bg-brand/10 border border-brand/20 text-brand
-                hover:bg-brand/20 hover:border-brand/40 transition-all
-                shadow-[0_0_15px_-3px_rgba(var(--brand-rgb),0.15)]
-              "
-            >
-              Watch demo
-            </a>
-          )}
-        </div>
       </div>
 
-      {/* Hero Section */}
+      {/* MAIN GRID */}
       <div className="grid gap-8 lg:grid-cols-3 lg:gap-12">
-        {/* Left Column: Text Info */}
+
+        {/* LEFT COLUMN */}
         <div className="lg:col-span-2 flex flex-col justify-center space-y-6">
+
           <div className="space-y-4">
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white tracking-tight leading-tight">
+
+            {/* MOBILE GO BACK (<sm) */}
+            <div className="flex items-start justify-between gap-2 sm:hidden">
+              <h1 className="flex-1 text-3xl font-bold text-white leading-tight">
+                {idea.title}
+              </h1>
+
+              <button
+                onClick={() => router.back()}
+                className="
+                  flex items-center justify-center
+                  rounded-full border border-neutral-800 bg-neutral-900/70
+                  text-neutral-300 hover:text-white hover:bg-neutral-800
+                  transition-colors w-8 h-8 text-xs
+                "
+                aria-label="Back"
+              >
+                <svg viewBox="0 0 24 24" className="w-4 h-4">
+                  <path
+                    d="M15 6L9 12L15 18"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {/* DESKTOP TITLE */}
+            <h1 className="hidden sm:block text-4xl md:text-5xl font-bold text-white leading-tight">
               {idea.title}
             </h1>
+
             <p className="text-base sm:text-lg text-neutral-300 leading-relaxed max-w-2xl">
               {idea.oneLiner}
             </p>
@@ -201,14 +160,14 @@ export default function IdeaHeader({
             <IdeaMetaChips idea={idea} />
           </div>
 
-          {/* Founder Profile */}
+          {/* Founder Block */}
           <div className="flex items-center gap-3 pt-2">
             <div
               className="
                 w-10 h-10 sm:w-12 sm:h-12 rounded-xl 
                 bg-gradient-to-br from-brand to-brand-dark 
-                flex items-center justify-center 
-                text-lg sm:text-xl font-bold text-black shadow-lg shadow-brand/20
+                flex items-center justify-center text-lg sm:text-xl 
+                font-bold text-black shadow-lg shadow-brand/20
                 overflow-hidden
               "
             >
@@ -217,14 +176,13 @@ export default function IdeaHeader({
               ) : (
                 <img
                   src={avatarUrl as string}
-                  alt={`${founderUsername}'s avatar`}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
+                  alt="Founder avatar"
                   onError={handleAvatarError}
-                  onLoad={handleAvatarLoad}
+                  className="w-full h-full object-cover"
                 />
               )}
             </div>
+
             <div className="flex flex-col">
               <span className="text-[10px] uppercase tracking-wider text-neutral-500 font-semibold">
                 Created By
@@ -233,58 +191,79 @@ export default function IdeaHeader({
                 href={`/profile/${idea.founderId}`}
                 className="inline-flex items-center gap-1.5 text-sm sm:text-base font-medium text-white hover:text-brand transition-colors"
               >
-                <span>{idea.founderUsername}</span>
+                {idea.founderUsername}
                 {idea.founderHandle && (
-                  <span className="text-neutral-500 font-normal">
-                    @{idea.founderHandle}
-                  </span>
+                  <span className="text-neutral-500">@{idea.founderHandle}</span>
                 )}
               </Link>
             </div>
           </div>
         </div>
 
-        {/* Right Column: Thumbnail & Like Action */}
+        {/* RIGHT COLUMN */}
         {idea.thumbnailUrl && (
-          <div className="relative group">
-            <div className="absolute -inset-1 bg-gradient-to-br from-brand/20 to-purple-600/20 rounded-2xl blur opacity-30 group-hover:opacity-50 transition-opacity duration-500" />
-            <img
-              src={idea.thumbnailUrl}
-              alt={idea.title}
-              className="relative w-full rounded-2xl border border-neutral-800 bg-neutral-900 object-cover aspect-video shadow-2xl"
-            />
+          <div className="lg:col-span-1 space-y-4">
 
-            {/* Like Button Overlay */}
-            <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10">
-              <button
-                onClick={onToggleLike}
-                disabled={likeLoading || isOwner}
-                className={`
-                  flex items-center gap-2
-                  px-3 sm:px-4 py-1.5 sm:py-2
-                  rounded-xl border backdrop-blur-md shadow-lg
-                  text-xs sm:text-sm font-medium
-                  transition-all duration-200
-                  ${
-                    isLiked
-                      ? "bg-rose-500/90 border-rose-500 text-white hover:bg-rose-600"
-                      : "bg-neutral-900/80 border-neutral-700/50 text-neutral-300 hover:bg-neutral-800 hover:border-neutral-600"
-                  }
-                  ${isOwner ? "cursor-default opacity-100" : "active:scale-95"}
-                `}
-              >
-                <HeartIcon
-                  className={
-                    isLiked
-                      ? "text-white"
-                      : "text-neutral-400 group-hover:text-rose-400"
-                  }
-                />
-                <span>{likeCount}</span>
-              </button>
+            {/* CTAs ABOVE IMAGE */}
+            {(idea.websiteUrl || idea.demoVideoUrl) && (
+              <div className="flex flex-wrap justify-end gap-2">
+                {idea.websiteUrl && (
+                  <a
+                    href={ensureProtocol(idea.websiteUrl)}
+                    target="_blank"
+                    className="text-xs sm:text-sm px-3 py-1.5 rounded-lg bg-neutral-900/50 border border-neutral-800 hover:bg-neutral-800 text-neutral-300"
+                  >
+                    Visit website
+                  </a>
+                )}
+                {idea.demoVideoUrl && (
+                  <a
+                    href={ensureProtocol(idea.demoVideoUrl)}
+                    target="_blank"
+                    className="text-xs sm:text-sm px-3 py-1.5 rounded-lg bg-brand/10 border border-brand/20 text-brand hover:bg-brand/20"
+                  >
+                    Watch demo
+                  </a>
+                )}
+              </div>
+            )}
+
+            {/* Thumbnail */}
+            <div className="relative group">
+              <div className="absolute -inset-1 bg-gradient-to-br from-brand/20 to-purple-600/20 rounded-2xl blur opacity-30 group-hover:opacity-50" />
+              <img
+                src={idea.thumbnailUrl}
+                alt={idea.title}
+                className="relative w-full rounded-2xl border border-neutral-800 object-cover aspect-video shadow-2xl"
+              />
+
+              {/* Like Button */}
+              <div className="absolute top-3 right-3 z-10">
+                <button
+                  onClick={onToggleLike}
+                  disabled={likeLoading || isOwner}
+                  className={`
+                    flex items-center gap-2 px-3 py-1.5 rounded-xl 
+                    backdrop-blur-md border shadow-lg text-xs sm:text-sm
+                    ${
+                      isLiked
+                        ? "bg-rose-500/90 border-rose-500 text-white hover:bg-rose-600"
+                        : "bg-neutral-900/80 border-neutral-700 text-neutral-300 hover:bg-neutral-800"
+                    }
+                  `}
+                >
+                  <HeartIcon
+                    className={
+                      isLiked ? "text-white" : "text-neutral-400"
+                    }
+                  />
+                  <span>{likeCount}</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
+
       </div>
     </div>
   );

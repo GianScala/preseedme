@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, ReactNode } from "react";
 import { useParams } from "next/navigation";
 import { doc, getDoc } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase";
@@ -19,15 +19,22 @@ import ActionButtons from "@/components/ideas/ActionButtons";
 import LoadingSpinner from "@/components/common/ideas/LoadingSpinner";
 import NotFound from "@/components/common/ideas/NotFound";
 
+import { Lock } from "lucide-react";
+
 export type IdeaWithLikes = Idea & {
   likeCount?: number;
   likedByUserIds?: string[];
 };
 
+type RestrictedSectionProps = {
+  children: ReactNode;
+  className?: string;
+};
+
 export default function IdeaDetailPage() {
   const params = useParams<{ id: string }>();
   const { user } = useAuth();
-  
+
   // State
   const [idea, setIdea] = useState<IdeaWithLikes | null>(null);
   const [loading, setLoading] = useState(true);
@@ -66,11 +73,13 @@ export default function IdeaDetailPage() {
       }
     };
 
-    loadIdea();
-    return () => { mounted = false; };
+    void loadIdea();
+    return () => {
+      mounted = false;
+    };
   }, [id]);
 
-  // 2. Optimistic Like Handler (Matches HomePage pattern)
+  // 2. Optimistic Like Handler
   const handleToggleLike = async () => {
     if (!user) {
       setShowSignInModal(true);
@@ -78,31 +87,29 @@ export default function IdeaDetailPage() {
     }
     if (!idea || likeLoading) return;
 
-    // Snapshot current state for rollback
     const previousIdea = { ...idea };
     const isLiked = idea.likedByUserIds?.includes(user.uid);
-    
-    // Optimistic Update
+
+    // Optimistic update
     setIdea((prev) => {
       if (!prev) return null;
       const currentLikes = prev.likedByUserIds || [];
-      const newLikes = isLiked 
-        ? currentLikes.filter(uid => uid !== user.uid)
+      const newLikes = isLiked
+        ? currentLikes.filter((uid) => uid !== user.uid)
         : [...currentLikes, user.uid];
-        
+
       return {
         ...prev,
         likedByUserIds: newLikes,
-        likeCount: (prev.likeCount || 0) + (isLiked ? -1 : 1)
+        likeCount: (prev.likeCount || 0) + (isLiked ? -1 : 1),
       };
     });
 
     try {
       setLikeLoading(true);
       await toggleLikeIdea(idea.id, user.uid);
-    } catch (error) {
-      console.error("Like failed:", error);
-      // Rollback on error
+    } catch (err) {
+      console.error("Like failed:", err);
       setIdea(previousIdea);
       setError("Failed to update like");
     } finally {
@@ -110,14 +117,58 @@ export default function IdeaDetailPage() {
     }
   };
 
+  const handleAuthTrigger = () => {
+    setShowSignInModal(true);
+  };
+
+  // Same UX pattern as profile page: blur + "Login to view" pill
+  const RestrictedSection = ({
+    children,
+    className = "",
+  }: RestrictedSectionProps) => {
+    if (user) {
+      return <div className={className}>{children}</div>;
+    }
+
+    return (
+      <div
+        onClick={handleAuthTrigger}
+        className={`relative group cursor-pointer overflow-hidden rounded-2xl ${className}`}
+      >
+        <div className="blur-md select-none pointer-events-none grayscale opacity-60 transition-all duration-500 group-hover:opacity-70">
+          {children}
+        </div>
+
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/5 hover:bg-black/10 transition-colors">
+          <div className="bg-neutral-900/90 backdrop-blur-xl border border-neutral-700/50 px-4 py-2 rounded-full flex items-center gap-2 shadow-2xl transform transition-transform group-hover:scale-105">
+            <Lock className="w-3 h-3 text-brand" />
+            <span className="text-xs font-bold text-white tracking-wide">
+              Login to view
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) return <LoadingSpinner />;
   if (!idea) return <NotFound />;
 
   const isOwner = !!(user && idea.founderId === user.uid);
-  
+
   // Feature flags based on data existence
-  const hasMetrics = !!(idea.monthlyRecurringRevenue || idea.userCount || idea.totalRevenueSinceInception || idea.foundedYear);
-  const hasWhyWin = !!(idea.teamBackground || idea.teamWhyYouWillWin || idea.industryInsights || idea.valuePropositionDetail);
+  const hasMetrics = !!(
+    idea.monthlyRecurringRevenue ||
+    idea.userCount ||
+    idea.totalRevenueSinceInception ||
+    idea.foundedYear
+  );
+  const hasWhyWin = !!(
+    idea.teamBackground ||
+    idea.teamWhyYouWillWin ||
+    idea.industryInsights ||
+    idea.valuePropositionDetail
+  );
 
   return (
     <div className="space-y-8 pb-12 animate-fade-in">
@@ -127,7 +178,7 @@ export default function IdeaDetailPage() {
       />
 
       {/* Header handles display, Page handles logic */}
-      <IdeaHeader 
+      <IdeaHeader
         idea={idea}
         user={user}
         isOwner={isOwner}
@@ -139,15 +190,24 @@ export default function IdeaDetailPage() {
       <div className="grid gap-6">
         {hasMetrics && <MetricsGrid idea={idea} />}
 
-        {idea.isFundraising && <FundraisingCard idea={idea} />}
+        {/* Fundraising (gated when logged out) */}
+        {idea.isFundraising && (
+          <RestrictedSection>
+            <FundraisingCard idea={idea} />
+          </RestrictedSection>
+        )}
 
         {idea.description && (
           <InfoCard
             icon="document"
             title="About this idea"
             content={idea.description}
-            isSelected={selectedCard === 'description'}
-            onSelect={() => setSelectedCard(selectedCard === 'description' ? null : 'description')}
+            isSelected={selectedCard === "description"}
+            onSelect={() =>
+              setSelectedCard(
+                selectedCard === "description" ? null : "description"
+              )
+            }
           />
         )}
 
@@ -156,12 +216,21 @@ export default function IdeaDetailPage() {
             icon="globe"
             title="Target Market"
             content={idea.targetMarket}
-            isSelected={selectedCard === 'targetMarket'}
-            onSelect={() => setSelectedCard(selectedCard === 'targetMarket' ? null : 'targetMarket')}
+            isSelected={selectedCard === "targetMarket"}
+            onSelect={() =>
+              setSelectedCard(
+                selectedCard === "targetMarket" ? null : "targetMarket"
+              )
+            }
           />
         )}
 
-        {hasWhyWin && <WhyWinSection idea={idea} />}
+        {/* WhyWinSection (gated when logged out) */}
+        {hasWhyWin && (
+          <RestrictedSection>
+            <WhyWinSection idea={idea} />
+          </RestrictedSection>
+        )}
       </div>
 
       {/* Error Toast */}
@@ -173,7 +242,7 @@ export default function IdeaDetailPage() {
         </div>
       )}
 
-      <ActionButtons 
+      <ActionButtons
         idea={idea}
         user={user}
         isOwner={isOwner}

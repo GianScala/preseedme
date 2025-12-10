@@ -61,8 +61,6 @@ export default function Navbar() {
     return () => unsub();
   }, [user]);
 
-
-
   return (
     <header
       className={`fixed top-0 w-full z-50 transition-all duration-300 border-b ${
@@ -114,17 +112,7 @@ export default function Navbar() {
                   href="/profile"
                   className="flex items-center gap-3 p-1 pr-3 rounded-full border border-transparent hover:border-white/10 hover:bg-white/5 transition-all group"
                 >
-                  {profile?.photoURL ? (
-                    <img
-                      src={profile.photoURL}
-                      alt="Profile"
-                      className="w-8 h-8 rounded-full object-cover ring-2 ring-transparent group-hover:ring-[var(--brand)] transition-all"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[var(--brand)] to-[var(--brand-dark)] flex items-center justify-center text-xs font-bold text-black shadow-lg">
-                      {profile?.username?.[0]?.toUpperCase() || "U"}
-                    </div>
-                  )}
+                  <ProfileImage profile={profile} />
                   <span className="text-sm font-medium text-neutral-300 group-hover:text-white">
                     {profile?.username || "Account"}
                   </span>
@@ -140,7 +128,7 @@ export default function Navbar() {
             </div>
           </div>
 
-          {/* Mobile menu button */}
+          {/* Mobile menu button - clean version without profile icon */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="md:hidden p-2 rounded-lg text-neutral-300 hover:bg-white/10 transition-colors"
@@ -172,6 +160,7 @@ export default function Navbar() {
           }`}
         >
           <div className="pt-2 pb-6 space-y-2 border-t border-white/10 mt-2">
+            {/* Navigation Links */}
             <MobileNavLink href="/ideas" onClick={() => setMobileMenuOpen(false)}>
               Find Projects
             </MobileNavLink>
@@ -199,22 +188,40 @@ export default function Navbar() {
               </>
             )}
 
+            {/* Auth Section for Mobile */}
             <div className="pt-4 mt-2 border-t border-white/5">
-              {user ? (
-                <Link
-                  href="/profile"
-                  className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <div className="w-8 h-8 rounded-full bg-[var(--brand)] flex items-center justify-center text-black font-bold">
-                    {profile?.username?.[0]?.toUpperCase() || "U"}
-                  </div>
-                  <span className="text-neutral-200">My Profile</span>
-                </Link>
+              {loading ? (
+                <div className="px-4 py-3">
+                  <div className="w-8 h-8 rounded-full bg-white/10 animate-pulse mx-auto" />
+                </div>
+              ) : user ? (
+                <div className="space-y-2">
+                  {/* Single profile link with all user info */}
+                  <Link
+                    href="/profile"
+                    className="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-white/5 transition-colors group"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <div className="flex-1">
+                      <p className="text-white font-medium">
+                        {profile?.username || "My Profile"}
+                      </p>
+                      <p className="text-neutral-400 text-sm">
+                        {profile?.email || user.email || "View profile"}
+                      </p>
+                    </div>
+                    <div className="text-neutral-400 group-hover:text-[var(--brand)] transition-colors">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </Link>
+                  
+                </div>
               ) : (
                 <Link
                   href="/auth"
-                  className="block w-full text-center px-4 py-3 text-sm font-bold rounded-lg bg-[var(--brand)] text-black mt-2"
+                  className="block w-full text-center px-4 py-3 text-sm font-bold rounded-lg bg-[var(--brand)] text-black hover:bg-[var(--brand-light)] transition-colors"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Sign In
@@ -249,5 +256,30 @@ function MobileNavLink({ href, onClick, children }: { href: string; onClick: () 
     >
       {children}
     </Link>
+  );
+}
+
+// Profile Image Component
+function ProfileImage({ profile, size = "md" }: { profile: any; size?: "sm" | "md" | "lg" }) {
+  const sizeClasses = {
+    sm: "w-8 h-8 text-xs",
+    md: "w-10 h-10 text-sm",
+    lg: "w-12 h-12 text-base"
+  };
+
+  if (profile?.photoURL) {
+    return (
+      <img
+        src={profile.photoURL}
+        alt="Profile"
+        className={`rounded-full object-cover ring-2 ring-transparent hover:ring-[var(--brand)] transition-all ${sizeClasses[size]}`}
+      />
+    );
+  }
+
+  return (
+    <div className={`rounded-full bg-gradient-to-br from-[var(--brand)] to-[var(--brand-dark)] flex items-center justify-center font-bold text-black shadow-lg ${sizeClasses[size]}`}>
+      {profile?.username?.[0]?.toUpperCase() || "U"}
+    </div>
   );
 }
