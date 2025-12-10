@@ -61,7 +61,22 @@ export default function AuthPage() {
       const { isNewUser, hasHandle } = await signInWithGoogleAndCreateProfile();
       router.replace(isNewUser || !hasHandle ? "/onboarding/handle" : "/");
     } catch (err: any) {
-      setError(err?.message ?? "Failed to sign in with Google.");
+      const code = err?.code;
+      
+      // Don't show error for popup closed by user - it's intentional
+      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+        setSubmitting(false);
+        return;
+      }
+      
+      // Handle other Google sign-in errors
+      if (code === "auth/popup-blocked") {
+        setError("Pop-up was blocked. Please enable pop-ups for this site.");
+      } else if (code === "auth/account-exists-with-different-credential") {
+        setError("An account already exists with this email using a different sign-in method.");
+      } else {
+        setError(err?.message ?? "Failed to sign in with Google.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -82,13 +97,11 @@ export default function AuthPage() {
   
       console.log('🔐 Attempting sign in...');
   
-      // Sign in with Firebase
       const cred = await emailSignIn(email.trim(), password);
       const signedInUser = cred.user;
   
       console.log('✅ Firebase Auth sign in successful:', signedInUser.uid);
   
-      // Check if email is verified in Firestore
       const db = getFirebaseDb();
       const userDoc = await getDoc(doc(db, 'users', signedInUser.uid));
       
@@ -97,7 +110,6 @@ export default function AuthPage() {
         
         console.log('📧 Email verified status:', userData.emailVerified);
         
-        // If NOT verified, block sign in
         if (!userData.emailVerified) {
           console.log('❌ Email not verified - blocking sign in');
           setError("Please verify your email before signing in. Check your inbox!");
@@ -110,9 +122,6 @@ export default function AuthPage() {
   
       console.log('✅ Email verified - proceeding to home');
   
-      // DON'T redirect immediately - let AuthContext handle it
-      // The useEffect at the top will redirect when user state is loaded
-      // Just clear the form and wait
       setEmail("");
       setPassword("");
       
@@ -131,7 +140,6 @@ export default function AuthPage() {
       }
       setSubmitting(false);
     }
-    // Don't set submitting to false here - let the redirect happen
   };
 
   if (loading || user) {
@@ -155,7 +163,6 @@ export default function AuthPage() {
         mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4",
       ].join(" ")}
     >
-      {/* Left side: Context / Value Prop */}
       <section className="w-full max-w-md space-y-6 text-center lg:text-left">
         <div className="inline-flex items-center gap-2 rounded-full border border-[var(--brand)]/20 bg-[var(--brand)]/5 px-3 py-1 text-[10px] sm:text-xs font-bold text-[var(--brand)] uppercase tracking-wider">
            <span className="relative flex h-2 w-2">
@@ -193,7 +200,6 @@ export default function AuthPage() {
         </ul>
       </section>
 
-      {/* Right side: Glass Auth Card */}
       <section className="w-full max-w-sm sm:max-w-md">
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-xl p-6 sm:p-8 shadow-2xl shadow-black/50">
           
@@ -261,7 +267,6 @@ export default function AuthPage() {
               />
             </div>
 
-            {/* Errors */}
             {error && (
               <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-300 flex items-start gap-2">
                 <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
