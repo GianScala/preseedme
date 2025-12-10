@@ -16,7 +16,7 @@ const titillium = Titillium_Web({
 
 export const metadata: Metadata = {
   title: {
-    default: "PreseedMe | Discover solopreneurs",
+    default: "PreseedMe | Connect with founders and micro-investors",
     template: "%s | PreseedME",
   },
   description: "Connect with founders and micro-investors.",
