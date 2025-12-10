@@ -6,7 +6,7 @@ import { Users, Zap, Lightbulb, Gem, Sparkles } from "lucide-react";
 
 /* ---------------- Types ---------------- */
 
-type AccentColor = "brand" | "purple" | "amber" | "emerald";
+type AccentColor = "brand" | "blue" | "amber" | "emerald";
 
 interface SectionItem {
   id: string;
@@ -20,22 +20,22 @@ interface SectionItem {
 
 const THEMES = {
   brand: {
-    iconBg: "bg-brand/10 text-brand border-brand/20",
+    iconRing: "sm:border-brand/40",
     glow: "from-brand/20 to-transparent",
     border: "group-hover:border-brand/30",
   },
-  purple: {
-    iconBg: "bg-purple-500/10 text-purple-400 border-purple-500/20",
-    glow: "from-purple-500/20 to-transparent",
-    border: "group-hover:border-purple-500/30",
+  blue: {
+    iconRing: "sm:border-blue-500/40",
+    glow: "from-blue-500/20 to-transparent",
+    border: "group-hover:border-blue-500/30",
   },
   amber: {
-    iconBg: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    iconRing: "sm:border-amber-500/40",
     glow: "from-amber-500/20 to-transparent",
     border: "group-hover:border-amber-500/30",
   },
   emerald: {
-    iconBg: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    iconRing: "sm:border-emerald-500/40",
     glow: "from-emerald-500/20 to-transparent",
     border: "group-hover:border-emerald-500/30",
   },
@@ -49,39 +49,48 @@ const WinCard = ({ icon: Icon, title, content, color }: Omit<SectionItem, "id">)
   return (
     <div
       className={`
-        group relative overflow-hidden rounded-2xl border border-neutral-800/60
-        bg-neutral-900/40 p-5 sm:p-6
+        group relative w-full overflow-hidden rounded-2xl border
+        bg-gradient-to-br from-neutral-950/40 via-neutral-900/20 to-neutral-900
+        border-neutral-800/70
+        shadow-[0_18px_45px_rgba(0,0,0,0.55)]
+        px-4 py-4 sm:px-6 sm:py-5
         backdrop-blur-sm transition-all duration-300
         hover:-translate-y-1 hover:bg-neutral-900/60
         ${theme.border}
       `}
     >
       {/* Spotlight Effect */}
-      <div 
+      <div
         className={`
           absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br 
           opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-2xl
           pointer-events-none rounded-full
           ${theme.glow}
-        `} 
+        `}
       />
 
       <div className="flex items-start gap-4 relative z-10">
+        {/* Icon (desktop / tablet only) */}
         <div
           className={`
-            w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0
-            border shadow-lg transition-transform duration-300 group-hover:scale-110
-            ${theme.iconBg}
+            hidden sm:flex
+            w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex-shrink-0
+            items-center justify-center
+            bg-neutral-900/70 border border-neutral-700/70
+            shadow-lg transition-transform duration-300 group-hover:scale-110
+            text-neutral-200
+            ${theme.iconRing}
           `}
         >
           <Icon className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={1.5} />
         </div>
 
+        {/* Text (full-width on mobile) */}
         <div className="flex-1 min-w-0">
           <h3 className="text-base sm:text-lg font-bold text-white mb-2 tracking-tight">
             {title}
           </h3>
-          <p className="text-sm sm:text-[15px] leading-relaxed text-neutral-300 whitespace-pre-wrap">
+          <p className="text-sm sm:text-[15px] leading-relaxed text-neutral-200 whitespace-pre-wrap">
             {content}
           </p>
         </div>
@@ -110,7 +119,7 @@ export default function WhyWinSection({ idea }: { idea: IdeaWithLikes }) {
           icon: Zap,
           title: "Competitive Edge",
           content: idea.teamWhyYouWillWin,
-          color: "purple" as const,
+          color: "blue" as const,
         }
       : null,
     idea.industryInsights

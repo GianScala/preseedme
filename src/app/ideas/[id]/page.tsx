@@ -18,6 +18,7 @@ import WhyWinSection from "@/components/ideas/WhyWinSection";
 import ActionButtons from "@/components/ideas/ActionButtons";
 import LoadingSpinner from "@/components/common/ideas/LoadingSpinner";
 import NotFound from "@/components/common/ideas/NotFound";
+import MilestonesCard from "@/components/ideas/MilestonesCard"; // 👈 NEW
 
 import { Lock } from "lucide-react";
 
@@ -169,6 +170,9 @@ export default function IdeaDetailPage() {
     idea.industryInsights ||
     idea.valuePropositionDetail
   );
+  const hasDeliverables = !!(
+    idea.deliverablesOverview || idea.deliverablesMilestones
+  );
 
   return (
     <div className="space-y-8 pb-12 animate-fade-in">
@@ -190,6 +194,14 @@ export default function IdeaDetailPage() {
       <div className="grid gap-6">
         {hasMetrics && <MetricsGrid idea={idea} />}
 
+        {idea.description && (
+          <InfoCard
+            icon="document"
+            title="About this idea"
+            content={idea.description}
+          />
+        )}
+
         {/* Fundraising (gated when logged out) */}
         {idea.isFundraising && (
           <RestrictedSection>
@@ -197,32 +209,11 @@ export default function IdeaDetailPage() {
           </RestrictedSection>
         )}
 
-        {idea.description && (
-          <InfoCard
-            icon="document"
-            title="About this idea"
-            content={idea.description}
-            isSelected={selectedCard === "description"}
-            onSelect={() =>
-              setSelectedCard(
-                selectedCard === "description" ? null : "description"
-              )
-            }
-          />
-        )}
-
-        {idea.targetMarket && (
-          <InfoCard
-            icon="globe"
-            title="Target Market"
-            content={idea.targetMarket}
-            isSelected={selectedCard === "targetMarket"}
-            onSelect={() =>
-              setSelectedCard(
-                selectedCard === "targetMarket" ? null : "targetMarket"
-              )
-            }
-          />
+        {/* Deliverables & milestones – directly below fundraising, same gating UX */}
+        {hasDeliverables && (
+          <RestrictedSection>
+            <MilestonesCard idea={idea} />
+          </RestrictedSection>
         )}
 
         {/* WhyWinSection (gated when logged out) */}
@@ -232,6 +223,14 @@ export default function IdeaDetailPage() {
           </RestrictedSection>
         )}
       </div>
+
+      {idea.targetMarket && (
+          <InfoCard
+            icon="globe"
+            title="Target Market"
+            content={idea.targetMarket}
+          />
+        )}
 
       {/* Error Toast */}
       {error && (

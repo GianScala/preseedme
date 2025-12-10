@@ -21,6 +21,7 @@ import DemoVisualsSection from "@/components/create/DemoVisualsSection";
 import BusinessSnapshotSection from "@/components/create/BusinessSnapshotSection";
 import WhyWinFormSection from "@/components/create/WhyWinFormSection";
 import FundraisingFormSection from "@/components/create/FundraisingFormSection";
+import DeliverablesFormSection from "@/components/create/DeliverablesFormSection"; // 👈 NEW
 import { toNumberOrUndefined } from "@/lib/utils";
 
 export interface IdeaFormData {
@@ -46,9 +47,9 @@ export interface IdeaFormData {
   monthlyRecurringRevenue: string;
   userCount: string;
   revenueModels: string[];
-  targetMarket: string[]; // ← CHANGED: Now an array!
+  targetMarket: string[]; // array
 
-  // Why Win
+  // Why Win / About
   teamBackground: string;
   teamWhyYouWillWin: string;
   industryInsights: string;
@@ -59,6 +60,10 @@ export interface IdeaFormData {
   fundraisingGoal: string;
   fundraisingRaisedSoFar: string;
   fundraisingMinCheckSize: string;
+
+  // Deliverables (NEW)
+  deliverablesOverview: string; // high-level plan of what will be delivered
+  deliverablesMilestones: string; // milestones & what gets done when
 }
 
 export default function NewIdeaPage() {
@@ -81,7 +86,7 @@ export default function NewIdeaPage() {
     monthlyRecurringRevenue: "",
     userCount: "",
     revenueModels: [],
-    targetMarket: [], // ← CHANGED: Now an array!
+    targetMarket: [],
     teamBackground: "",
     teamWhyYouWillWin: "",
     industryInsights: "",
@@ -90,6 +95,9 @@ export default function NewIdeaPage() {
     fundraisingGoal: "",
     fundraisingRaisedSoFar: "",
     fundraisingMinCheckSize: "",
+    // NEW: Deliverables
+    deliverablesOverview: "",
+    deliverablesMilestones: "",
   });
 
   const [saving, setSaving] = useState(false);
@@ -151,7 +159,7 @@ export default function NewIdeaPage() {
         data.targetDemographics = formData.targetDemographics;
       if (formData.revenueModels.length)
         data.revenueModels = formData.revenueModels;
-      if (formData.targetMarket.length) // ← CHANGED: Check array length
+      if (formData.targetMarket.length)
         data.targetMarket = formData.targetMarket;
 
       // Numeric fields
@@ -168,7 +176,7 @@ export default function NewIdeaPage() {
       if (mrrNum !== undefined) data.monthlyRecurringRevenue = mrrNum;
       if (userCountNum !== undefined) data.userCount = userCountNum;
 
-      // Why you'll win
+      // Why you'll win / About
       if (formData.teamBackground.trim())
         data.teamBackground = formData.teamBackground.trim();
       if (formData.teamWhyYouWillWin.trim())
@@ -197,6 +205,14 @@ export default function NewIdeaPage() {
           data.fundraisingRaisedSoFar = fundraisingRaisedNum;
         if (fundraisingMinCheckNum !== undefined)
           data.fundraisingMinCheckSize = fundraisingMinCheckNum;
+      }
+
+      // Deliverables (NEW)
+      if (formData.deliverablesOverview.trim()) {
+        data.deliverablesOverview = formData.deliverablesOverview.trim();
+      }
+      if (formData.deliverablesMilestones.trim()) {
+        data.deliverablesMilestones = formData.deliverablesMilestones.trim();
       }
 
       // Thumbnail upload
@@ -343,6 +359,7 @@ export default function NewIdeaPage() {
           }
         />
 
+        {/* ABOUT section (already before funding) */}
         <WhyWinFormSection
           formData={formData}
           updateFormData={updateFormData}
@@ -352,6 +369,7 @@ export default function NewIdeaPage() {
           }
         />
 
+        {/* FUNDING REQUEST */}
         <FundraisingFormSection
           formData={formData}
           updateFormData={updateFormData}
@@ -363,12 +381,24 @@ export default function NewIdeaPage() {
           }
         />
 
+        {/* DELIVERABLES – MUST BE BELOW FUNDING REQUEST */}
+        <DeliverablesFormSection
+          formData={formData}
+          updateFormData={updateFormData}
+          isOpen={openSection === "deliverables"}
+          onToggle={() =>
+            setOpenSection(
+              openSection === "deliverables" ? null : "deliverables"
+            )
+          }
+        />
+
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-3 pt-6">
           <button
             type="submit"
             disabled={saving}
-            className="px-8 py-3 rounded-xl bg-gradient-to-r from-brand to-brand-dark text-black text-sm font-bold hover:shadow-lg hover:shadow-brand/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-6 py-3 rounded-xl bg-gradient-to-r from-brand to-brand-dark text-black text-sm font-bold hover:shadow-lg hover:shadow-brand/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? (
               <span className="flex items-center gap-2">
@@ -392,19 +422,6 @@ export default function NewIdeaPage() {
               </span>
             ) : (
               <span className="flex items-center gap-2">
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
                 Publish Idea
               </span>
             )}

@@ -64,9 +64,9 @@ export default function FundraisingCard({ idea }: FundraisingCardProps) {
       : 0;
 
   return (
-    <div className="relative group rounded-2xl p-[1px] bg-gradient-to-br from-emerald-500/30 via-emerald-900/10 to-neutral-900/50 shadow-xl overflow-hidden animate-fade-in my-6">
+    <div className="relative group rounded-2xl p-[1px] bg-gradient-to-br from-emerald-500/20 via-emerald-900/10 to-neutral/10 shadow-xl overflow-hidden animate-fade-in my-6">
       
-      <div className="relative h-full rounded-2xl bg-neutral-950/90 p-5 sm:p-6 backdrop-blur-xl">
+      <div className="relative h-full rounded-2xl bg-neutral-900/50 p-5 sm:p-6 backdrop-blur-xl">
         {/* Header */}
         <div className="flex items-start gap-4 mb-6">
           <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">

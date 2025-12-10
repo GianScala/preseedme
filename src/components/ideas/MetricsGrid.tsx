@@ -4,9 +4,9 @@
 import type { IdeaWithLikes } from "@/app/ideas/[id]/page";
 import { formatCurrencyShort, formatNumberShort } from "@/lib/formatters";
 import { DollarSign, Users, TrendingUp, Calendar, LucideIcon } from "lucide-react";
-import { ReactNode } from "react";
 
-// 1. Define strict types for the card
+/* ---------------- Types ---------------- */
+
 interface MetricItem {
   id: string;
   label: string;
@@ -16,74 +16,121 @@ interface MetricItem {
   theme: "brand" | "purple" | "green" | "blue";
 }
 
-// 2. The Card Component
-function MetricCard({ 
-  item, 
-  className = "" 
-}: { 
-  item: MetricItem; 
-  className?: string 
+/* ---------------- Theme Config ---------------- */
+
+const METRIC_THEMES: Record<
+  MetricItem["theme"],
+  {
+    card: string;
+    pill: string;
+    glow: string;
+  }
+> = {
+  brand: {
+    // subtle brand tint on border + bg
+    card: "border-brand/40 bg-brand/5",
+    pill: "bg-brand/10 border-brand/40 text-brand",
+    glow: "from-brand/20 to-transparent",
+  },
+  purple: {
+    card: "border-purple-500/40 bg-purple-500/5",
+    pill: "bg-purple-500/10 border-purple-500/40 text-purple-300",
+    glow: "from-purple-500/20 to-transparent",
+  },
+  green: {
+    card: "border-emerald-500/40 bg-emerald-500/5",
+    pill: "bg-emerald-500/10 border-emerald-500/40 text-emerald-300",
+    glow: "from-emerald-500/20 to-transparent",
+  },
+  blue: {
+    card: "border-blue-500/40 bg-blue-500/5",
+    pill: "bg-blue-500/10 border-blue-500/40 text-blue-300",
+    glow: "from-blue-500/20 to-transparent",
+  },
+};
+
+/* ---------------- Card Component ---------------- */
+
+function MetricCard({
+  item,
+  className = "",
+}: {
+  item: MetricItem;
+  className?: string;
 }) {
   const { theme, icon: Icon, label, value, badge } = item;
-
-  // Theme Styles Configuration
-  const styles = {
-    brand: "border-brand/20 bg-brand/5 text-brand",
-    purple: "border-purple-500/20 bg-purple-500/5 text-purple-400",
-    green: "border-emerald-500/20 bg-emerald-500/5 text-emerald-400",
-    blue: "border-blue-500/20 bg-blue-500/5 text-blue-400",
-  };
-
-  const badgeStyles = {
-    brand: "bg-brand/10 border-brand/20 text-brand",
-    purple: "bg-purple-500/10 border-purple-500/20 text-purple-300",
-    green: "bg-emerald-500/10 border-emerald-500/20 text-emerald-300",
-    blue: "bg-blue-500/10 border-blue-500/20 text-blue-300",
-  };
-
-  const activeStyle = styles[theme];
-  const activeBadge = badgeStyles[theme];
+  const styles = METRIC_THEMES[theme];
 
   return (
     <div
       className={`
-        group relative overflow-hidden rounded-2xl border 
-        p-4 sm:p-5 backdrop-blur-sm transition-all duration-300
-        hover:-translate-y-1 hover:bg-opacity-80
-        ${activeStyle}
+        group relative overflow-hidden rounded-2xl border
+        px-3 py-3 sm:px-4 sm:py-4
+        shadow-[0_18px_45px_rgba(0,0,0,0.45)]
+        backdrop-blur-sm transition-all duration-300
+        hover:-translate-y-1 hover:bg-opacity-90
+        ${styles.card}
         ${className}
       `}
     >
-      <div className="flex items-start justify-between mb-4">
-        <div className={`p-2.5 rounded-xl bg-white/5`}>
-          <Icon className="w-5 h-5" />
+      {/* Soft themed glow */}
+      <div
+        className={`
+          pointer-events-none absolute -top-10 -right-10 h-20 w-20 rounded-full
+          bg-gradient-to-br opacity-0 group-hover:opacity-100 blur-2xl
+          transition-opacity duration-500
+          ${styles.glow}
+        `}
+      />
+
+      <div className="relative z-10 flex items-start justify-between mb-3 sm:mb-4">
+        {/* Icon – hidden on mobile for cleaner layout */}
+        <div
+          className="
+            hidden sm:flex w-9 h-9 rounded-xl
+            bg-neutral-950/80 border border-neutral-700/70
+            items-center justify-center text-neutral-200 flex-shrink-0
+          "
+        >
+          <Icon className="w-4 h-4" strokeWidth={1.5} />
         </div>
-        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider ${activeBadge}`}>
+
+        {/* Badge */}
+        <span
+          className={`
+            inline-flex items-center justify-center
+            text-[9px] sm:text-[10px] font-semibold px-2 py-0.5 rounded-full
+            border uppercase tracking-[0.16em]
+            ${styles.pill}
+          `}
+        >
           {badge}
         </span>
       </div>
 
-      <div>
-        <div className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+      <div className="relative z-10">
+        <div className="text-lg sm:text-2xl font-bold text-white tracking-tight truncate">
           {value}
         </div>
-        <div className="text-xs sm:text-sm text-neutral-400 font-medium mt-1">
+        <div className="text-[11px] sm:text-sm text-neutral-300 font-medium mt-1">
           {label}
         </div>
       </div>
-      
-      {/* Hover Shine Effect */}
-      <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
     </div>
   );
 }
 
-// 3. Main Grid Component
+/* ---------------- Main Grid Component ---------------- */
+
 export default function MetricsGrid({ idea }: { idea: IdeaWithLikes }) {
   // Safe formatting helpers
-  const mrr = idea.monthlyRecurringRevenue ? formatCurrencyShort(idea.monthlyRecurringRevenue) : null;
+  const mrr = idea.monthlyRecurringRevenue
+    ? formatCurrencyShort(idea.monthlyRecurringRevenue)
+    : null;
   const users = idea.userCount ? formatNumberShort(idea.userCount) : null;
-  const revenue = idea.totalRevenueSinceInception ? formatCurrencyShort(idea.totalRevenueSinceInception) : null;
+  const revenue = idea.totalRevenueSinceInception
+    ? formatCurrencyShort(idea.totalRevenueSinceInception)
+    : null;
   const founded = idea.foundedYear ? String(idea.foundedYear) : null;
 
   // Build the list explicitly
@@ -138,18 +185,14 @@ export default function MetricsGrid({ idea }: { idea: IdeaWithLikes }) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 animate-fade-in">
       {metrics.map((metric, index) => {
-        // Smart Span Logic:
         // If there is an odd number of items, make the LAST item span 2 columns on mobile.
         const isOdd = metrics.length % 2 !== 0;
         const isLast = index === metrics.length - 1;
-        const spanClass = (isOdd && isLast) ? "col-span-2 lg:col-span-1" : "col-span-1";
+        const spanClass =
+          isOdd && isLast ? "col-span-2 lg:col-span-1" : "col-span-1";
 
         return (
-          <MetricCard 
-            key={metric.id} 
-            item={metric} 
-            className={spanClass}
-          />
+          <MetricCard key={metric.id} item={metric} className={spanClass} />
         );
       })}
     </div>

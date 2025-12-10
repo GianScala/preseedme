@@ -80,6 +80,10 @@ export function mapIdeaDoc(snapshot: any): IdeaWithLikes {
     industryInsights: data.industryInsights,
     valuePropositionDetail: data.valuePropositionDetail,
 
+    // 📦 Deliverables (NEW)
+    deliverablesOverview: data.deliverablesOverview,
+    deliverablesMilestones: data.deliverablesMilestones,
+
     // 💸 Fundraising
     isFundraising: data.isFundraising,
     fundraisingGoal: data.fundraisingGoal,

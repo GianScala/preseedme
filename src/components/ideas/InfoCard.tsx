@@ -7,8 +7,6 @@ interface InfoCardProps {
   icon: "globe" | "document";
   title: string;
   content: string | string[];
-  isSelected?: boolean;
-  onSelect?: () => void;
 }
 
 const iconMap = {
@@ -16,122 +14,100 @@ const iconMap = {
   document: <FileText className="w-5 h-5 sm:w-6 sm:h-6" />,
 };
 
-export default function InfoCard({
-  icon,
-  title,
-  content,
-  isSelected = false,
-  onSelect,
-}: InfoCardProps) {
-  const Icon = iconMap[icon];
-  const isArray = Array.isArray(content);
+export default function InfoCard({ icon, title, content }: InfoCardProps) {
   const [expanded, setExpanded] = useState(false);
-
-  // Check if text is long enough to warrant a toggle (simple heuristic)
-  const isLongText = !isArray && (content as string).length > 150;
-
-  // Wrapper: Use button for semantic correctness if interactive
-  const Component = onSelect ? "button" : "div";
+  const isArray = Array.isArray(content);
+  const text = isArray ? "" : (content as string);
+  const shouldTruncate = !isArray && text.length > 180;
 
   return (
-    <Component
-      onClick={onSelect}
-      className={`
-        relative w-full text-left group overflow-hidden rounded-2xl border
-        transition-all duration-300 ease-out
-        p-4 sm:p-5
-        ${
-          isSelected
-            ? "bg-blue-950/20 border-blue-500/50 ring-1 ring-blue-500/20"
-            : "bg-neutral-900/40 border-neutral-800/60 hover:border-neutral-700 hover:bg-neutral-900/60"
-        }
-        ${onSelect ? "cursor-pointer active:scale-[0.99]" : ""}
-      `}
+    <div
+      className="
+        relative w-full overflow-hidden rounded-2xl border
+        bg-gradient-to-br from-neutral-950/40 via-neutral-900/20 to-neutral-900
+        border-neutral-800/70
+        shadow-[0_18px_45px_rgba(0,0,0,0.55)]
+        px-4 py-4 sm:px-6 sm:py-5
+      "
     >
-      <div className="flex gap-4">
-        {/* Icon Column */}
-        <div className="flex-shrink-0">
-          <div
-            className={`
-              w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center
-              border transition-colors duration-300
-              ${
-                isSelected
-                  ? "bg-blue-500/10 border-blue-500/30 text-blue-400"
-                  : "bg-neutral-800/50 border-neutral-700/50 text-neutral-400 group-hover:text-neutral-200"
-              }
-            `}
-          >
-            {Icon}
-          </div>
+      <div className="flex items-start gap-4">
+        {/* Icon – hidden on mobile for better readability */}
+        <div
+          className="
+            hidden sm:flex
+            flex-shrink-0 w-11 h-11 sm:w-12 sm:h-12 rounded-xl
+            bg-neutral-900/70 border border-neutral-700/70
+            items-center justify-center
+            text-neutral-200
+          "
+        >
+          {iconMap[icon]}
         </div>
 
-        {/* Content Column */}
-        <div className="flex-1 min-w-0 pt-0.5">
-          <h3
-            className={`
-              text-sm sm:text-base font-bold mb-2 tracking-tight
-              ${isSelected ? "text-blue-100" : "text-white"}
-            `}
-          >
-            {title}
-          </h3>
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          {/* Header */}
+          <div className="flex items-start justify-between gap-3 mb-2 sm:mb-3">
+            <div>
+              <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
+                {title}
+              </h3>
+            </div>
+          </div>
 
           {isArray ? (
-            /* Array Mode: Tags */
-            <div className="flex flex-wrap gap-2">
-              {content.map((item, index) => (
+            // Tags
+            <div className="flex flex-wrap gap-2 mt-1">
+              {content.map((item, i) => (
                 <span
-                  key={index}
-                  className={`
-                    inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border
-                    ${
-                      isSelected
-                        ? "bg-blue-900/30 border-blue-700/30 text-blue-200"
-                        : "bg-neutral-800/40 border-neutral-700/50 text-neutral-300"
-                    }
-                  `}
+                  key={i}
+                  className="
+                    px-3 py-1.5 rounded-lg text-xs font-medium
+                    bg-neutral-900/70 border border-neutral-700/70
+                    text-neutral-200
+                  "
                 >
                   {item}
                 </span>
               ))}
             </div>
           ) : (
-            /* String Mode: Text with Read More */
-            <div className="relative">
-              <p
-                className={`
-                  text-sm leading-relaxed text-neutral-300
-                  ${!expanded && isLongText ? "line-clamp-3" : ""}
-                `}
-              >
-                {content}
+            // Text with smart "Read more"
+            <div className="text-sm leading-relaxed text-neutral-200">
+              <p className={!expanded && shouldTruncate ? "line-clamp-3" : ""}>
+                {text}
               </p>
-              
-              {isLongText && (
-                <div
-                  role="button"
+
+              {shouldTruncate && (
+                <button
+                  type="button"
                   onClick={(e) => {
-                    e.stopPropagation(); // Prevent triggering the parent selection
+                    e.stopPropagation();
                     setExpanded(!expanded);
                   }}
-                  className="mt-2 flex items-center gap-1 text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors w-fit"
+                  className="
+                    mt-3 inline-flex items-center gap-1.5 text-xs font-medium
+                    text-neutral-400 hover:text-neutral-200
+                    transition-colors
+                  "
                 >
                   {expanded ? (
                     <>
-                      Show Less <ChevronUp className="w-3 h-3" />
+                      Show less
+                      <ChevronUp className="w-3.5 h-3.5" />
                     </>
                   ) : (
                     <>
-                      Read More <ChevronDown className="w-3 h-3" />
+                      Read more
+                      <ChevronDown className="w-3.5 h-3.5" />
                     </>
                   )}
-                </div>
+                </button>
               )}
             </div>
           )}
         </div>
       </div>
-    </Component>
+    </div>
   );
 }

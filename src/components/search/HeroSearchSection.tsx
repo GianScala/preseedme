@@ -32,9 +32,7 @@ export default function HeroSearchSection({
 
       {/* Search Bar - Premium Glass Effect */}
       <div className="w-full max-w-2xl px-4 relative group">
-        
-        {/* FIX: Removed the "Glow Effect" div causing the boxy artifact */}
-        
+                
         <div className="relative">
           <input
             type="text"
@@ -43,7 +41,7 @@ export default function HeroSearchSection({
             placeholder="Search ideas, markets, or founders..."
             className="
               w-full h-14 pl-12 pr-12 rounded-xl 
-              bg-neutral-900/60 backdrop-blur-xl border border-white/10 
+              bg-neutral-900/20 backdrop-blur-xl border border-white/10 
               text-white placeholder-neutral-500 text-base 
               transition-all duration-300
               
@@ -51,7 +49,7 @@ export default function HeroSearchSection({
               shadow-[0_0_20px_-5px_rgba(0,0,0,0.5)] 
               focus:shadow-[0_0_30px_-5px_var(--brand)]
               
-              focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/50 focus:border-[var(--brand)]
+              focus:outline-none focus:ring-1 focus:ring-[var(--brand)]/50 focus:border-[var(--brand)]
             "
           />
           

@@ -202,17 +202,17 @@ export default function AboutPage() {
       <section className="text-center max-w-4xl mx-auto space-y-5 sm:space-y-6 pt-6 sm:pt-10">
         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] sm:text-xs text-neutral-300 backdrop-blur-md">
           <span className="w-1.5 h-1.5 rounded-full bg-[var(--brand)] animate-pulse" />
-          Micro-funding for brave founders
+          Preseed early founders
         </div>
 
         <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold tracking-tight text-white leading-[1.1]">
           Get the first{" "}
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--brand-light)] to-[var(--brand)]">
-            Seed
+            seed
           </span>{" "}
           <br />
           <span className="text-4xl sm:text-5xl md:text-7xl">
-            to grow your business
+            and grow your business
           </span>
         </h1>
 
@@ -267,11 +267,11 @@ export default function AboutPage() {
 
       {/* 3. Steps (Compact on Mobile) */}
       <section className="max-w-6xl mx-auto px-4">
-        <div className="p-6 sm:p-12 rounded-[1.5rem] border border-white/10 bg-gradient-to-b from-neutral-900/80 to-neutral-900/40 backdrop-blur-xl">
+        <div className="p-6 sm:p-12 rounded-[1.5rem] border border-white/10 bg-gradient-to-b from-neutral-900/40 to-neutral-900/20 backdrop-blur-xl">
           <div className="text-center mb-8 sm:mb-12">
             <SectionLabel text="Process" />
             <h2 className="text-2xl sm:text-4xl font-bold text-white">
-              From Idea to Preseed
+              From idea to successfull businesses
             </h2>
           </div>
 
@@ -305,13 +305,13 @@ export default function AboutPage() {
       <section className="max-w-6xl mx-auto px-4 grid md:grid-cols-2 gap-10 sm:gap-12">
         <div>
           <h2 className="text-2xl sm:text-3xl font-bold text-white mb-5 sm:mb-6 flex items-center gap-2">
-            <span className="text-[var(--brand)]">Founders</span> get speed.
+            <span className="text-[var(--brand)]">Founders</span> want speed
           </h2>
           <BenefitGrid items={FOUNDER_BENEFITS} />
         </div>
         <div>
           <h2 className="text-2xl sm:text-3xl font-bold text-white mb-5 sm:mb-6 flex items-center gap-2">
-            <span className="text-[var(--brand)]">Investors</span> get access.
+            <span className="text-[var(--brand)]">Investors</span> want access
           </h2>
           <BenefitGrid items={INVESTOR_BENEFITS} />
         </div>
@@ -324,9 +324,8 @@ export default function AboutPage() {
             Leveling the Playing Field
           </h2>
           <p className="text-sm sm:text-base text-neutral-400 px-4">
-            Algorithms surface ideas based on merit, not follower count. Every
-            founder gets a fair daily shot at visibility, and the strongest
-            ideas earn a weekly spotlight.
+            Every founder gets a fair daily shot at visibility, 
+            and the strongest ideas earn a weekly spotlight.
           </p>
         </div>
 
@@ -394,7 +393,7 @@ export default function AboutPage() {
         <div className="rounded-3xl p-8 sm:p-12 text-center border border-white/10 bg-gradient-to-br from-neutral-900 to-[var(--brand-dark)]/20 relative overflow-hidden">
           <div className="relative z-10 space-y-5">
             <h2 className="text-2xl sm:text-4xl font-bold text-white">
-              Ready to build?
+              Ready to grow your idea?
             </h2>
             <div className="pt-2">
               <Link

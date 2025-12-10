@@ -68,12 +68,17 @@ export type Idea = {
   industryInsights?: string;
   valuePropositionDetail?: string;
 
+  // 📦 Deliverables (NEW)
+  deliverablesOverview?: string;
+  deliverablesMilestones?: string;
+
   // 💸 Fundraising
   isFundraising?: boolean;
   fundraisingGoal?: number;
   fundraisingRaisedSoFar?: number;
   fundraisingMinCheckSize?: number;
 };
+
 
 export type Message = {
   id: string;
