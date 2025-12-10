@@ -48,9 +48,10 @@ import {
   LogOut,
   AlertTriangle,
   X,
+  Plus,
 } from "lucide-react";
 
-import {CameraIcon} from "@/components/icons/CameraIcon";
+import { CameraIcon } from "@/components/icons/CameraIcon";
 import AddNewIcon from "@/components/icons/AddNewIcon";
 import { TrashIcon } from "@/components/icons/TrashIcon";
 import { SignoutIcon } from "@/components/icons/SignOutIcon";
@@ -161,7 +162,7 @@ function IconInput({
           onChange={(e) => !readOnly && onChange(e.target.value)}
           className={`w-full bg-neutral-900/50 border border-neutral-800 rounded-lg py-2 ${
             Icon || prefix ? "pl-10" : "pl-3"
-          } pr-4 text-sm focus:ring-1 focus:ring-brand focus:border-brand outline-none`}
+          } pr-4 text-base md:text-sm focus:ring-1 focus:ring-brand focus:border-brand outline-none`}
           placeholder={placeholder}
         />
       </div>
@@ -462,7 +463,7 @@ export default function ProfilePage() {
 
   return (
     <div className="relative">
-      <h1 className="text-3xl font-bold mb-8">Settings</h1>
+      <h1 className="hidden md:block text-3xl font-bold mb-8">Settings</h1>
 
       {/* Delete Account Modal */}
       {showDeleteModal && (
@@ -523,7 +524,7 @@ export default function ProfilePage() {
       )}
 
       {/* Mobile Tabs */}
-      <div className="sm:hidden mb-2 flex p-1 bg-neutral-900/10 rounded-xl border border-neutral-800">
+      <div className="sm:hidden mb-4 flex p-1 bg-neutral-900/10 rounded-xl border border-neutral-800">
         {(["profile", "ideas"] as const).map((tab) => (
           <button
             key={tab}
@@ -575,7 +576,9 @@ export default function ProfilePage() {
                       />
                     ) : (
                       <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-neutral-800 flex items-center justify-center text-2xl font-bold border-2 border-neutral-700">
-                        {formData.username?.[0]?.toUpperCase() || <ProfileIcon />}
+                        {formData.username?.[0]?.toUpperCase() || (
+                          <ProfileIcon />
+                        )}
                       </div>
                     )}
                     <button
@@ -627,7 +630,7 @@ export default function ProfilePage() {
                   <textarea
                     value={formData.bio || ""}
                     onChange={(e) => handleChange("bio", e.target.value)}
-                    className="w-full bg-neutral-900/50 border border-neutral-800 rounded-lg p-3 text-sm focus:ring-1 focus:ring-brand focus:border-brand outline-none transition-all min-h-[90px]"
+                    className="w-full bg-neutral-900/50 border border-neutral-800 rounded-lg p-3 text-base md:text-sm focus:ring-1 focus:ring-brand focus:border-brand outline-none transition-all min-h-[90px] max-h-[200px] resize-y"
                     placeholder="Tell us about yourself..."
                     maxLength={500}
                   />
@@ -660,7 +663,6 @@ export default function ProfilePage() {
                   />
                 </div>
 
-                {/* "Advanced" details collapsed by default */}
                 <details className="mt-3 rounded-lg bg-neutral-900/40 border border-neutral-800">
                   <summary className="cursor-pointer py-2 px-3 text-xs uppercase tracking-wide text-neutral-400 select-none">
                     Advanced details
@@ -774,7 +776,9 @@ export default function ProfilePage() {
           }`}
         >
           <div className="space-y-6 animate-fade-in">
-            <div className="flex justify-between items-center">
+            {/* Header with Title (Hidden on mobile) - Button REMOVED from here */}
+            {/* Since button is gone, and title is hidden md:block, hide entire row on mobile */}
+            <div className="hidden md:flex justify-between items-center">
               <div>
                 <h2 className="text-xl font-bold">Your Projects</h2>
                 <p className="text-xs text-neutral-400 mt-1">
@@ -783,13 +787,6 @@ export default function ProfilePage() {
                     : "Projects you've liked"}
                 </p>
               </div>
-              <Link
-                href="/ideas/new"
-                className="flex items-center gap-2 px-4 py-0.5 bg-brand/50 text-white rounded-full hover:bg-brand/80 transition font-medium"
-              >
-                <AddNewIcon className="w-4 h-4" />
-                <span>New</span>
-              </Link>
             </div>
 
             {/* Created / Liked toggle */}
@@ -833,16 +830,31 @@ export default function ProfilePage() {
                   </Link>
                 </div>
               ) : (
-                <div className="grid gap-6">
-                  {ideas.map((idea) => (
-                    <div key={idea.id} className="relative group">
-                      <ProfileIdeaCard
-                        idea={idea}
-                        showEdit={idea.founderId === user?.uid}
-                      />
+                <>
+                  {/* NEW LOCATION: Create button above the list */}
+                  <Link
+                    href="/ideas/new"
+                    className="mb-4 w-full py-3 rounded-xl border border-dashed border-neutral-800 hover:border-brand/50 text-neutral-400 hover:text-brand transition-all flex items-center justify-center gap-2 group"
+                  >
+                    <div className="p-1 rounded-full transition-colors">
+                      <AddNewIcon className="w-4 h-4" />
                     </div>
-                  ))}
-                </div>
+                    <span className="font-medium text-sm">
+                      Create New Project
+                    </span>
+                  </Link>
+
+                  <div className="grid gap-6">
+                    {ideas.map((idea) => (
+                      <div key={idea.id} className="relative group">
+                        <ProfileIdeaCard
+                          idea={idea}
+                          showEdit={idea.founderId === user?.uid}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </>
               )
             ) : likedIdeas.length === 0 ? (
               <div className="text-center py-12 bg-neutral-900/30 rounded-2xl border border-neutral-800 border-dashed">
