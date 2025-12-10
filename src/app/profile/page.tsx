@@ -659,7 +659,6 @@ export default function ProfilePage() {
                     onChange={(e) => handleChange("bio", e.target.value)}
                     className="w-full bg-neutral-900/50 border border-neutral-800 rounded-lg p-3 text-base md:text-sm focus:ring-1 focus:ring-brand focus:border-brand outline-none transition-all min-h-[90px] max-h-[200px] resize-y"
                     placeholder="Tell us about yourself..."
-                    maxLength={500}
                   />
                   <div className="flex justify-end">
                     <span className="text-xs text-neutral-500">
