@@ -175,7 +175,7 @@ export default function IdeaDetailPage() {
   );
 
   return (
-    <div className="space-y-8 pb-12 animate-fade-in">
+    <div className="space-y-10 pb-12 animate-fade-in">
       <SignInModal
         isOpen={showSignInModal}
         onClose={() => setShowSignInModal(false)}

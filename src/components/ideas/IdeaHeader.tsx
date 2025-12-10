@@ -95,7 +95,7 @@ export default function IdeaHeader({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-10">
       {/* DESKTOP GO BACK (sm+) */}
       <div className="hidden sm:flex justify-end">
         <button
