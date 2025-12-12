@@ -2,7 +2,8 @@
 
 import type { ElementType } from "react";
 import type { IdeaWithLikes } from "@/app/ideas/[id]/page";
-import { Users, Zap, Lightbulb, Gem, Sparkles } from "lucide-react";
+import { Users, Zap, Lightbulb, Gem, Sparkles, SparkleIcon } from "lucide-react";
+import { InvestorIcon } from "../icons/InvestorIcon";
 
 /* ---------------- Types ---------------- */
 
@@ -153,7 +154,7 @@ export default function WhyWinSection({ idea }: { idea: IdeaWithLikes }) {
     <section className="animate-fade-in space-y-6">
       {/* Header */}
       <div className="flex items-center gap-2 px-1">
-        <Sparkles className="w-5 h-5 text-brand" />
+        <InvestorIcon className="w-5 h-5 text-brand" />
         <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
           Investment Thesis
         </h2>

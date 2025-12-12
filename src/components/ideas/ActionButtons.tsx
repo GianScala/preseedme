@@ -94,10 +94,9 @@ export default function ActionButtons({
               className="
                 group relative w-full sm:w-auto
                 inline-flex items-center justify-center gap-2.5
-                px-6 py-3 sm:py-2.5 rounded-xl
+                px-4 py-2 sm:py-2 rounded-lg
                 bg-gradient-to-br from-brand to-brand-dark
                 text-white font-bold text-sm sm:text-base
-                shadow-lg shadow-brand/20
                 hover:shadow-brand/40 hover:scale-[1.02]
                 active:scale-[0.98]
                 transition-all duration-200
@@ -106,8 +105,6 @@ export default function ActionButtons({
             >
               {/* Shine Effect */}
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:animate-[shimmer_1s_infinite]" />
-              
-              <MessageCircle className="w-5 h-5" />
               <span>Contact Founder</span>
             </button>
           </div>

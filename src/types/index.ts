@@ -1,13 +1,12 @@
 export type UserProfile = {
   id: string;
-  email: string | null; // auth + contact email
+  email: string | null;
   username: string;
   handle: string | null;
   photoURL?: string | null;
-  publishedIdeaIds: string[];
   createdAt: number;
 
-  // (optional) if you later want to quickly list "ideas I liked"
+  publishedIdeaIds: string[];
   likedIdeaIds?: string[];
 
   // Contact details
@@ -18,7 +17,7 @@ export type UserProfile = {
   bio?: string | null;
   location?: string | null;
   role?: "founder" | "investor" | "both";
-  twitterUrl?: string | null;
+  xUrl: string | null | undefined;
   linkedinUrl?: string | null;
   websiteUrl?: string | null;
   githubUrl?: string | null;

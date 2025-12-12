@@ -1,6 +1,6 @@
 // src/components/create/DemoVisualsSection.tsx
 import { ChangeEvent } from "react";
-import { IdeaFormData } from "@/app/ideas/new/page";
+import { IdeaFormData } from "@/hooks/useNewIdeaForm";
 import SectionWrapper from "./SectionWrapper";
 import FormInput from "./FormInput";
 

@@ -1,4 +1,4 @@
-// src/components/IdeaCard.tsx
+// src/components/ProfileIdeaCard.tsx
 import type { MouseEvent } from "react";
 import Link from "next/link";
 import { Idea } from "@/types";
@@ -18,7 +18,7 @@ type IdeaWithLikes = Idea & {
   founderUsername?: string;
 };
 
-type IdeaCardProps = {
+type ProfileIdeaCardProps = {
   idea: IdeaWithLikes;
   featured?: boolean;
   showEdit?: boolean;
@@ -63,15 +63,14 @@ const MetricBadge = ({
   </span>
 );
 
-export default function IdeaCard({
+export default function ProfileIdeaCard({
   idea,
   featured,
   showEdit,
   currentUserId,
   onToggleLike,
   loadingLike,
-  onDelete,
-}: IdeaCardProps) {
+}: ProfileIdeaCardProps) {
   const mrrLabel = formatCurrencyShort(idea.monthlyRecurringRevenue as any);
   const usersLabel = formatNumberShort(idea.userCount as any);
   const foundedLabel = idea.foundedYear ? `${idea.foundedYear}` : null;
@@ -139,30 +138,30 @@ export default function IdeaCard({
         </div>
       )}
 
-      {/* Main clickable content */}
-      <Link href={`/ideas/${idea.id}`} className="block">
-        <div className="flex gap-3 sm:gap-4">
-          {/* Main content */}
-          <div className="flex-1 flex flex-col min-w-0">
-            {/* Sector / tag row */}
-            <div className="flex items-center gap-1.5 sm:gap-2 mb-1 sm:mb-1.5 overflow-x-auto scrollbar-hide">
-              {idea.sector && (
-                <span
-                  className={`${pillBase} font-medium text-neutral-300 whitespace-nowrap`}
-                >
-                  {idea.sector}
-                </span>
-              )}
-              {idea.targetAudience && (
-                <span
-                  className={`${pillBase} text-neutral-400 whitespace-nowrap hidden xs:inline-flex sm:inline-flex`}
-                >
-                  {idea.targetAudience}
-                </span>
-              )}
-            </div>
+      {/* Main content wrapper - NOT a Link */}
+      <div className="flex gap-3 sm:gap-4">
+        {/* Main content */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Sector / tag row */}
+          <div className="flex items-center gap-1.5 sm:gap-2 mb-1 sm:mb-1.5 overflow-x-auto scrollbar-hide">
+            {idea.sector && (
+              <span
+                className={`${pillBase} font-medium text-neutral-300 whitespace-nowrap`}
+              >
+                {idea.sector}
+              </span>
+            )}
+            {idea.targetAudience && (
+              <span
+                className={`${pillBase} text-neutral-400 whitespace-nowrap hidden xs:inline-flex sm:inline-flex`}
+              >
+                {idea.targetAudience}
+              </span>
+            )}
+          </div>
 
-            {/* Title */}
+          {/* Title and One-liner - wrapped in Link */}
+          <Link href={`/ideas/${idea.id}`} className="block">
             <h3
               className={`font-bold mb-1 sm:mb-1.5 group-hover:text-brand transition-colors line-clamp-2 ${
                 featured ? "text-lg sm:text-xl" : "text-base sm:text-lg"
@@ -171,40 +170,42 @@ export default function IdeaCard({
               {idea.title}
             </h3>
 
-            {/* One-liner */}
             <p className="text-xs sm:text-sm text-neutral-400 mb-2 sm:mb-3 line-clamp-2">
               {idea.oneLiner}
             </p>
+          </Link>
 
-            {/* ✅ Optional website link (normalized external URL) */}
-            {websiteHref && (
-              <div className="mb-2 sm:mb-3">
-                <Link
-                  href={websiteHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="inline-flex items-center gap-1 text-[11px] sm:text-xs text-brand hover:underline"
+          {/* ✅ Website link - uses regular <a> tag, NOT nested in Link */}
+          {websiteHref && (
+            <div className="mb-2 sm:mb-3">
+              <a
+                href={websiteHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 text-[11px] sm:text-xs text-brand hover:underline"
+              >
+                <span>Visit site</span>
+                <svg
+                  className="w-3 h-3"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
                 >
-                  <span>Visit site</span>
-                  <svg
-                    className="w-3 h-3"
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M3.5 10.5L10.5 3.5M10.5 3.5H4.375M10.5 3.5V9.625"
-                      stroke="currentColor"
-                      strokeWidth="1.4"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </Link>
-              </div>
-            )}
+                  <path
+                    d="M3.5 10.5L10.5 3.5M10.5 3.5H4.375M10.5 3.5V9.625"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </a>
+            </div>
+          )}
 
+          {/* Metrics row and Founder info - wrapped in Link */}
+          <Link href={`/ideas/${idea.id}`} className="block">
             {/* Metrics row */}
             {hasMetrics && (
               <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
@@ -304,23 +305,23 @@ export default function IdeaCard({
                 </svg>
               </div>
             )}
-          </div>
-
-          {/* Thumbnail */}
-          {idea.thumbnailUrl && (
-            <div className="w-16 sm:w-20 md:w-24 lg:w-28 xl:w-32 flex-shrink-0 relative">
-              <div className="relative h-full min-h-[90px] sm:min-h-[100px] md:min-h-[120px] overflow-hidden rounded-md sm:rounded-lg border border-neutral-800/50 bg-neutral-900/40">
-                <img
-                  src={idea.thumbnailUrl}
-                  alt={idea.title}
-                  className="absolute inset-0 h-full w-full object-cover opacity-90 transition-all duration-300 group-hover:opacity-100 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/60 via-transparent to-transparent" />
-              </div>
-            </div>
-          )}
+          </Link>
         </div>
-      </Link>
+
+        {/* Thumbnail - wrapped in Link */}
+        {idea.thumbnailUrl && (
+          <Link href={`/ideas/${idea.id}`} className="w-16 sm:w-20 md:w-24 lg:w-28 xl:w-32 flex-shrink-0 relative">
+            <div className="relative h-full min-h-[90px] sm:min-h-[100px] md:min-h-[120px] overflow-hidden rounded-md sm:rounded-lg border border-neutral-800/50 bg-neutral-900/40">
+              <img
+                src={idea.thumbnailUrl}
+                alt={idea.title}
+                className="absolute inset-0 h-full w-full object-cover opacity-90 transition-all duration-300 group-hover:opacity-100 group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/60 via-transparent to-transparent" />
+            </div>
+          </Link>
+        )}
+      </div>
     </div>
   );
 }

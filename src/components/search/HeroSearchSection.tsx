@@ -38,7 +38,7 @@ export default function HeroSearchSection({
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search ideas, markets, or founders..."
+            placeholder="Search projects"
             className="
               w-full h-14 pl-12 pr-12 rounded-xl 
               bg-neutral-900/20 backdrop-blur-xl border border-white/10 

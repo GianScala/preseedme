@@ -69,7 +69,7 @@ export async function POST(request: Request) {
     const conversationLink = `${process.env.NEXT_PUBLIC_APP_URL}/chat/${conversationId}`;
     
     const { data, error } = await resend.emails.send({
-      from: 'PreseedMe Notifications <noreply@preseedme.com>',
+      from: 'Preseedme <noreply@preseedme.com>',
       to: email,
       subject: `New message from ${senderName}`,
       html: `

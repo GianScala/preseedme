@@ -1,4 +1,4 @@
-import { IdeaFormData } from "@/app/ideas/new/page";
+import { IdeaFormData } from "@/hooks/useNewIdeaForm";
 import SectionWrapper from "./SectionWrapper";
 import FormInput from "./FormInput";
 import FormTextarea from "./FormTextarea";
@@ -31,7 +31,7 @@ export default function CorePitchSection({
     <SectionWrapper
       number={1}
       title="The Core Pitch"
-      description="Define the essentials that will grab an investor's attention."
+      description="Define the essentials that will grab people's attention"
       isOpen={isOpen}
       onToggle={onToggle}
       isComplete={isComplete}
@@ -43,7 +43,7 @@ export default function CorePitchSection({
         {/* Row 1: High Priority Inputs */}
         <div className="grid gap-6 md:grid-cols-2">
           <FormInput
-            label="Project Title"
+            label="Project Name"
             required
             value={formData.title}
             onChange={(value) => updateFormData({ title: value })}
@@ -58,8 +58,8 @@ export default function CorePitchSection({
             required
             value={formData.oneLiner}
             onChange={(value) => updateFormData({ oneLiner: value })}
-            placeholder="e.g., The operating system for modern freight."
-            maxLength={120}
+            placeholder="e.g. We are the operating system for modern freight"
+            maxLength={150}
             helpText="Your value proposition in a single sentence."
             showCounter
           />
@@ -73,7 +73,7 @@ export default function CorePitchSection({
           onChange={(value) => updateFormData({ description: value })}
           placeholder="What is the problem? How do you solve it? Who is it for? Give us the 30-second elevator pitch expanded into a paragraph."
           rows={5}
-          helpText="This is the first thing investors read. Be clear, not clever."
+          helpText="This is the first thing early users and investors read. Be clear, not clever."
         />
       </div>
     </SectionWrapper>
