@@ -135,10 +135,9 @@ function StepDetail({ n, title, desc }: { n: string; title: string; desc: string
 
 export default function HowItWorksPage() {
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-neutral-950 text-neutral-200 selection:bg-[var(--brand)] selection:text-black">
-      <GridBackground />
+    <div className="relative min-h-screen w-full overflow-hidden text-neutral-200 selection:bg-[var(--brand)] selection:text-black">
       
-      <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8 animate-fade-in">
+      <div className="px-4 py-12 sm:px-6 lg:px-8 animate-fade-in">
         
         {/* HERO */}
         <section className="text-center space-y-6 pt-10 pb-16">
@@ -168,7 +167,7 @@ export default function HowItWorksPage() {
               href="/ideas/new"
               className="w-full sm:w-auto px-8 py-3 rounded-xl bg-[var(--brand)] text-black text-sm font-bold hover:opacity-90 active:scale-95 transition-all shadow-[0_0_20px_rgba(33,221,192,0.3)] hover:shadow-[0_0_30px_rgba(33,221,192,0.5)]"
             >
-              Start the loop
+              Start Sharing
             </Link>
             <Link
               href="/ideas"
@@ -222,7 +221,7 @@ export default function HowItWorksPage() {
 
         {/* FOOTER CTA */}
         <section className="mt-20 sm:mt-32 pb-10">
-          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-neutral-900 to-neutral-950 p-8 sm:p-16 text-center">
+          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-neutral-900/50 to-neutral-950/20 p-8 sm:p-16 text-center">
             <div className="relative z-10 max-w-2xl mx-auto space-y-6">
               <h2 className="text-2xl sm:text-3xl font-bold text-white">
                 The only requirement is to keep shipping.
