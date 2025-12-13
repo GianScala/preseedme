@@ -53,13 +53,7 @@ export default function MissionPage() {
       {/* HERO */}
       <section className="max-w-3xl mx-auto text-center space-y-4 sm:space-y-5 pt-6 sm:pt-10 px-4">
         <div className="flex items-center justify-center gap-2 flex-wrap">
-          <Pill>
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--brand)] animate-pulse mr-2" />
-            Manifesto
-          </Pill>
           <Pill>Founder-first</Pill>
-          <Pill>Small checks</Pill>
-          <Pill>Progress & trust</Pill>
         </div>
 
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-white leading-[1.05]">

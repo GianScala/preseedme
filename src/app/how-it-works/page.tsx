@@ -1,250 +1,390 @@
 // src/app/how-it-works/page.tsx
-import type { Metadata } from "next";
-import Link from "next/link";
+"use client";
 
-export const metadata: Metadata = {
-  title: "How it works",
-  description: "Share → Progress → Feedback → Credibility → Small checks → Ship.",
-};
+import { useState } from "react";
+import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 
 // --- Shared Components ---
 
 function Pill({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <span className={`inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-medium tracking-wide text-neutral-300 backdrop-blur-md ${className}`}>
+    <span className={`inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] sm:text-xs text-neutral-300 ${className}`}>
       {children}
     </span>
   );
 }
 
-function GridBackground() {
-  return (
-    <div className="absolute inset-0 -z-10 h-full w-full bg-neutral-950">
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:32px_32px]"></div>
-      <div className="absolute left-1/2 top-0 -z-10 h-[500px] w-[600px] -translate-x-1/2 rounded-full bg-[var(--brand)] opacity-[0.03] blur-[120px]"></div>
-    </div>
-  );
+function Divider() {
+  return <div className="h-px w-full bg-white/5" />;
 }
 
-// --- The Clean Flywheel (Desktop) ---
+// --- DATA ---
 
 const STEPS = [
-  { id: 1, title: "Post Idea", sub: "Define the goal", x: 50, y: 0 },       // Top
-  { id: 2, title: "Ship", sub: "Show progress", x: 93, y: 25 },             // Top Right
-  { id: 3, title: "Users", sub: "Get feedback", x: 93, y: 75 },             // Bottom Right
-  { id: 4, title: "Credibility", sub: "Trust compounds", x: 50, y: 100 },   // Bottom
-  { id: 5, title: "Funding", sub: "Small checks", x: 7, y: 75 },            // Bottom Left
-  { id: 6, title: "Repeat", sub: "Scale up", x: 7, y: 25 },                 // Top Left
+  { 
+    id: 1, 
+    title: "Set Milestone", 
+    desc: "Don't pitch a unicorn. Pitch the next deliverable.", 
+    action: "The Ask", 
+    x: 50, y: 0 
+  },
+  { 
+    id: 2, 
+    title: "Social Proof", 
+    desc: "The community reacts. You get early validation.", 
+    action: "The Reach", 
+    x: 93, y: 50 
+  },
+  { 
+    id: 3, 
+    title: "Ship It", 
+    desc: "Execute the work. Upload proof. Show you are a builder.", 
+    action: "The Proof", 
+    x: 50, y: 100 
+  },
+  { 
+    id: 4, 
+    title: "Get Funded", 
+    desc: "Investors see work and write a check for the next step.", 
+    action: "The Check", 
+    x: 7, y: 50 
+  },
 ];
+
+const PRICING = [
+    {
+        price: "$150 - $500",
+        title: "Validation Check",
+        desc: "Perfect for getting an idea off the ground.",
+        items: ["Landing Page Deployment", "Working Prototype", "Database Setup", "Initial Market Outreach"]
+    },
+    {
+        price: "$500 - $1.5k",
+        title: "MVP Check",
+        desc: "Funding the first working version.",
+        items: ["Core Feature Implementation", "Beta App Launch", "First 100 Users", "Marketing Experiments" ]
+    },
+    {
+        price: "$2k - $5k",
+        title: "Growth Check",
+        desc: "Scaling what already works.",
+        items: ["Mobile App Launch", "Complex Backend", "Get First Customers", "Revenue Generation" ]
+    }
+];
+
+// --- REFINED FAQs ---
+const FAQS = [
+  {
+    q: "Can I start with just an idea?",
+    a: "Absolutely. Don’t wait for a perfect product. Posting your idea now forces you to clarify your vision. As you ship updates, you prove to investors that you aren't just dreaming - you're executing. That momentum is what gets funded."
+  },
+  {
+    q: "How much should I ask for?",
+    a: "Keep it small and specific: $500 to $5,000. Don't ask for a vague 'runway'; ask for a resource (e.g., 'Hosting costs', 'Developer fee', 'Marketing budget'). Investors write checks for concrete deliverables they can understand."
+  },
+  {
+    q: "When should I ask for funding?",
+    a: "You can attach an 'Ask' to any milestone immediately. If you don't get funded right away, keep building. A profile full of 'progress' badges creates a track record. Investors love speed - show them you move fast even before the money hits."
+  },
+  {
+    q: "How does the money transfer happen?",
+    a: "PreseedMe connects you; we don't touch the money. When an investor commits, you'll use our in-app chat to agree on the transfer method (Wise, PayPal, Crypto, etc.). Zero platform fees on your funding."
+  },
+  {
+    q: "What do investors get in return (ROI)?",
+    a: "Founders and investors set the terms. For these micro-checks, it’s usually a lightweight agreement. You might offer a future discount (SAFE), a small % of equity, or a revenue share once you're profitable. Be clear about the offer in your milestone description."
+  }
+];
+
+// --- VISUAL COMPONENTS: THE LOOP ---
 
 function Flywheel() {
   return (
-    <div className="relative mx-auto hidden aspect-square w-full max-w-[550px] items-center justify-center md:flex">
+    <div className="relative mx-auto hidden aspect-square w-full max-w-[450px] items-center justify-center lg:flex">
+      {/* Glow */}
+      <div className="absolute inset-0 m-auto h-[60%] w-[60%] rounded-full bg-[var(--brand)]/5 blur-3xl"></div>
       
-      {/* 1. Orbit Ring (Rotating) */}
-      <div className="absolute inset-0 m-auto h-[75%] w-[75%] animate-[spin_60s_linear_infinite] rounded-full border border-dashed border-white/10 opacity-50"></div>
-      
-      {/* 2. Static Inner Ring (Glow) */}
-      <div className="absolute inset-0 m-auto h-[55%] w-[55%] rounded-full border border-white/5 bg-[var(--brand)]/5 blur-3xl"></div>
-      
-      {/* 3. Center Core */}
-      <div className="absolute inset-0 m-auto flex h-28 w-28 flex-col items-center justify-center rounded-full border border-white/10 bg-neutral-900/50 backdrop-blur-xl shadow-[0_0_30px_rgba(0,0,0,0.5)]">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--brand)]">Loop</span>
-        <div className="h-px w-8 bg-white/10 my-1"></div>
-        <span className="text-sm font-bold text-white">Growth</span>
+      {/* Spinning Ring */}
+      <div className="absolute inset-0 m-auto h-[80%] w-[80%] animate-[spin_60s_linear_infinite] rounded-full border border-dashed border-white/10 opacity-50"></div>
+
+      {/* Center Core */}
+      <div className="absolute inset-0 m-auto flex h-32 w-32 flex-col items-center justify-center rounded-full border border-white/10 bg-neutral-900/40 backdrop-blur-xl shadow-2xl z-10">
+        <span className="text-xs font-bold uppercase tracking-widest text-neutral-500">preseed</span>
+        <span className="text-xl font-bold text-white">cycle</span>
       </div>
 
-      {/* 4. Floating Nodes */}
+      {/* Floating Nodes */}
       {STEPS.map((step) => (
         <div
           key={step.id}
-          className="absolute flex w-32 flex-col items-center justify-center text-center transition-all duration-300 hover:scale-110"
-          style={{
-            left: `${step.x}%`,
-            top: `${step.y}%`,
-            transform: `translate(-50%, -50%)`,
-          }}
+          className="absolute flex w-32 flex-col items-center justify-center text-center group z-20"
+          style={{ left: `${step.x}%`, top: `${step.y}%`, transform: `translate(-50%, -50%)` }}
         >
-          {/* Node Dot */}
-          <div className="relative mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-neutral-900 shadow-xl">
-            <span className="font-mono text-xs font-bold text-[var(--brand)]">{step.id}</span>
-            {/* Ping effect on active nodes (simulated) */}
-            {step.id === 1 && (
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--brand)] opacity-20"></span>
-            )}
+          <div className="relative mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-neutral-900 shadow-xl group-hover:border-[var(--brand)]/50 transition-colors">
+            <span className="font-mono text-sm font-bold text-[var(--brand)]">{step.id}</span>
           </div>
-          
-          {/* Text */}
-          <div className="text-sm font-bold text-white leading-tight">{step.title}</div>
-          <div className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mt-1">{step.sub}</div>
+          <h3 className="text-xs font-bold text-white bg-neutral-950/50 backdrop-blur px-2 py-1 rounded">{step.title}</h3>
         </div>
       ))}
     </div>
   );
 }
 
-// --- The Sleek Timeline (Mobile) ---
+// --- MOBILE COMPONENTS: MOCK UI ---
 
-function MobileTimeline() {
+function MobileProcess() {
   return (
-    <div className="relative pl-4 md:hidden">
-      {/* Continuous Line */}
-      <div className="absolute left-[19px] top-2 bottom-2 w-px bg-gradient-to-b from-[var(--brand)] via-white/10 to-transparent"></div>
+    <div className="flex flex-col gap-10 md:hidden px-2 mt-8">
+      
+      {/* Step 1: The Ask */}
+      <div className="relative border-l border-white/10 pl-6 pb-2">
+        <div className="absolute -left-3 top-0 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--brand)] text-black font-bold text-xs">1</div>
+        <h3 className="text-lg font-bold text-white">Post Milestone</h3>
+        <p className="text-neutral-400 text-sm mt-1 mb-4">Define exactly what you need to ship.</p>
 
-      <div className="space-y-8">
-        {STEPS.map((step) => (
-          <div key={step.id} className="relative flex items-start gap-5">
-            {/* Timeline Dot */}
-            <div className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-neutral-950 ring-4 ring-neutral-950">
-              <span className="text-xs font-mono text-[var(--brand)]">{step.id}</span>
+        {/* MOCK UI */}
+        <div className="w-full max-w-xs rounded-xl border border-white/10 bg-neutral-900/50 p-4 shadow-lg">
+          <div className="space-y-3">
+            <div className="flex justify-between items-end border-b border-white/10 pb-2">
+                <span className="text-xs text-neutral-400">Milestone</span>
+                <span className="text-xs text-white font-medium">Build MVP Dashboard</span>
             </div>
-            
-            {/* Text Content (No bulky cards) */}
-            <div className="pt-1">
-              <h3 className="text-base font-bold text-white leading-tight">{step.title}</h3>
-              <p className="mt-1 text-xs text-neutral-400 font-medium uppercase tracking-wide">{step.sub}</p>
+            <div className="flex justify-between items-center">
+                <span className="text-xs text-neutral-400">Ask Amount</span>
+                <span className="bg-[var(--brand)]/10 text-[var(--brand)] px-2 py-1 rounded text-xs font-bold border border-[var(--brand)]/20">
+                  $250
+                </span>
             </div>
           </div>
-        ))}
+        </div>
       </div>
+
+      {/* Step 2: Feedback & Reach */}
+      <div className="relative border-l border-white/10 pl-6 pb-2">
+        <div className="absolute -left-3 top-0 flex h-6 w-6 items-center justify-center rounded-full bg-neutral-800 border border-white/10 text-white font-bold text-xs">2</div>
+        <h3 className="text-lg font-bold text-white">Get Reach & Feedback</h3>
+        <p className="text-neutral-400 text-sm mt-1 mb-4">Investors watch your engagement.</p>
+
+        {/* MOCK UI */}
+        <div className="w-full max-w-xs rounded-xl border border-white/10 bg-neutral-900/50 p-3 shadow-lg flex gap-3 items-center">
+           <div className="flex -space-x-2 overflow-hidden">
+                <div className="inline-block h-6 w-6 rounded-full bg-blue-500 ring-2 ring-neutral-900"></div>
+                <div className="inline-block h-6 w-6 rounded-full bg-purple-800 ring-2 ring-neutral-900"></div>
+                <div className="inline-block h-6 w-6 rounded-full bg-green-800 ring-2 ring-neutral-900"></div>
+           </div>
+           <div className="text-xs text-neutral-400">
+             <span className="text-white font-bold">12 Investors</span> liked this.
+           </div>
+        </div>
+      </div>
+
+      {/* Step 3: The Check */}
+      <div className="relative border-l border-transparent pl-6 pb-2">
+        <div className="absolute -left-3 top-0 flex h-6 w-6 items-center justify-center rounded-full bg-neutral-800 border border-white/10 text-white font-bold text-xs">3</div>
+        <h3 className="text-lg font-bold text-white">Receive Check</h3>
+        <p className="text-neutral-400 text-sm mt-1 mb-4">You shipped. You get funded.</p>
+
+        {/* MOCK UI */}
+        <div className="w-full max-w-xs rounded-xl border border-[var(--brand)]/30 bg-gradient-to-br from-[var(--brand)]/10 to-transparent p-4 shadow-lg">
+           <div className="flex items-center gap-3">
+               <div className="h-8 w-8 rounded-full bg-[var(--brand)] flex items-center justify-center text-black font-bold">$</div>
+               <div>
+                   <div className="text-xl font-bold text-white">
+                     $250 <span className="text-sm font-normal text-neutral-500">received</span>
+                   </div>
+               </div>
+           </div>
+        </div>
+      </div>
+
     </div>
   );
 }
 
-// --- Detailed Rows (Clean & Minimal) ---
-
-function StepDetail({ n, title, desc }: { n: string; title: string; desc: string }) {
-  return (
-    <div className="group relative flex items-start gap-5 py-6 border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors rounded-xl px-2 -mx-2">
-      <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 font-mono text-sm font-bold text-[var(--brand)]">
-        {n}
-      </div>
-      <div>
-        <h3 className="text-lg font-bold text-white group-hover:text-[var(--brand-light)] transition-colors">
-          {title}
-        </h3>
-        <p className="mt-2 text-sm leading-relaxed text-neutral-400 max-w-xl">
-          {desc}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// --- Main Page ---
+// --- MAIN PAGE ---
 
 export default function HowItWorksPage() {
+  const [openIndex, setOpenIndex] = useState<number | null>(0);
+
   return (
-    <div className="relative min-h-screen w-full overflow-hidden text-neutral-200 selection:bg-[var(--brand)] selection:text-black">
+    <div className="space-y-14 sm:space-y-20 pb-6 animate-fade-in">
       
-      <div className="px-4 py-12 sm:px-6 lg:px-8 animate-fade-in">
-        
-        {/* HERO */}
-        <section className="text-center space-y-6 pt-10 pb-16">
-          <div className="flex items-center justify-center gap-2 flex-wrap">
-            <Pill className="border-[var(--brand)]/30 bg-[var(--brand)]/10 text-[var(--brand)]">
-               <span className="w-1.5 h-1.5 rounded-full bg-[var(--brand)] animate-pulse mr-2" />
-               The Engine
-            </Pill>
-            <Pill>Compounds daily</Pill>
-          </div>
+      {/* HERO */}
+      <section className="max-w-3xl mx-auto text-center space-y-4 sm:space-y-5 pt-6 sm:pt-10 px-4">
+        <div className="flex items-center justify-center gap-2 flex-wrap">
+          <Pill>
+            early founders
+          </Pill>
+          <span className="w-1.5 h-1.5 rounded-full bg-[var(--brand)] animate-pulse" />
+          <Pill>
+            early investors
+          </Pill>
+        </div>
 
-          <h1 className="text-4xl sm:text-6xl font-bold tracking-tight text-white leading-[1.05]">
-            A simple loop.<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-white/40">
-              Infinite leverage.
-            </span>
-          </h1>
+        <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-white leading-[1.05]">
+          A simple loop.<br />
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--brand-light)] to-[var(--brand)]">
+            Infinite leverage.
+          </span>
+        </h1>
 
-          <p className="max-w-xl mx-auto text-base sm:text-lg text-neutral-400 leading-relaxed">
-            Stop chasing investors. Start building a track record. 
-            The system turns your progress into proof, and proof into checks.
+        <p className="text-sm sm:text-lg text-neutral-400 leading-relaxed max-w-2xl mx-auto">
+          Stop chasing investors. Start building a track record. 
+          Turn your progress into proof, and proof into checks.
+        </p>
+
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+          <Link
+            href="/ideas/new"
+            className="w-full sm:w-auto px-6 py-3 rounded-xl bg-[var(--brand)] text-black text-sm sm:text-base font-bold hover:opacity-90 active:scale-95 transition-all shadow-[0_0_15px_rgba(33,221,192,0.28)]"
+          >
+            Start Sharing
+          </Link>
+        </div>
+      </section>
+
+      <section className="max-w-5xl mx-auto px-4">
+        <Divider />
+      </section>
+
+      {/* SECTION 1: THE INTERACTIVE LOOP */}
+      <section className="max-w-6xl mx-auto px-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            
+            {/* Visuals: Flywheel (Desktop) / Cards (Mobile) */}
+            <div className="relative order-2 lg:order-1">
+                <Flywheel />
+                <MobileProcess />
+            </div>
+
+            {/* Explainer Text */}
+            <div className="order-1 lg:order-2 space-y-8">
+                <div className="space-y-4">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-white">The "Show, Don't Tell" Loop</h2>
+                    <p className="text-neutral-400 leading-relaxed">
+                        Investors are tired of slides. They want to see execution. Turn your development roadmap into a funding pipeline.
+                    </p>
+                </div>
+
+                <div className="space-y-4">
+                    {STEPS.map((step) => (
+                         <div key={step.id} className="group flex gap-4 p-4 rounded-xl hover:bg-white/5 transition-colors border border-transparent hover:border-white/5">
+                            <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 border border-white/5 font-mono text-sm font-bold text-[var(--brand)]">
+                                0{step.id}
+                            </div>
+                            <div>
+                                <h3 className="text-base font-bold text-white">{step.title}</h3>
+                                <p className="text-sm text-neutral-400 mt-1 leading-relaxed">{step.desc}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+      </section>
+
+      <section className="max-w-5xl mx-auto px-4">
+        <Divider />
+      </section>
+
+      {/* SECTION 2: PRICING EXAMPLES */}
+      <section className="max-w-5xl mx-auto px-4 space-y-8">
+        <div className="max-w-2xl mx-auto text-center space-y-3">
+          <h2 className="text-2xl sm:text-3xl font-bold text-white">
+            How much should you ask?
+          </h2>
+          <p className="text-sm sm:text-base text-neutral-400 leading-relaxed">
+            We help raise <span className="text-white font-bold">$500–$5K</span>. Your ask must be realistic and tied to a concrete deliverable.
           </p>
+        </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+            {PRICING.map((item, i) => (
+                <div key={i} className="group relative flex flex-col p-5 sm:p-6 rounded-2xl border border-white/5 bg-neutral-900/40 hover:bg-neutral-900/50 hover:border-[var(--brand)]/30 transition-all duration-300">
+                    <div className="flex items-baseline gap-1 mb-2">
+                        <span className="text-2xl sm:text-3xl font-bold text-white tracking-tight">{item.price}</span>
+                        <span className="text-xs text-neutral-500">/ milestone</span>
+                    </div>
+                    <h3 className="text-[var(--brand)] font-bold text-base mb-2">{item.title}</h3>
+                    <p className="text-xs text-neutral-400 mb-6">{item.desc}</p>
+                    
+                    <ul className="space-y-2 mt-auto pt-4 border-t border-white/5">
+                        {item.items.map((sub, idx) => (
+                            <li key={idx} className="flex items-center gap-2 text-xs text-neutral-300">
+                                <svg className="w-3 h-3 text-[var(--brand)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/></svg>
+                                {sub}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            ))}
+        </div>
+      </section>
+
+      <section className="max-w-5xl mx-auto px-4">
+        <Divider />
+      </section>
+
+      {/* SECTION 3: FAQ */}
+      <section className="max-w-3xl mx-auto px-4 space-y-8">
+        <div className="text-center space-y-3">
+           <h2 className="text-2xl sm:text-3xl font-bold text-white">
+            Common Questions
+          </h2>
+        </div>
+
+        <div className="space-y-3">
+            {FAQS.map((faq, idx) => (
+                 <div key={idx} className="rounded-2xl border border-white/5 bg-white/[0.02] overflow-hidden">
+                    <button 
+                        onClick={() => setOpenIndex(openIndex === idx ? null : idx)}
+                        className="w-full flex items-center justify-between p-5 sm:p-6 text-left hover:bg-white/[0.02] transition-colors"
+                    >
+                        <span className="text-white font-bold text-sm sm:text-base pr-4">{faq.q}</span>
+                        <span className={`text-neutral-500 transform transition-transform duration-300 shrink-0 ${openIndex === idx ? 'rotate-180' : ''}`}>
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        </span>
+                    </button>
+                    <AnimatePresence initial={false}>
+                        {openIndex === idx && (
+                            <motion.div 
+                                initial={{ height: 0, opacity: 0 }} 
+                                animate={{ height: "auto", opacity: 1 }} 
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.3, ease: "easeInOut" }}
+                            >
+                                <div className="px-5 sm:px-6 pb-6 pt-0 text-xs sm:text-sm text-neutral-400 leading-relaxed">
+                                    {faq.a}
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                 </div>
+            ))}
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="max-w-5xl mx-auto px-4">
+        <div className="rounded-3xl p-8 sm:p-12 text-center border border-white/10 bg-gradient-to-br from-neutral-900/50 to-[var(--brand-dark)]/20">
+          <h2 className="text-2xl sm:text-4xl font-bold text-white">
+            Ready to prove it?
+          </h2>
+          <p className="mt-3 text-sm sm:text-base text-neutral-400 max-w-2xl mx-auto">
+            You don't need a deck. You need a milestone.
+          </p>
+          <div className="pt-5">
             <Link
               href="/ideas/new"
-              className="w-full sm:w-auto px-8 py-3 rounded-xl bg-[var(--brand)] text-black text-sm font-bold hover:opacity-90 active:scale-95 transition-all shadow-[0_0_20px_rgba(33,221,192,0.3)] hover:shadow-[0_0_30px_rgba(33,221,192,0.5)]"
+              className="inline-block w-full sm:w-auto px-8 py-3 rounded-full bg-white text-black text-sm sm:text-base font-bold hover:scale-105 transition-transform"
             >
-              Start Sharing
-            </Link>
-            <Link
-              href="/ideas"
-              className="w-full sm:w-auto px-8 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm font-bold hover:bg-white/10 active:scale-95 transition-all backdrop-blur-sm"
-            >
-              See it in action
+              Create Milestone
             </Link>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* DIAGRAM (The Core) */}
-        <section className="py-10 sm:py-20 relative">
-            <Flywheel />
-            <MobileTimeline />
-        </section>
-
-        {/* BREAKDOWN (Precision List) */}
-        <section className="max-w-3xl mx-auto mt-10">
-          <div className="text-left mb-8 border-b border-white/10 pb-4">
-            <h2 className="text-xl font-bold text-white">System breakdown</h2>
-          </div>
-          
-          <div className="flex flex-col">
-            <StepDetail
-              n="01"
-              title="Post a milestone"
-              desc="Don't pitch a vision. Pitch the next step. Define exactly what you are building, what it costs, and when it ships."
-            />
-            <StepDetail
-              n="02"
-              title="Discovery & Feedback"
-              desc="The feed is an open market. Investors and users react to your plans. You get signal before you write a line of code."
-            />
-            <StepDetail
-              n="03"
-              title="Ship & Update"
-              desc="Execution is the only currency. When you mark a milestone as 'Shipped', your credibility score compounds instantly."
-            />
-            <StepDetail
-              n="04"
-              title="Unlock Funding"
-              desc="Believers don't wait for a board meeting. They write small checks ($500+) to back the builder, not just the business."
-            />
-            <StepDetail
-              n="05"
-              title="Repeat"
-              desc="Take the capital, fund the next milestone, and do it again. The loop gets faster every time you ship."
-            />
-          </div>
-        </section>
-
-        {/* FOOTER CTA */}
-        <section className="mt-20 sm:mt-32 pb-10">
-          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-neutral-900/50 to-neutral-950/20 p-8 sm:p-16 text-center">
-            <div className="relative z-10 max-w-2xl mx-auto space-y-6">
-              <h2 className="text-2xl sm:text-3xl font-bold text-white">
-                The only requirement is to keep shipping.
-              </h2>
-              <p className="text-neutral-400">
-                You don't need a deck. You need a milestone.
-              </p>
-              <div className="pt-2">
-                 <Link
-                  href="/ideas/new"
-                  className="inline-block px-8 py-3 rounded-full bg-white text-black text-sm font-bold hover:scale-105 transition-transform"
-                >
-                  Create Milestone
-                </Link>
-              </div>
-            </div>
-            
-            {/* Subtle glow effect at bottom of card */}
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1/2 h-1/2 bg-[var(--brand)] opacity-[0.05] blur-[80px] pointer-events-none"></div>
-          </div>
-        </section>
-
-      </div>
     </div>
   );
 }
