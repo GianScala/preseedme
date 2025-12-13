@@ -23,7 +23,6 @@ export const normalizeUrl = (
     // Platform-specific URL construction
     switch (platform) {
       case "x":
-        // Handle: "GmScala", "x.com/GmScala", "twitter.com/GmScala"
         if (cleaned.includes("/")) {
           // Has path - extract username
           const username = cleaned.split("/").pop();
@@ -33,7 +32,6 @@ export const normalizeUrl = (
         return `https://x.com/${cleaned}`;
   
       case "linkedin":
-        // Handle: "GmScala", "linkedin.com/in/GmScala", "in/GmScala"
         if (cleaned.includes("linkedin.com/")) {
           cleaned = cleaned.replace(/.*linkedin\.com\//, "");
         }
@@ -43,7 +41,6 @@ export const normalizeUrl = (
         return `https://linkedin.com/${cleaned}`;
   
       case "github":
-        // Handle: "GmScala", "github.com/GmScala"
         if (cleaned.includes("/")) {
           const username = cleaned.split("/").pop();
           return username ? `https://github.com/${username}` : null;

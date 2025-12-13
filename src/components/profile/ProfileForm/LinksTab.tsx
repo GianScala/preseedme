@@ -20,7 +20,7 @@ export default function LinksTab({ formData, onChange }: LinksTabProps) {
           icon={XIcon}
           value={formData.xUrl || ""}
           onChange={(v) => onChange("xUrl", v)}
-          placeholder="GmScala or x.com/GmScala"
+          placeholder="preseedme or x.com/yourname"
         />
         <IconInput
           icon={Linkedin}
