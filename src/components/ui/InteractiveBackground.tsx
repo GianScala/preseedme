@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import ChristmasGrid from "./ChristmasGrid"; // Importing the smart grid
 
 export default function InteractiveBackground() {
   const interactiveRef = useRef<HTMLDivElement>(null);
@@ -87,10 +88,10 @@ export default function InteractiveBackground() {
 
   return (
     <div className="fixed inset-0 w-full h-full overflow-hidden -z-10 pointer-events-none select-none">
-      {/* 1. Base Dark Layer */}
+      {/* 1. Base Dark Layer (User Colors) */}
       <div className="absolute inset-0 bg-[#050505]" />
 
-      {/* 2. Static Ambient Blobs */}
+      {/* 2. Static Ambient Blobs (User Colors) */}
       <div className="absolute inset-0 w-full h-full opacity-40">
         <div 
           className="absolute top-[-10%] left-[-10%] w-[60vw] h-[60vw] rounded-full mix-blend-screen filter blur-[100px] opacity-50 animate-blob"
@@ -106,21 +107,27 @@ export default function InteractiveBackground() {
         />
       </div>
 
-      {/* 3. Interactive Mouse Blob */}
+      {/* 3. The Smart Christmas Grid 
+          - Placed BEHIND the mouse blob so the mouse illuminates it
+          - The icons are gray/dim by default due to opacity in Grid component
+      */}
+      <ChristmasGrid />
+
+      {/* 4. Interactive Mouse Blob */}
       <div 
         ref={interactiveRef} 
-        // Note: The scale transformation is now handled dynamically in the 'animate' function
+        // Using mix-blend-overlay or screen allows the cyan to "light up" the gray grid lines below
         className="absolute top-0 left-0 mix-blend-screen will-change-transform"
       >
         <div 
             className="w-[500px] h-[500px] rounded-full blur-[80px]" 
             style={{ 
-                background: "radial-gradient(circle, rgba(33, 221, 192, 0.15) 0%, rgba(0,0,0,0) 70%)" 
+                background: "radial-gradient(circle, rgba(33, 221, 192, 0.25) 0%, rgba(0,0,0,0) 70%)" 
             }}
         />
       </div>
       
-      {/* 4. Noise Texture Overlay - REFINED */}
+      {/* 5. Noise Texture Overlay - REFINED */}
       <div className="absolute inset-0 w-full h-full opacity-[0.02]" 
            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}>
       </div>
