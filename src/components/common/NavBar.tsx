@@ -180,7 +180,6 @@ export default function Navbar() {
             <div className="w-full h-px bg-white/5 my-2" />
 
             {/* 3. About Section (Grouped) */}
-            <div className="px-4 py-1 text-xs font-bold text-neutral-500 uppercase tracking-widest">About</div>
             <MobileNavLink href="/about" onClick={() => setMobileMenuOpen(false)}>About Us</MobileNavLink>
             <MobileNavLink href="/mission" onClick={() => setMobileMenuOpen(false)}>Our Mission</MobileNavLink>
             <MobileNavLink href="/how-it-works" onClick={() => setMobileMenuOpen(false)}>How it Works</MobileNavLink>
