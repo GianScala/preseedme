@@ -20,12 +20,6 @@ export default function Footer() {
 
           {/* Links (simple, wrap on mobile) */}
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-neutral-500">
-            <Link href="/how-it-works" className="hover:text-[var(--brand)] transition-colors">
-              How it works
-            </Link>
-            <Link href="/mission" className="hover:text-[var(--brand)] transition-colors">
-              Our mission
-            </Link>
             <Link href="/privacy" className="hover:text-[var(--brand)] transition-colors">
               Privacy
             </Link>
