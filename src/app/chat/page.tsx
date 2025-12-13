@@ -115,6 +115,8 @@ export default function ChatInboxPage() {
       return;
     }
 
+    console.log("📬 [INBOX] Setting up inbox listener for user:", user.uid);
+
     const db = getFirebaseDb();
     const convRef = collection(db, "conversations");
     const q = query(
@@ -127,6 +129,8 @@ export default function ChatInboxPage() {
       q,
       { includeMetadataChanges: true },
       async (snap) => {
+        console.log("📬 [INBOX] Received snapshot with", snap.docs.length, "conversations");
+
         const rawDocs = snap.docs.map((docSnap) => ({
           id: docSnap.id,
           data: docSnap.data({ serverTimestamps: "estimate" }) as FirestoreConversation,
@@ -134,6 +138,13 @@ export default function ChatInboxPage() {
 
         const processedConvs = await Promise.all(
           rawDocs.map(async ({ id, data }) => {
+            console.log(`📬 [INBOX-RAW] ${id}:`, {
+              hasLastReadAt: !!data.lastReadAt,
+              lastReadAtRaw: data.lastReadAt,
+              lastReadAtKeys: data.lastReadAt ? Object.keys(data.lastReadAt) : [],
+              myUserId: user.uid
+            });
+
             const conv: ConversationWithPeer = {
               id,
               participants: data.participants ?? [],
@@ -145,8 +156,12 @@ export default function ChatInboxPage() {
 
             if (data.lastReadAt) {
               Object.entries(data.lastReadAt).forEach(([uid, ts]) => {
-                conv.lastReadAt[uid] = ts?.toMillis?.() ?? 0;
+                const millis = ts?.toMillis?.() ?? 0;
+                conv.lastReadAt[uid] = millis;
+                console.log(`📬 [INBOX-READ] ${id} - User ${uid}: ${millis}`);
               });
+            } else {
+              console.log(`📬 [INBOX-READ] ${id} - No lastReadAt field at all`);
             }
 
             const peerId = conv.participants.find((p) => p !== user.uid);
@@ -185,20 +200,38 @@ export default function ChatInboxPage() {
 
   const unreadIds = useMemo(() => {
     if (!user) return new Set<string>();
+    
+    console.log("🔍 [INBOX] Checking unread status for", conversations.length, "conversations");
     const ids = new Set<string>();
     
     conversations.forEach((c) => {
-      if (!c.lastMessageAt || !c.lastMessageSenderId) return;
-      if (c.lastMessageSenderId === user.uid) return;
+      if (!c.lastMessageAt || !c.lastMessageSenderId) {
+        console.log(`⏭️ [INBOX] ${c.id}: No message data`);
+        return;
+      }
+      
+      if (c.lastMessageSenderId === user.uid) {
+        console.log(`⏭️ [INBOX] ${c.id}: Last message from me`);
+        return;
+      }
 
       const lastReadTime = c.lastReadAt?.[user.uid] ?? 0;
+      const isUnread = lastReadTime === 0 || lastReadTime < c.lastMessageAt;
       
-      // Because the thread page now adds a buffer (+100ms), 
-      // lastReadTime will DEFINITELY be > lastMessageAt when read.
-      if (lastReadTime === 0 || lastReadTime < c.lastMessageAt) {
+      console.log(`${isUnread ? '🔴' : '✅'} [INBOX] ${c.id}:`, {
+        peer: c.peer?.username,
+        lastMessageAt: c.lastMessageAt,
+        lastReadAt: lastReadTime,
+        diff: lastReadTime - c.lastMessageAt,
+        isUnread
+      });
+      
+      if (isUnread) {
         ids.add(c.id);
       }
     });
+    
+    console.log("🔍 [INBOX] Total unread:", ids.size);
     return ids;
   }, [conversations, user]);
 

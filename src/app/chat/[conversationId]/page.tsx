@@ -20,6 +20,7 @@ import {
   addDoc,
   serverTimestamp,
   getDoc,
+  updateDoc,
   Timestamp,
 } from "firebase/firestore";
 import type { Message, ParticipantProfile } from "@/types";
@@ -210,36 +211,99 @@ export default function ChatThreadPage() {
     }
   }, [messages, scrollToBottom]);
 
-  // 4. Sync Read Status
+  // 4. Sync Read Status - FIX: Add 100ms buffer to lastReadAt
   useEffect(() => {
-    if (!conversationId || !user) return;
+    if (!conversationId || !user) {
+      console.log("📖 [READ-STATUS] Skipped: No conversationId or user");
+      return;
+    }
 
+    console.log("📖 [READ-STATUS] Setting up listener for:", conversationId);
     const db = getFirebaseDb();
     const convRef = doc(db, "conversations", conversationId);
 
     const unsubscribe = onSnapshot(convRef, (docSnap) => {
-      if (!docSnap.exists()) return;
+      if (!docSnap.exists()) {
+        console.log("📖 [READ-STATUS] Conversation doesn't exist");
+        return;
+      }
 
       const data = docSnap.data();
       const lastMsgTimeVal = data.lastMessageAt;
       const lastSender = data.lastMessageSenderId;
       const myReadTimeVal = data.lastReadAt?.[user.uid];
 
+      console.log("📖 [READ-STATUS] Raw Firestore data:", {
+        hasLastReadAt: !!data.lastReadAt,
+        lastReadAtKeys: data.lastReadAt ? Object.keys(data.lastReadAt) : [],
+        myUserId: user.uid,
+        myReadTimeRaw: data.lastReadAt?.[user.uid],
+        fullLastReadAt: data.lastReadAt
+      });
+
+      console.log("📖 [READ-STATUS] Snapshot received:", {
+        lastSender,
+        isFromOther: lastSender !== user.uid,
+        hasLastMessage: !!lastMsgTimeVal,
+        lastMessageAt: lastMsgTimeVal?.toDate?.(),
+        myLastReadAt: myReadTimeVal?.toDate?.(),
+      });
+
       if (lastSender && lastSender !== user.uid && lastMsgTimeVal) {
         const lastMsgMillis = getMillis(lastMsgTimeVal);
         const myReadMillis = getMillis(myReadTimeVal);
 
+        console.log("📖 [READ-STATUS] Comparing timestamps:", {
+          lastMsgMillis,
+          myReadMillis,
+          diff: lastMsgMillis - myReadMillis,
+          needsUpdate: myReadMillis < lastMsgMillis
+        });
+
         if (myReadMillis < lastMsgMillis) {
-          setDoc(
-            convRef, 
-            { [`lastReadAt.${user.uid}`]: lastMsgTimeVal }, 
-            { merge: true }
-          ).catch(err => console.error("Failed to sync read status:", err));
+          const readTimeWithBuffer = Timestamp.fromMillis(lastMsgMillis + 100);
+          
+          console.log("✅ [READ-STATUS] Marking as read with buffer:", {
+            originalMsgTime: lastMsgMillis,
+            newReadTime: lastMsgMillis + 100,
+            buffer: 100,
+            fieldPath: `lastReadAt.${user.uid}`
+          });
+
+          updateDoc(convRef, {
+            [`lastReadAt.${user.uid}`]: readTimeWithBuffer
+          })
+          .then(async () => {
+            console.log("✅ [READ-STATUS] Successfully updated read status");
+            
+            // Verify the write by reading it back
+            const verifySnap = await getDoc(convRef);
+            if (verifySnap.exists()) {
+              const verifyData = verifySnap.data();
+              console.log("🔍 [READ-STATUS] Verification read:", {
+                hasLastReadAt: !!verifyData.lastReadAt,
+                myReadValue: verifyData.lastReadAt?.[user.uid],
+                allKeys: verifyData.lastReadAt ? Object.keys(verifyData.lastReadAt) : []
+              });
+            }
+          })
+          .catch(err => console.error("❌ [READ-STATUS] Failed to sync:", err));
+        } else {
+          console.log("⏭️ [READ-STATUS] Already up to date, no update needed");
         }
+      } else {
+        console.log("⏭️ [READ-STATUS] Skipped update:", {
+          noLastSender: !lastSender,
+          isMyMessage: lastSender === user.uid,
+          noLastMessage: !lastMsgTimeVal
+        });
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      console.log("📖 [READ-STATUS] Cleaning up listener");
+      unsubscribe();
+    };
   }, [conversationId, user]);
 
   // 5. Send Handler
@@ -274,22 +338,63 @@ export default function ChatThreadPage() {
             lastMessageText: messageText,
             lastMessageAt: now,
             lastMessageSenderId: user.uid,
-            [`lastReadAt.${user.uid}`]: now,
+            lastReadAt: {
+              [user.uid]: now
+            }
           },
           { merge: true }
         );
 
+        // Send notification email - improved error handling
         if (otherUser?.id) {
-          fetch('/api/emails/send-notification', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+          console.log("📧 [NOTIFICATION] Preparing to send notification:", {
+            recipientId: otherUser.id,
+            recipientName: otherUser.username,
+            senderName,
+            messagePreview: messageText.slice(0, 50),
+            conversationId
+          });
+
+          try {
+            const notifPayload = {
               recipientId: otherUser.id,
               senderName: senderName,
               messageText: messageText,
               conversationId: conversationId
-            })
-          }).catch(err => console.error("Notification error:", err));
+            };
+
+            console.log("📧 [NOTIFICATION] Sending request to API...");
+
+            const response = await fetch('/api/emails/send-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(notifPayload)
+            });
+            
+            console.log("📧 [NOTIFICATION] Response status:", response.status);
+            
+            const result = await response.json();
+            console.log("📧 [NOTIFICATION] Response body:", result);
+            
+            if (!response.ok) {
+              console.error("❌ [NOTIFICATION] API returned error:", {
+                status: response.status,
+                error: result.error
+              });
+            } else if (result.skipped) {
+              console.log("⏭️ [NOTIFICATION] Email skipped:", result.reason);
+            } else {
+              console.log("✅ [NOTIFICATION] Email sent successfully!", result);
+            }
+          } catch (notifError) {
+            console.error("🔥 [NOTIFICATION] Failed to send notification:", {
+              error: notifError,
+              message: notifError instanceof Error ? notifError.message : String(notifError),
+              stack: notifError instanceof Error ? notifError.stack : undefined
+            });
+          }
+        } else {
+          console.log("⏭️ [NOTIFICATION] No recipient to notify");
         }
 
       } catch (err) {

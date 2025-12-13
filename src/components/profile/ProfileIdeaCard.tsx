@@ -97,8 +97,8 @@ export default function ProfileIdeaCard({
     <div
       className={`group relative rounded-lg sm:rounded-xl border transition-all duration-200 ${
         featured
-          ? "border-brand/30 bg-gradient-to-br from-neutral-900 to-neutral-950 p-4 sm:p-6 hover:border-brand/50"
-          : "border-neutral-800 bg-neutral-950/50 p-4 sm:p-5 hover:border-neutral-600 hover:bg-neutral-900/50"
+          ? "border-brand/30 bg-gradient-to-br from-neutral-900/20 to-neutral-950/20 p-4 sm:p-6 hover:border-brand/50"
+          : "border-neutral-800 bg-neutral-950/20 p-4 sm:p-5 hover:border-neutral-600/50 hover:bg-neutral-900/50"
       }`}
       style={
         featured
