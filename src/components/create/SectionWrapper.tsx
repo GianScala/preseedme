@@ -29,8 +29,8 @@ export default function SectionWrapper({
 
   // Dynamic Styles based on state
   const containerClasses = isOpen
-    ? "border-neutral-700 bg-neutral-900/30 shadow-2xl shadow-black/50" // Active State
-    : "border-neutral-800/50 hover:border-neutral-700/80 hover:bg-neutral-900/10"; // Idle State
+    ? "border-neutral-700 bg-neutral-900/50 shadow-2xl shadow-black/50" // Active State
+    : "border-neutral-800/50 hover:border-neutral-700/80 hover:bg-neutral-900/20"; // Idle State
 
   const iconRingClasses = isOpen
     ? "bg-brand/10 ring-2 ring-brand/40 text-brand shadow-[0_0_15px_-3px_rgba(var(--brand-rgb),0.3)]"

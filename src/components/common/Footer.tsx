@@ -45,13 +45,6 @@ export default function Footer() {
             </a>
           </div>
 
-          {/* Tagline */}
-          <div className="text-center md:text-right">
-            <p className="text-xs font-medium text-neutral-400">
-              early founders <span className="text-[var(--brand)]">·</span> micro-investors
-            </p>
-          </div>
-
         </div>
       </div>
     </footer>

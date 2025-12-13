@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import ChristmasGrid from "./ChristmasGrid"; // Importing the smart grid
+import GridDesign from "./GridDesign"; // Importing the smart grid
 
 export default function InteractiveBackground() {
   const interactiveRef = useRef<HTMLDivElement>(null);
@@ -111,7 +111,7 @@ export default function InteractiveBackground() {
           - Placed BEHIND the mouse blob so the mouse illuminates it
           - The icons are gray/dim by default due to opacity in Grid component
       */}
-      <ChristmasGrid />
+      <GridDesign />
 
       {/* 4. Interactive Mouse Blob */}
       <div 
