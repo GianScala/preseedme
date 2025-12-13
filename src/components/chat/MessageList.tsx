@@ -10,6 +10,7 @@ type MessageListProps = {
   currentUserId: string;
   loading: boolean;
   error: string | null;
+  otherUserLastReadAt?: number; // Add this prop
 };
 
 function formatMessageTime(timestampMs: number) {
@@ -54,12 +55,12 @@ export function MessageList({
   currentUserId,
   loading,
   error,
+  otherUserLastReadAt = 0, // Default to 0
 }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
 
-  // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (messages.length === 0) return;
 
@@ -68,9 +69,8 @@ export function MessageList({
 
     const isNewMessage = messages.length > prevMessagesLengthRef.current;
 
-    // Check if user is near bottom (within 150px)
     const isNearBottom =
-      container.scrollHeight - container.scrollTop - container.clientHeight <
+      container.scrollHeight - container.scrollTop - container.clientHeight 
       150;
 
     if (isNewMessage && (isNearBottom || prevMessagesLengthRef.current === 0)) {
@@ -149,7 +149,7 @@ export function MessageList({
       ref={scrollContainerRef}
       className="h-full overflow-y-auto overflow-x-hidden scroll-smooth"
       style={{
-        WebkitOverflowScrolling: "touch", // Smooth scrolling on iOS
+        WebkitOverflowScrolling: "touch",
       }}
     >
       <div className="px-3 sm:px-4 py-4 space-y-3 sm:space-y-4">
@@ -168,6 +168,9 @@ export function MessageList({
 
           const timeLabel = formatMessageTime(msg.createdAt);
 
+          // Calculate if message is read
+          const isRead = isOwn && otherUserLastReadAt >= msg.createdAt;
+
           return (
             <MessageBubble
               key={msg.id}
@@ -176,6 +179,7 @@ export function MessageList({
               showSenderLabel={showSenderLabel}
               senderLabel={senderLabel}
               timeLabel={timeLabel}
+              isRead={isRead} // Pass read status
             />
           );
         })}
