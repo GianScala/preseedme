@@ -44,8 +44,7 @@ export async function updateIdea(
       teamWhyYouWillWin: formData.teamWhyYouWillWin.trim() || null,
       industryInsights: formData.industryInsights.trim() || null,
       valuePropositionDetail: formData.valuePropositionDetail.trim() || null,
-      deliverablesOverview: formData.deliverablesOverview.trim() || null,
-      deliverablesMilestones: formData.deliverablesMilestones.trim() || null,
+      updatedAt: Date.now(), // ✅ Added
     };
 
     const foundedYearNum = toNumberOrUndefined(formData.foundedYear);
@@ -73,6 +72,13 @@ export async function updateIdea(
       data.fundraisingRaisedSoFar = null;
       data.fundraisingMinCheckSize = null;
     }
+
+    // ✅ Updated deliverables section
+    data.deliverablesOverview = formData.deliverablesOverview.trim() || null;
+    data.deliverables = formData.deliverables.length > 0 ? formData.deliverables : null;
+    data.deliverablesUpdatedAt = formData.deliverables.length > 0 ? Date.now() : null;
+    // Backwards compatibility
+    data.deliverablesMilestones = formData.deliverablesMilestones?.trim() || null;
 
     if (formData.thumbnailFile) {
       const storage = getFirebaseStorage();

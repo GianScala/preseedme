@@ -1,7 +1,15 @@
+// src/hooks/useEditIdeaForm.ts
 import { useState, useEffect } from "react";
 import { getFirebaseDb } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import type { Idea } from "@/types";
+
+interface Deliverable {
+  id: string;
+  text: string;
+  progress: number;
+  createdAt: number;
+}
 
 export interface IdeaFormData {
   title: string;
@@ -29,6 +37,7 @@ export interface IdeaFormData {
   fundraisingRaisedSoFar: string;
   fundraisingMinCheckSize: string;
   deliverablesOverview: string;
+  deliverables: Deliverable[];
   deliverablesMilestones: string;
   saving: boolean;
   error: string;
@@ -61,6 +70,7 @@ export function useEditIdeaForm(ideaId: string | undefined, user: any) {
     fundraisingRaisedSoFar: "",
     fundraisingMinCheckSize: "",
     deliverablesOverview: "",
+    deliverables: [],
     deliverablesMilestones: "",
     saving: false,
     error: "",
@@ -129,6 +139,7 @@ export function useEditIdeaForm(ideaId: string | undefined, user: any) {
           fundraisingRaisedSoFar: data.fundraisingRaisedSoFar ? String(data.fundraisingRaisedSoFar) : "",
           fundraisingMinCheckSize: data.fundraisingMinCheckSize ? String(data.fundraisingMinCheckSize) : "",
           deliverablesOverview: data.deliverablesOverview ?? "",
+          deliverables: (data.deliverables as Deliverable[]) ?? [],
           deliverablesMilestones: data.deliverablesMilestones ?? "",
           saving: false,
           error: "",

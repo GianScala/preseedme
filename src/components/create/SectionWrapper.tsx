@@ -1,3 +1,4 @@
+// src/components/create/SectionWrapper.tsx
 import type { ReactNode } from "react";
 import { Check, AlertCircle, ChevronRight } from "lucide-react";
 
@@ -35,19 +36,19 @@ export default function SectionWrapper({
   const iconRingClasses = isOpen
     ? "bg-brand/10 ring-2 ring-brand/40 text-brand shadow-[0_0_15px_-3px_rgba(var(--brand-rgb),0.3)]"
     : isComplete
-    ? "bg-emerald-500/10 ring-1 ring-emerald-500/30 text-emerald-400" // Complete State (Subtle Green)
+    ? "bg-emerald-500/10 ring-1 ring-emerald-500/30 text-emerald-400"
     : "bg-neutral-900/50 ring-1 ring-neutral-800 text-neutral-400 group-hover:text-neutral-200";
 
   return (
     <section
       className={`
-        relative group rounded-2xl border transition-all duration-300 ease-out overflow-hidden
+        relative group rounded-2xl border transition-colors duration-300 ease-out
         ${containerClasses}
       `}
     >
       {/* Active "Glow" Backdrop */}
       <div 
-        className={`absolute inset-0 bg-gradient-to-b from-brand/5 to-transparent pointer-events-none transition-opacity duration-500 ${isOpen ? 'opacity-100' : 'opacity-0'}`} 
+        className={`absolute inset-0 bg-gradient-to-b from-brand/5 to-transparent pointer-events-none transition-opacity duration-500 rounded-2xl ${isOpen ? 'opacity-100' : 'opacity-0'}`} 
       />
 
       {/* Header Button */}
@@ -57,7 +58,7 @@ export default function SectionWrapper({
         aria-expanded={isOpen}
         aria-controls={panelId}
         id={sectionId}
-        className="relative z-10 w-full flex items-center justify-between gap-4 p-4 sm:p-5 text-left outline-none"
+        className="relative z-10 w-full flex items-center justify-between gap-4 p-4 sm:p-5 text-left outline-none rounded-2xl focus-visible:ring-2 focus-visible:ring-brand/50"
       >
         <div className="flex items-start gap-4 flex-1">
           {/* Icon Container with Status Badges */}
@@ -72,7 +73,7 @@ export default function SectionWrapper({
               {icon}
             </div>
 
-            {/* Status Indicator (Floating Badge) */}
+            {/* Status Indicators */}
             <div className="absolute -bottom-1 -right-1 z-20">
               {isComplete && !isOpen && (
                 <div className="bg-neutral-950 rounded-full border border-neutral-800 p-0.5 animate-in zoom-in">
@@ -129,17 +130,23 @@ export default function SectionWrapper({
         </div>
       </button>
 
-      {/* Expandable Content Panel */}
+      {/* Expandable Content Panel - FIXED with CSS Grid */}
       <div
         id={panelId}
         aria-labelledby={sectionId}
         className={`
-          relative z-10 overflow-hidden transition-all duration-300
-          ${isOpen ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"}
+          relative z-10 grid transition-[grid-template-rows] duration-300 ease-out
+          ${isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}
         `}
       >
-        <div className="border-t border-neutral-800/50 p-4 sm:p-6 bg-neutral-950/20">
-          <div className="animate-in slide-in-from-top-2 fade-in duration-300">
+        {/* Inner Container: Needs overflow-hidden to handle the grid animation */}
+        <div className="overflow-hidden min-h-0">
+          <div 
+            className={`
+              border-t border-neutral-800/50 p-4 sm:p-6 bg-neutral-950/20 transition-opacity duration-300 delay-75
+              ${isOpen ? 'opacity-100' : 'opacity-0'}
+            `}
+          >
             {children}
           </div>
         </div>

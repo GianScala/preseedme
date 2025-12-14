@@ -1,4 +1,12 @@
+// src/hooks/useNewIdeaForm.ts
 import { useState } from "react";
+
+interface Deliverable {
+  id: string;
+  text: string;
+  progress: number;
+  createdAt: number;
+}
 
 export interface IdeaFormData {
   title: string;
@@ -26,7 +34,8 @@ export interface IdeaFormData {
   fundraisingRaisedSoFar: string;
   fundraisingMinCheckSize: string;
   deliverablesOverview: string;
-  deliverablesMilestones: string;
+  deliverables: Deliverable[]; // ✅ Added
+  deliverablesMilestones: string; // Kept for backwards compatibility
   saving: boolean;
   error: string;
 }
@@ -58,6 +67,7 @@ export function useNewIdeaForm() {
     fundraisingRaisedSoFar: "",
     fundraisingMinCheckSize: "",
     deliverablesOverview: "",
+    deliverables: [], // ✅ Added
     deliverablesMilestones: "",
     saving: false,
     error: "",

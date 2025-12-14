@@ -1,3 +1,11 @@
+// src/types/index.ts
+export type Deliverable = {
+  id: string;
+  text: string;
+  progress: number; // 0-100
+  createdAt: number;
+};
+
 export type UserProfile = {
   id: string;
   email: string | null;
@@ -5,15 +13,10 @@ export type UserProfile = {
   handle: string | null;
   photoURL?: string | null;
   createdAt: number;
-
   publishedIdeaIds: string[];
   likedIdeaIds?: string[];
-
-  // Contact details
   preferredPhoneNumber?: string | null;
   address?: string | null;
-
-  // Profile details
   bio?: string | null;
   location?: string | null;
   role?: "founder" | "investor" | "both";
@@ -32,52 +35,38 @@ export type Idea = {
   founderHandle: string;
   founderUsername: string;
   createdAt: number;
-
-  // Likes
+  updatedAt?: number; // Added for tracking updates
   likeCount?: number;
   likedByUserIds?: string[];
-
-  // Links & media
   websiteUrl?: string;
   demoVideoUrl?: string;
   thumbnailUrl?: string;
-
-  // Primary categorization
-  category?: string; // Main category/niche (e.g., "AI", "SaaS", "E-commerce")
-  tags?: string[]; // Array of searchable tags (e.g., ["productivity", "automation", "b2b"])
-
-  // Tag-style fields (kept for backwards compatibility)
-  sector?: string; // Primary sector (singular)
-  sectors?: string[]; // Multiple sectors (array)
-  targetAudience?: string; // Primary target audience (singular)
-  targetAudiences?: string[]; // Multiple target audiences (array)
+  category?: string;
+  tags?: string[];
+  sector?: string;
+  sectors?: string[];
+  targetAudience?: string;
+  targetAudiences?: string[];
   targetDemographics?: string[];
   revenueModels?: string[];
-
-  // Business metrics
   foundedYear?: number;
   totalRevenueSinceInception?: number;
   monthlyRecurringRevenue?: number;
   userCount?: number;
   targetMarket?: string;
-
-  // 🧠 Why this team will win
   teamBackground?: string;
   teamWhyYouWillWin?: string;
   industryInsights?: string;
   valuePropositionDetail?: string;
-
-  // 📦 Deliverables (NEW)
   deliverablesOverview?: string;
-  deliverablesMilestones?: string;
-
-  // 💸 Fundraising
+  deliverables?: Deliverable[];
+  deliverablesUpdatedAt?: number;
+  deliverablesMilestones?: string; // Backwards compatibility
   isFundraising?: boolean;
   fundraisingGoal?: number;
   fundraisingRaisedSoFar?: number;
   fundraisingMinCheckSize?: number;
 };
-
 
 export type Message = {
   id: string;
@@ -103,4 +92,3 @@ export type ParticipantProfile = {
   handle: string;
   photoURL?: string | null;
 };
-

@@ -171,7 +171,9 @@ export default function IdeaDetailPage() {
     idea.valuePropositionDetail
   );
   const hasDeliverables = !!(
-    idea.deliverablesOverview || idea.deliverablesMilestones
+    idea.deliverablesOverview || 
+    idea.deliverablesMilestones ||
+    (idea.deliverables && idea.deliverables.length > 0) // ✅ Add this
   );
 
   return (

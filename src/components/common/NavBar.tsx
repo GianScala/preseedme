@@ -106,7 +106,7 @@ export default function Navbar() {
               </button>
               
               {aboutOpen && (
-                <div className="absolute top-full right-0 mt-2 w-48 bg-black/90 border border-white/10 rounded-lg shadow-xl overflow-hidden py-1">
+                <div className="absolute top-full right-0 mt-2 w-48 bg-neutral-900/60 border border-white/10 rounded-lg shadow-xl overflow-hidden py-1">
                   <Link href="/about" className="block px-4 py-2 text-sm text-neutral-300 hover:bg-white/10 hover:text-white" onClick={() => setAboutOpen(false)}>About Us</Link>
                   <Link href="/mission" className="block px-4 py-2 text-sm text-neutral-300 hover:bg-white/10 hover:text-white" onClick={() => setAboutOpen(false)}>Our Mission</Link>
                   <Link href="/how-it-works" className="block px-4 py-2 text-sm text-neutral-300 hover:bg-white/10 hover:text-white" onClick={() => setAboutOpen(false)}>How it Works</Link>

@@ -22,7 +22,6 @@ export async function submitIdea(
   user: any,
   profile: any
 ): Promise<SubmitResult> {
-  // Validation
   if (!formData.title.trim() || !formData.oneLiner.trim()) {
     formData.error = "Please provide at least a title and a one-liner.";
     return { success: false, error: formData.error };
@@ -43,15 +42,14 @@ export async function submitIdea(
       founderHandle: profile.handle,
       founderUsername: profile.username,
       createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(), // ✅ Added
     };
 
-    // Optional links
     if (formData.websiteUrl.trim())
       data.websiteUrl = formData.websiteUrl.trim();
     if (formData.demoVideoUrl.trim())
       data.demoVideoUrl = formData.demoVideoUrl.trim();
 
-    // Arrays
     if (formData.sectors.length) data.sectors = formData.sectors;
     if (formData.targetAudiences.length)
       data.targetAudiences = formData.targetAudiences;
@@ -62,11 +60,8 @@ export async function submitIdea(
     if (formData.targetMarket.length)
       data.targetMarket = formData.targetMarket;
 
-    // Numeric fields
     const foundedYearNum = toNumberOrUndefined(formData.foundedYear);
-    const totalRevenueNum = toNumberOrUndefined(
-      formData.totalRevenueSinceInception
-    );
+    const totalRevenueNum = toNumberOrUndefined(formData.totalRevenueSinceInception);
     const mrrNum = toNumberOrUndefined(formData.monthlyRecurringRevenue);
     const userCountNum = toNumberOrUndefined(formData.userCount);
 
@@ -76,7 +71,6 @@ export async function submitIdea(
     if (mrrNum !== undefined) data.monthlyRecurringRevenue = mrrNum;
     if (userCountNum !== undefined) data.userCount = userCountNum;
 
-    // Why you'll win / About
     if (formData.teamBackground.trim())
       data.teamBackground = formData.teamBackground.trim();
     if (formData.teamWhyYouWillWin.trim())
@@ -86,14 +80,9 @@ export async function submitIdea(
     if (formData.valuePropositionDetail.trim())
       data.valuePropositionDetail = formData.valuePropositionDetail.trim();
 
-    // Fundraising
     const fundraisingGoalNum = toNumberOrUndefined(formData.fundraisingGoal);
-    const fundraisingRaisedNum = toNumberOrUndefined(
-      formData.fundraisingRaisedSoFar
-    );
-    const fundraisingMinCheckNum = toNumberOrUndefined(
-      formData.fundraisingMinCheckSize
-    );
+    const fundraisingRaisedNum = toNumberOrUndefined(formData.fundraisingRaisedSoFar);
+    const fundraisingMinCheckNum = toNumberOrUndefined(formData.fundraisingMinCheckSize);
 
     if (formData.isFundraising) {
       data.isFundraising = true;
@@ -105,32 +94,32 @@ export async function submitIdea(
         data.fundraisingMinCheckSize = fundraisingMinCheckNum;
     }
 
-    // Deliverables
+    // ✅ Updated deliverables section
     if (formData.deliverablesOverview.trim()) {
       data.deliverablesOverview = formData.deliverablesOverview.trim();
     }
+    if (formData.deliverables.length > 0) {
+      data.deliverables = formData.deliverables;
+      data.deliverablesUpdatedAt = Date.now();
+    }
+    // Backwards compatibility
     if (formData.deliverablesMilestones.trim()) {
       data.deliverablesMilestones = formData.deliverablesMilestones.trim();
     }
 
-    // Thumbnail upload
     if (formData.thumbnailFile) {
       const storage = getFirebaseStorage();
       const storageRef = ref(
         storage,
-        `idea-thumbnails/${user.uid}/${Date.now()}-${
-          formData.thumbnailFile.name
-        }`
+        `idea-thumbnails/${user.uid}/${Date.now()}-${formData.thumbnailFile.name}`
       );
       await uploadBytes(storageRef, formData.thumbnailFile);
       const downloadUrl = await getDownloadURL(storageRef);
       data.thumbnailUrl = downloadUrl;
     }
 
-    // Create idea
     const docRef = await addDoc(ideasRef, data);
 
-    // Attach idea to user
     const userRef = doc(db, "users", user.uid);
     await updateDoc(userRef, {
       publishedIdeaIds: arrayUnion(docRef.id),
