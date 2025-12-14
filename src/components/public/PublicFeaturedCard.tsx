@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useState, useMemo, type MouseEvent } from "react";
 import Link from "next/link";
+import { Clock } from "lucide-react";
 import { formatCurrencyShort, formatNumberShort } from "@/lib/formatters";
 import type { IdeaWithLikes } from "@/lib/ideas";
 import HeartIcon from "@/components/icons/HeartIcon";
@@ -20,6 +21,20 @@ type PublicFeaturedCardProps = {
   currentUserId: string | null;
   onToggleLike: () => void;
   loadingLike: boolean;
+};
+
+// --- Date Helpers ---
+const getMillis = (timestamp: any): number | null => {
+  if (!timestamp) return null;
+  if (typeof timestamp === "number") return timestamp;
+  if (typeof timestamp.toMillis === "function") return timestamp.toMillis();
+  return null;
+};
+
+const formatShortDate = (ms: number | null) => {
+  if (!ms) return null;
+  const date = new Date(ms);
+  return `${date.getMonth() + 1}/${date.getDate()}`;
 };
 
 // Reused Micro Components
@@ -55,6 +70,45 @@ const MetricBadge = ({
   </div>
 );
 
+const GlassBadge = ({
+  icon: Icon,
+  label,
+  value,
+  variant = "neutral",
+}: {
+  icon: any;
+  label?: string;
+  value: string | number;
+  variant?: "neutral" | "success";
+}) => {
+  const styles = {
+    neutral: "bg-black/60 border-white/10 text-neutral-300",
+    success:
+      "bg-black/60 border-emerald-500/30 text-emerald-400 shadow-[0_0_15px_-3px_rgba(16,185,129,0.2)]",
+  };
+
+  return (
+    <div
+      className={`
+      flex items-center gap-2 px-3 h-8 rounded-full 
+      backdrop-blur-md border text-xs font-medium shadow-sm 
+      transition-all select-none
+      ${styles[variant]}
+    `}
+    >
+      <Icon
+        className={`w-3.5 h-3.5 ${variant === "success" ? "text-emerald-400" : ""}`}
+      />
+      {label && (
+        <span className="hidden xs:inline opacity-70 uppercase tracking-wider text-[10px]">
+          {label}
+        </span>
+      )}
+      <span className="tabular-nums">{value}</span>
+    </div>
+  );
+};
+
 export default function PublicFeaturedCard({
   idea,
   currentUserId,
@@ -74,8 +128,10 @@ export default function PublicFeaturedCard({
     founderUsername,
     sector,
     targetAudience,
-    founderId, // from Idea
-    founderAvatarUrl, // optional, if ever present on idea
+    founderId,
+    founderAvatarUrl,
+    createdAt,
+    updatedAt,
   } = idea;
 
   // Start from whatever might be on the idea, then override from user profile
@@ -91,6 +147,22 @@ export default function PublicFeaturedCard({
   const usersLabel = formatNumberShort(userCount);
   const foundedLabel = foundedYear ? String(foundedYear) : null;
   const hasMetrics = !!(mrrLabel || usersLabel || foundedLabel);
+
+  // Date Logic
+  const dateInfo = useMemo(() => {
+    const createdMs = getMillis(createdAt);
+    const updatedMs = getMillis(updatedAt);
+    const wasUpdated = updatedMs && createdMs && updatedMs > createdMs;
+    const isRecentUpdate =
+      wasUpdated && updatedMs && Date.now() - updatedMs < 48 * 60 * 60 * 1000;
+
+    return {
+      createdMs,
+      updatedMs,
+      wasUpdated,
+      isRecentUpdate,
+    };
+  }, [createdAt, updatedAt]);
 
   const handleLikeClick = (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -140,7 +212,7 @@ export default function PublicFeaturedCard({
         );
 
         const db = getFirebaseDb();
-        const ref = doc(db, "users", founderId); // adjust collection name if needed
+        const ref = doc(db, "users", founderId);
         const snap = await getDoc(ref);
 
         if (!snap.exists()) {
@@ -228,6 +300,36 @@ export default function PublicFeaturedCard({
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-blue-400/80 text-blue-400 text-[10px] font-bold uppercase tracking-wider shadow-lg">
                 Today&apos;s Idea
               </span>
+            </div>
+
+            {/* --- BOTTOM: Date Badges --- */}
+            <div className="absolute bottom-4 left-4 right-4 z-10 flex justify-between items-end gap-2">
+              {/* Left Side: Creation Date */}
+              <GlassBadge
+                icon={Clock}
+                label="Created"
+                value={formatShortDate(dateInfo.createdMs) || "N/A"}
+                variant="neutral"
+              />
+
+              {/* Right Side: Update Badge (Only if updated) */}
+              {dateInfo.wasUpdated && (
+                <div className="flex items-center gap-2">
+                  {/* Pulse effect if very recent */}
+                  {dateInfo.isRecentUpdate && (
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                  )}
+                  <GlassBadge
+                    icon={Clock}
+                    label="Updated"
+                    value={formatShortDate(dateInfo.updatedMs) || "N/A"}
+                    variant="success"
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -325,9 +427,7 @@ export default function PublicFeaturedCard({
                 {loadingLike ? (
                   <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                 ) : (
-                  <HeartIcon
-                    className={`w-4 h-4`}
-                  />
+                  <HeartIcon className={`w-4 h-4`} />
                 )}
                 <span>{likeCount}</span>
               </button>

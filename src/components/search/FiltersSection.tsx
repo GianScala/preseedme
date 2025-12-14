@@ -41,7 +41,7 @@ const FiltersSection = memo(function FiltersSection({
   };
 
   return (
-    <div className="space-y-5 rounded-3xl border border-white/5 bg-white/[0.02] backdrop-blur-xl p-5 sm:p-6 shadow-2xl shadow-black/20">
+    <div className="space-y-5 rounded-2xl border border-white/5 bg-white/[0.02] backdrop-blur-xl p-5 sm:p-6 shadow-2xl shadow-black/20">
       
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -77,7 +77,7 @@ const FiltersSection = memo(function FiltersSection({
               id="sort-select"
               value={sortBy}
               onChange={(e) => onSortChange(e.target.value as "newest" | "mostLiked")}
-              className="w-full appearance-none rounded-xl bg-neutral-900/50 border border-white/10 py-2.5 pl-4 pr-10 text-sm text-neutral-200 focus:border-[var(--brand)] focus:ring-1 focus:ring-[var(--brand)] outline-none transition-all cursor-pointer hover:bg-neutral-800/50"
+              className="w-full appearance-none rounded-xl bg-neutral-900/20 border border-white/10 py-2.5 pl-4 pr-10 text-sm text-neutral-200 focus:border-[var(--brand)] focus:ring-1 focus:ring-[var(--brand)] outline-none transition-all cursor-pointer hover:bg-neutral-800/50"
             >
               <option value="newest">Newest First</option>
               <option value="mostLiked">Most Popular</option>
