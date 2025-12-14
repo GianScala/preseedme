@@ -216,7 +216,7 @@ export default function IdeaHeader({
 
             <div className="flex flex-col mt-4">
               <span className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold">
-                Created By
+                Launched By
               </span>
               <Link
                 href={`/profile/${idea.founderId}`}
