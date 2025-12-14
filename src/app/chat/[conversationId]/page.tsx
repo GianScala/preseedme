@@ -27,7 +27,6 @@ import type { Message, ParticipantProfile } from "@/types";
 import { MessageList } from "@/components/chat/MessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
 
-// HELPER: Safely convert timestamps
 const getMillis = (value: any): number => {
   if (!value) return 0;
   if (typeof value === "number") return value;
@@ -54,8 +53,6 @@ export default function ChatThreadPage() {
   const [text, setText] = useState("");
   const [participants, setParticipants] = useState<Record<string, ParticipantProfile>>({});
   const [otherUser, setOtherUser] = useState<ParticipantProfile | null>(null);
-  
-  // NEW: Store the raw map of read times from Firestore
   const [lastReadMap, setLastReadMap] = useState<Record<string, any>>({});
   
   const [loadingConversation, setLoadingConversation] = useState(true);
@@ -67,10 +64,9 @@ export default function ChatThreadPage() {
     return getParticipantIds(conversationId, user.uid);
   }, [conversationId, user?.uid]);
 
-  // Mobile scroll lock
   useEffect(() => {
     const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden"; // Simple lock
+    document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = originalOverflow;
     };
@@ -88,13 +84,11 @@ export default function ChatThreadPage() {
         setLoadingConversation(true);
         setError(null);
 
-        // Ensure user is participant
         if (!participantIds.includes(user.uid)) {
           setError("You are not a participant in this conversation.");
           return;
         }
 
-        // Create doc if missing
         await setDoc(convRef, {
             participants: participantIds,
             ideaId: ideaId ?? null,
@@ -102,7 +96,6 @@ export default function ChatThreadPage() {
           }, { merge: true }
         );
 
-        // Fetch profiles
         const profileMap: Record<string, ParticipantProfile> = {};
         await Promise.all(
           participantIds.map(async (pid) => {
@@ -162,7 +155,7 @@ export default function ChatThreadPage() {
     return () => unsubscribe();
   }, [conversationId, authLoading]);
 
-  // 3. Sync Read Status & Listen for Read Receipts
+  // 3. Sync Read Status
   useEffect(() => {
     if (!conversationId || !user) return;
 
@@ -174,12 +167,10 @@ export default function ChatThreadPage() {
       
       const data = docSnap.data();
       
-      // A: Update local state with the read map (so we can show ticks)
       if (data.lastReadAt) {
         setLastReadMap(data.lastReadAt);
       }
 
-      // B: Check if I need to mark as read (Logic logic from previous step)
       const lastSender = data.lastMessageSenderId;
       const lastMsgTimeVal = data.lastMessageAt;
       const myReadTimeVal = data.lastReadAt?.[user.uid];
@@ -189,7 +180,6 @@ export default function ChatThreadPage() {
         const myReadMillis = getMillis(myReadTimeVal);
 
         if (myReadMillis < lastMsgMillis) {
-          // Add buffer to ensure equality check passes
           const readTimeWithBuffer = Timestamp.fromMillis(lastMsgMillis + 100);
           updateDoc(convRef, {
             [`lastReadAt.${user.uid}`]: readTimeWithBuffer
@@ -201,14 +191,13 @@ export default function ChatThreadPage() {
     return () => unsubscribe();
   }, [conversationId, user]);
 
-  // 4. Calculate Other User's Last Read Time
   const otherUserLastReadAt = useMemo(() => {
     if (!otherUser?.id || !lastReadMap) return null;
     const val = lastReadMap[otherUser.id];
     return getMillis(val);
   }, [otherUser, lastReadMap]);
 
-
+  // 4. Handle Send & Trigger Email
   const handleSend = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -222,14 +211,14 @@ export default function ChatThreadPage() {
         const db = getFirebaseDb();
         const now = serverTimestamp();
 
-        // 1. Add Message
+        // A. Add Message
         await addDoc(collection(db, "conversations", conversationId, "messages"), {
           senderId: user.uid,
           text: messageText,
           createdAt: now,
         });
 
-        // 2. Update Conversation Metadata
+        // B. Update Metadata
         await setDoc(
           doc(db, "conversations", conversationId),
           {
@@ -237,13 +226,48 @@ export default function ChatThreadPage() {
             lastMessageText: messageText,
             lastMessageAt: now,
             lastMessageSenderId: user.uid,
-            // Automatically mark as read for sender
             [`lastReadAt.${user.uid}`]: now 
           },
           { merge: true }
         );
         
-        // (Optional: Call your email API here as in previous code)
+        // C. Trigger Notification API
+        const recipientId = participantIds?.find(p => p !== user.uid);
+        const senderProfile = participants[user.uid];
+        const senderName = senderProfile?.username || "A user";
+        
+        if (recipientId) {
+            console.log(`[UI] Sending notification to ${recipientId} via /api/emails/send-notification`);
+            
+            // CORRECTED URL TO MATCH YOUR FOLDER STRUCTURE
+            fetch('/api/emails/send-notification', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    recipientId,
+                    senderName,
+                    messageText,
+                    conversationId
+                })
+            })
+            .then(async (res) => {
+                const contentType = res.headers.get("content-type");
+                if (contentType && contentType.includes("application/json")) {
+                   return res.json();
+                } else {
+                   // If this throws, path is still wrong
+                   const text = await res.text();
+                   throw new Error(`API returned non-JSON (${res.status}): ${text.substring(0, 50)}...`);
+                }
+            })
+            .then(data => {
+                if(data.skipped) console.log("[UI] Email Debounced (Too frequent)");
+                else console.log("[UI] Email Sent Successfully");
+            })
+            .catch(err => {
+                console.error("[UI] Notification Failed:", err.message);
+            });
+        }
 
       } catch (err) {
         console.error("Send error:", err);
@@ -253,7 +277,7 @@ export default function ChatThreadPage() {
         setSending(false);
       }
     },
-    [conversationId, user, text, participantIds, sending]
+    [conversationId, user, text, participantIds, sending, participants]
   );
 
   const handleVisitProfile = () => {
@@ -269,7 +293,6 @@ export default function ChatThreadPage() {
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center sm:p-4">
       <div className="w-full h-full sm:h-[90vh] sm:max-w-4xl flex flex-col sm:rounded-2xl overflow-hidden bg-neutral-950 sm:border sm:border-neutral-800">
         
-        {/* Header */}
         <div className="flex-shrink-0 bg-neutral-900 border-b border-neutral-800 p-3 flex items-center justify-between">
            <div className="flex items-center gap-3">
              <button onClick={() => router.back()} className="p-2 hover:bg-neutral-800 rounded-full text-white">
@@ -290,7 +313,6 @@ export default function ChatThreadPage() {
            <button onClick={handleVisitProfile} className="px-3 py-1.5 bg-neutral-800 rounded text-xs text-white">Profile</button>
         </div>
 
-        {/* Messages Area */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4">
            {error && <div className="text-center text-red-400 text-sm mb-2">{error}</div>}
            
@@ -300,12 +322,10 @@ export default function ChatThreadPage() {
              currentUserId={user.uid} 
              loading={loadingConversation} 
              error={error} 
-             // PASS READ TIME DOWN
              otherUserLastReadAt={otherUserLastReadAt ?? undefined}
            />
         </div>
 
-        {/* Input Area */}
         <div className="flex-shrink-0 border-t border-neutral-800 bg-neutral-950 p-3 pb-safe">
            <ChatInput 
              text={text} 
