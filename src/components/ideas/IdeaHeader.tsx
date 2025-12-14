@@ -170,38 +170,36 @@ export default function IdeaHeader({
         <BackButton onClick={() => router.back()} />
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-3 lg:gap-12">
+      <div className="flex flex-col lg:grid gap-6 lg:gap-12 lg:grid-cols-3">
         {/* Left Column: Text Content */}
-        <div className="lg:col-span-2 flex flex-col justify-center space-y-6">
-          <div className="space-y-4">
-            {/* Mobile Header */}
-            <div className="flex items-start justify-between gap-2 sm:hidden">
-              <h1 className="flex-1 text-3xl font-bold text-white leading-tight">
-                {idea.title}
-              </h1>
-              <button
-                onClick={() => router.back()}
-                className="flex items-center justify-center rounded-full border border-neutral-800 bg-neutral-900/70 text-neutral-300 hover:text-white w-8 h-8"
-              >
-                <ArrowLeft className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Desktop Title */}
-            <h1 className="hidden sm:block text-4xl md:text-5xl font-bold text-white leading-tight tracking-tight">
+        <div className="order-1 lg:col-span-2 space-y-4 lg:space-y-6">
+          {/* Mobile Header */}
+          <div className="flex items-start justify-between gap-3 sm:hidden">
+            <h1 className="flex-1 text-2xl font-bold text-white leading-tight">
               {idea.title}
             </h1>
-
-            <p className="text-base sm:text-lg text-neutral-300 leading-relaxed max-w-2xl">
-              {idea.oneLiner}
-            </p>
-
-            <IdeaMetaChips idea={idea} />
+            <button
+              onClick={() => router.back()}
+              className="flex items-center justify-center rounded-full border border-neutral-800 bg-neutral-900/70 text-neutral-300 hover:text-white w-9 h-9 shrink-0"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
           </div>
 
-          {/* Founder Profile */}
-          <div className="flex items-center gap-3 pt-2 border-t border-white/5 mt-4">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-neutral-800 to-neutral-900 ring-1 ring-white/10 flex items-center justify-center text-lg sm:text-xl font-bold text-white overflow-hidden shrink-0 mt-4">
+          {/* Desktop Title */}
+          <h1 className="hidden sm:block text-4xl md:text-5xl font-bold text-white leading-tight tracking-tight">
+            {idea.title}
+          </h1>
+
+          <p className="text-sm sm:text-lg text-neutral-300 leading-relaxed">
+            {idea.oneLiner}
+          </p>
+
+          <IdeaMetaChips idea={idea} />
+
+          {/* Founder Profile - Desktop Only */}
+          <div className="hidden lg:flex items-center gap-3 pt-4 border-t border-white/5">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-neutral-800 to-neutral-900 ring-1 ring-white/10 flex items-center justify-center text-xl font-bold text-white overflow-hidden shrink-0">
               {shouldShowInitials ? (
                 founderInitial
               ) : (
@@ -214,13 +212,13 @@ export default function IdeaHeader({
               )}
             </div>
 
-            <div className="flex flex-col mt-4">
+            <div className="flex flex-col">
               <span className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold">
                 Launched By
               </span>
               <Link
                 href={`/profile/${idea.founderId}`}
-                className="group inline-flex items-center gap-1.5 text-sm sm:text-base font-medium text-white hover:text-brand transition-colors"
+                className="group inline-flex items-center gap-1.5 text-base font-medium text-white hover:text-brand transition-colors"
               >
                 {idea.founderUsername}
                 {idea.founderHandle && (
@@ -233,37 +231,7 @@ export default function IdeaHeader({
 
         {/* Right Column: Visual Card */}
         {idea.thumbnailUrl && (
-          <div className="lg:col-span-1 space-y-4">
-            
-            {/* Action Links (Website/Demo) */}
-            {(idea.websiteUrl || idea.demoVideoUrl) && (
-              <div className="flex flex-wrap justify-end gap-2">
-                {idea.websiteUrl && (
-                  <a 
-                    href={ensureProtocol(idea.websiteUrl)} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-lg bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 hover:border-neutral-700 text-neutral-300 transition-all"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    Website
-                  </a>
-                )}
-                {idea.demoVideoUrl && (
-                  <a 
-                    href={ensureProtocol(idea.demoVideoUrl)} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-lg bg-brand/10 border border-brand/20 text-brand hover:bg-brand/20 transition-all"
-                  >
-                    <PlayCircle className="w-3.5 h-3.5" />
-                    Watch Demo
-                  </a>
-                )}
-              </div>
-            )}
-
-            {/* Main Thumbnail Card */}
+          <div className="order-2 lg:col-span-1">
             <div className="relative group rounded-2xl overflow-hidden shadow-2xl bg-neutral-900 border border-neutral-800 aspect-video">
               
               {/* Image */}
@@ -273,10 +241,38 @@ export default function IdeaHeader({
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
               />
               
-              {/* Overlay Gradient for readability */}
+              {/* Overlay Gradient */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none" />
 
-              {/* --- TOP RIGHT: Like Button --- */}
+              {/* TOP LEFT: Action Links */}
+              {(idea.websiteUrl || idea.demoVideoUrl) && (
+                <div className="absolute top-3 left-3 z-20 flex flex-col gap-2">
+                  {idea.websiteUrl && (
+                    <a 
+                      href={ensureProtocol(idea.websiteUrl)} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-3 h-8 rounded-full backdrop-blur-md border border-white/10 bg-black/60 hover:bg-black/80 text-white text-xs font-medium shadow-lg transition-all"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Website</span>
+                    </a>
+                  )}
+                  {idea.demoVideoUrl && (
+                    <a 
+                      href={ensureProtocol(idea.demoVideoUrl)} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-3 h-8 rounded-full backdrop-blur-md border border-brand/30 bg-brand/20 hover:bg-brand/30 text-white text-xs font-medium shadow-lg transition-all"
+                    >
+                      <PlayCircle className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Demo</span>
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {/* TOP RIGHT: Like Button */}
               <div className="absolute top-3 right-3 z-20">
                 <button
                   onClick={handleLikeClick}
@@ -297,25 +293,21 @@ export default function IdeaHeader({
                 </button>
               </div>
 
-              {/* --- BOTTOM ROW: Metadata --- */}
+              {/* BOTTOM: Metadata */}
               <div className="absolute bottom-3 left-3 right-3 z-20 flex justify-between items-end gap-2">
-                
-                {/* Left Side: Creation Date */}
                 <GlassBadge 
                   icon={Calendar} 
                   value={formatDate(dateInfo.createdMs)} 
                   variant="neutral"
                 />
 
-                {/* Right Side: Update Badge (Only if updated) */}
                 {dateInfo.wasUpdated && (
                   <div className="flex items-center gap-2">
-                     {/* Pulse effect if very recent */}
                     {dateInfo.isRecentUpdate && (
-                       <span className="relative flex h-2 w-2">
-                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                         <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                       </span>
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      </span>
                     )}
                     <GlassBadge 
                       icon={Clock} 
@@ -326,10 +318,42 @@ export default function IdeaHeader({
                   </div>
                 )}
               </div>
-
             </div>
           </div>
         )}
+
+        {/* Founder Profile - Mobile Only */}
+        <div className="order-3 lg:hidden pt-2 border-t border-white/5">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-neutral-800 to-neutral-900 ring-1 ring-white/10 flex items-center justify-center text-lg font-bold text-white overflow-hidden shrink-0">
+              {shouldShowInitials ? (
+                founderInitial
+              ) : (
+                <img
+                  src={avatarUrl as string}
+                  alt={founderUsername}
+                  onError={() => setAvatarError(true)}
+                  className="w-full h-full object-cover"
+                />
+              )}
+            </div>
+
+            <div className="flex flex-col">
+              <span className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold">
+                Launched By
+              </span>
+              <Link
+                href={`/profile/${idea.founderId}`}
+                className="group inline-flex items-center gap-1.5 text-sm font-medium text-white hover:text-brand transition-colors"
+              >
+                {idea.founderUsername}
+                {idea.founderHandle && (
+                  <span className="text-neutral-500 group-hover:text-brand/70 transition-colors">@{idea.founderHandle}</span>
+                )}
+              </Link>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
