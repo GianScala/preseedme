@@ -211,14 +211,14 @@ export default function ChatThreadPage() {
         const db = getFirebaseDb();
         const now = serverTimestamp();
 
-        // A. Add Message
+        // 1. Add Message
         await addDoc(collection(db, "conversations", conversationId, "messages"), {
           senderId: user.uid,
           text: messageText,
           createdAt: now,
         });
 
-        // B. Update Metadata
+        // 2. Update Metadata
         await setDoc(
           doc(db, "conversations", conversationId),
           {
@@ -231,15 +231,15 @@ export default function ChatThreadPage() {
           { merge: true }
         );
         
-        // C. Trigger Notification API
+        // 3. TRIGGER NOTIFICATION
         const recipientId = participantIds?.find(p => p !== user.uid);
         const senderProfile = participants[user.uid];
         const senderName = senderProfile?.username || "A user";
         
         if (recipientId) {
-            console.log(`[UI] Sending notification to ${recipientId} via /api/emails/send-notification`);
+            console.log(`[UI] Notification for ${recipientId} via /api/emails/send-notification`);
             
-            // CORRECTED URL TO MATCH YOUR FOLDER STRUCTURE
+            // EXACT MATCH TO YOUR SCREENSHOT: /api/emails/send-notification
             fetch('/api/emails/send-notification', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -250,23 +250,12 @@ export default function ChatThreadPage() {
                     conversationId
                 })
             })
-            .then(async (res) => {
-                const contentType = res.headers.get("content-type");
-                if (contentType && contentType.includes("application/json")) {
-                   return res.json();
-                } else {
-                   // If this throws, path is still wrong
-                   const text = await res.text();
-                   throw new Error(`API returned non-JSON (${res.status}): ${text.substring(0, 50)}...`);
-                }
+            .then(res => {
+                if (!res.ok) throw new Error(`Server returned ${res.status}`);
+                return res.json();
             })
-            .then(data => {
-                if(data.skipped) console.log("[UI] Email Debounced (Too frequent)");
-                else console.log("[UI] Email Sent Successfully");
-            })
-            .catch(err => {
-                console.error("[UI] Notification Failed:", err.message);
-            });
+            .then(data => console.log("[UI] Email success:", data))
+            .catch(err => console.error("[UI] Email failed:", err));
         }
 
       } catch (err) {
