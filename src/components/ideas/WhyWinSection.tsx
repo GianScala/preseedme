@@ -5,7 +5,7 @@ import { InvestorIcon } from "../icons/InvestorIcon";
 
 /* ---------------- Types ---------------- */
 
-type AccentColor = "brand" | "blue" | "amber" | "emerald";
+type AccentColor = "brand";
 
 interface SectionItem {
   id: string;
@@ -21,21 +21,6 @@ const THEMES = {
     accent: "text-brand",
     glow: "from-brand/20 to-transparent",
     border: "group-hover:border-brand/30",
-  },
-  blue: {
-    accent: "text-blue-500",
-    glow: "from-blue-500/20 to-transparent",
-    border: "group-hover:border-blue-500/30",
-  },
-  amber: {
-    accent: "text-amber-500",
-    glow: "from-amber-500/20 to-transparent",
-    border: "group-hover:border-amber-500/30",
-  },
-  emerald: {
-    accent: "text-emerald-500",
-    glow: "from-emerald-500/20 to-transparent",
-    border: "group-hover:border-emerald-500/30",
   },
 };
 
@@ -98,7 +83,7 @@ export default function WhyWinSection({ idea }: { idea: IdeaWithLikes }) {
           id: "win",
           title: "Competitive Edge",
           content: idea.teamWhyYouWillWin,
-          color: "blue" as const,
+          color: "brand" as const,
         }
       : null,
     idea.industryInsights
@@ -106,7 +91,7 @@ export default function WhyWinSection({ idea }: { idea: IdeaWithLikes }) {
           id: "industry",
           title: "Industry Insights",
           content: idea.industryInsights,
-          color: "amber" as const,
+          color: "brand" as const,
         }
       : null,
     idea.valuePropositionDetail
@@ -114,7 +99,7 @@ export default function WhyWinSection({ idea }: { idea: IdeaWithLikes }) {
           id: "value",
           title: "Value Proposition",
           content: idea.valuePropositionDetail,
-          color: "emerald" as const,
+          color: "brand" as const,
         }
       : null,
   ];
