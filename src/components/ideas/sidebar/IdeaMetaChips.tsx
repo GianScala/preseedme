@@ -11,22 +11,22 @@ interface TagChipProps {
 }
 
 const variantClasses: Record<TagVariant, string> = {
-  sector: "bg-emerald-900/30 border-emerald-500/30 text-emerald-300",
-  audience: "bg-blue-900/30 border-blue-500/30 text-blue-200",
-  demographic: "bg-amber-900/20 border-amber-500/30 text-amber-200",
-  pricing: "bg-purple-900/30 border-purple-500/30 text-purple-300",
-  misc: "bg-neutral-800/50 border-neutral-700 text-neutral-400",
+  sector: "bg-emerald-950/40 border-emerald-800/40 text-emerald-300 hover:bg-emerald-900/50 hover:border-emerald-700/50",
+  audience: "bg-blue-950/40 border-blue-800/40 text-blue-300 hover:bg-blue-900/50 hover:border-blue-700/50",
+  demographic: "bg-amber-950/40 border-amber-800/40 text-amber-300 hover:bg-amber-900/50 hover:border-amber-700/50",
+  pricing: "bg-purple-950/40 border-purple-800/40 text-purple-300 hover:bg-purple-900/50 hover:border-purple-700/50",
+  misc: "bg-neutral-900/70 border-neutral-700/70 text-neutral-200 hover:bg-neutral-800/70 hover:border-neutral-600",
 };
 
 function TagChip({ children, variant }: TagChipProps) {
   return (
     <span
       className={`
-        inline-flex items-center rounded-md
-        px-2.5 py-1
-        text-[11px] font-medium tracking-wide
+        inline-flex items-center rounded-lg
+        px-2 py-2
+        text-xs font-medium
         border ${variantClasses[variant]}
-        transition-colors hover:bg-opacity-50
+        transition-all
       `}
     >
       {children}
@@ -53,7 +53,7 @@ export function IdeaMetaChips({ idea }: { idea: IdeaWithLikes }) {
   if (!groups.some((g) => g.items.length > 0)) return null;
 
   return (
-    <div className="flex flex-wrap gap-2 mt-2">
+    <div className="flex flex-wrap gap-2">
       {groups.flatMap((group, gIdx) =>
         group.items.map((item, iIdx) => (
           <TagChip key={`${group.variant}-${gIdx}-${iIdx}`} variant={group.variant}>

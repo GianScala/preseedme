@@ -12,6 +12,8 @@ import FundraisingFormSection from "@/components/create/FundraisingFormSection";
 import DeliverablesFormSection from "@/components/create/DeliverablesFormSection";
 import { useEditIdeaForm } from "@/hooks/useEditIdeaForm";
 import { updateIdea } from "./utils/updateIdea";
+import LoadingSpinner from "@/components/common/ideas/LoadingSpinner";
+
 
 export default function EditIdeaPage() {
   const params = useParams<{ id: string }>();
@@ -59,17 +61,7 @@ export default function EditIdeaPage() {
   const isDeliverablesEmpty = !formData.deliverablesOverview.trim() && !formData.deliverablesMilestones.trim();
 
   if (authLoading || loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="w-10 h-10 rounded-full border-2 border-neutral-800" />
-            <div className="absolute inset-0 w-10 h-10 rounded-full border-2 border-brand border-t-transparent animate-spin" />
-          </div>
-          <span className="text-sm text-neutral-400 font-medium">Loading idea...</span>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   if (notOwner) {
