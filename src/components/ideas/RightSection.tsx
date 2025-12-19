@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
-import { MessageSquare, Share2, ChevronDown } from "lucide-react";
+import { MessageSquare, Share2, ChevronDown, Lock } from "lucide-react";
 import type { IdeaWithLikes } from "@/app/ideas/[id]/page";
 import { getFirebaseDb } from "@/lib/firebase";
 
@@ -43,12 +43,10 @@ export default function RightSection({
     });
   }, [idea.founderId]);
 
-  // ✅ Canonical share link (ALWAYS https + your domain)
   const SHARE_URL = `https://www.preseedme.com/ideas/${idea.id}`;
 
   const handleShare = async () => {
     try {
-      // Native share (mobile, modern browsers)
       if (navigator.share) {
         await navigator.share({
           title: idea.title ?? "Startup Idea",
@@ -57,11 +55,9 @@ export default function RightSection({
         return;
       }
 
-      // Clipboard fallback
       await navigator.clipboard.writeText(SHARE_URL);
       alert("Link copied to clipboard!");
     } catch (err) {
-      // Last-resort fallback
       window.prompt("Copy this link:", SHARE_URL);
     }
   };
@@ -82,8 +78,31 @@ export default function RightSection({
         likeLoading={likeLoading}
       />
 
-      {/* 4. Fundraising Tracker */}
-      {idea.isFundraising && <SidebarFundraising idea={idea} />}
+      {/* 4. Fundraising Tracker - Compact blur if not signed in */}
+      {idea.isFundraising && (
+        user ? (
+          <SidebarFundraising idea={idea} />
+        ) : (
+          <div
+            onClick={onAuthTrigger}
+            className="relative group cursor-pointer overflow-hidden rounded-2xl border border-neutral-800"
+            style={{ 
+              maxHeight: '100px',
+              minHeight: '100px'
+            }}
+          >
+            <div className="absolute inset-0 blur-md select-none pointer-events-none opacity-30 scale-75">
+              <SidebarFundraising idea={idea} />
+            </div>
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-gradient-to-b from-neutral-950/80 via-neutral-900/90 to-neutral-950/80 backdrop-blur-sm">
+              <div className="bg-neutral-900/95 backdrop-blur-xl border border-neutral-700/80 px-4 py-2 rounded-full flex items-center gap-2 shadow-2xl transition-all duration-300 group-hover:scale-105 group-hover:border-brand/50">
+                <Lock className="w-3.5 h-3.5 text-brand" />
+                <span className="text-[11px] font-bold text-white uppercase tracking-wider">Login</span>
+              </div>
+            </div>
+          </div>
+        )
+      )}
 
       {/* 5. Discussion Section */}
       <div className="pt-2">

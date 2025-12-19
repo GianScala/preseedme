@@ -69,7 +69,6 @@ export default function IdeaDetailPage() {
     const previousIdea = { ...idea };
     const isLiked = (idea.likedByUserIds ?? []).includes(user.uid);
 
-    // FIX: Optimistic update with strict null-safety for the array
     setIdea((prev) => {
       if (!prev) return null;
       const currentLikes = prev.likedByUserIds ?? [];
@@ -106,15 +105,21 @@ export default function IdeaDetailPage() {
     return (
       <div
         onClick={() => setShowSignInModal(true)}
-        className={`relative group cursor-pointer overflow-hidden rounded-2xl ${className}`}
+        className={`relative group cursor-pointer overflow-hidden rounded-2xl border border-neutral-800 ${className}`}
+        style={{ 
+          maxHeight: '120px',
+          minHeight: '120px'
+        }}
       >
-        <div className="blur-md select-none pointer-events-none grayscale opacity-60 transition-all duration-500">
-          {children}
+        <div className="absolute inset-0 blur-lg select-none pointer-events-none opacity-40 scale-90 origin-top">
+          <div className="transform scale-[0.6] origin-top-left">
+            {children}
+          </div>
         </div>
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/5">
-          <div className="bg-neutral-900/90 backdrop-blur-xl border border-neutral-700/50 px-4 py-2 rounded-full flex items-center gap-2 shadow-2xl transition-transform group-hover:scale-105">
-            <Lock className="w-3 h-3 text-brand" />
-            <span className="text-xs font-bold text-white uppercase tracking-wider">Login to view</span>
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-gradient-to-b from-neutral-950/80 via-neutral-900/90 to-neutral-950/80 backdrop-blur-sm">
+          <div className="bg-neutral-900/95 backdrop-blur-xl border border-neutral-700/80 px-6 py-3 rounded-full flex items-center gap-2.5 shadow-2xl transition-all duration-300 group-hover:scale-105 group-hover:border-brand/50">
+            <Lock className="w-4 h-4 text-brand" />
+            <span className="text-sm font-bold text-white uppercase tracking-wider">Login to view</span>
           </div>
         </div>
       </div>
@@ -135,7 +140,6 @@ export default function IdeaDetailPage() {
         />
       </div>
 
-      {/* items-start prevents RightSection from being pushed down */}
       <div className="flex flex-col lg:flex-row items-start gap-8">
         <div className="flex-1 lg:w-3/4 space-y-6">
           <div className="lg:hidden">
@@ -150,14 +154,20 @@ export default function IdeaDetailPage() {
           </div>
 
           <div className="grid gap-6">
+            {/* Always show MetricsGrid */}
             <MetricsGrid idea={idea} />
+            
+            {/* Always show InfoCard */}
             {idea.description && <InfoCard title="About" content={idea.description} />}
+            
+            {/* Compact Blurred FundraisingCard */}
             {idea.isFundraising && <RestrictedSection><FundraisingCard idea={idea} /></RestrictedSection>}
+            
+            {/* Compact Blurred Milestones and WhyWin */}
             <RestrictedSection className="space-y-6">
               <MilestonesCard idea={idea} />
               <WhyWinSection idea={idea} />
             </RestrictedSection>
-            {/* Comments are now in RightSection for Desktop */}
           </div>
         </div>
 
