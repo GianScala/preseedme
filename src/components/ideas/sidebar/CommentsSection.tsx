@@ -12,13 +12,13 @@ import {
   deleteCommentWithReplies,
 } from "@/lib/comments";
 import type { Comment } from "@/types";
-import { Send, CornerDownRight, Trash2 } from "lucide-react";
+import { Send, CornerDownRight, Trash2, Edit3 } from "lucide-react";
 import Link from "next/link";
 
 type CommentsSectionProps = {
   ideaId: string;
-  ideaTitle: string; // NEW: Need this for notifications
-  ideaOwnerId: string; // NEW: Need this for notifications
+  ideaTitle: string;
+  ideaOwnerId: string;
   user: User | null;
   isIdeaOwner: boolean;
   onAuthTrigger: () => void;
@@ -118,7 +118,7 @@ const ReplyBox = memo(({
       <div className="flex items-center justify-end gap-2 mt-2">
         <button
           onClick={onCancel}
-          className="text-[10px] font-black text-neutral-500 uppercase hover:text-neutral-400"
+          className="text-[10px] font-black text-neutral-500 uppercase hover:text-neutral-400 transition-colors"
         >
           Cancel
         </button>
@@ -170,13 +170,13 @@ const EditBox = memo(({
       <div className="flex gap-3">
         <button
           onClick={handleSave}
-          className="text-[10px] font-black text-brand uppercase hover:text-brand/80"
+          className="text-[10px] font-black text-brand uppercase hover:text-brand/80 transition-colors"
         >
           Save
         </button>
         <button
           onClick={onCancel}
-          className="text-[10px] font-black text-neutral-500 uppercase hover:text-neutral-400"
+          className="text-[10px] font-black text-neutral-500 uppercase hover:text-neutral-400 transition-colors"
         >
           Cancel
         </button>
@@ -205,7 +205,7 @@ const CommentItem = memo(({
   onSubmitReply,
   onAuthTrigger,
   replies,
-  allComments // NEW: Pass all comments to access nested replies
+  allComments
 }: { 
   comment: Comment;
   depth?: number;
@@ -223,17 +223,16 @@ const CommentItem = memo(({
   onSubmitReply: (parentId: string, text: string) => void;
   onAuthTrigger: () => void;
   replies: Comment[];
-  allComments: Comment[]; // NEW
+  allComments: Comment[];
 }) => {
   const maxDepth = 3;
-  // Check if this comment has ANY replies in the entire tree
   const hasReplies = allComments.some(c => c.parentId === comment.id);
   const canEdit = currentUserId && comment.userId === currentUserId;
   const canDelete = currentUserId && (comment.userId === currentUserId || isIdeaOwner);
 
   return (
-    <div className={`${depth > 0 ? "ml-8 mt-4" : ""}`}>
-      <div className="group flex gap-3">
+    <div className={`${depth > 0 ? "ml-4 sm:ml-8 mt-4" : ""}`}>
+      <div className="group flex gap-2 sm:gap-3">
         <div className="w-8 h-8 rounded-lg bg-neutral-800 border border-white/5 overflow-hidden shrink-0 mt-1">
           {comment.userPhotoURL ? (
             <img src={comment.userPhotoURL} alt="" className="w-full h-full object-cover" />
@@ -245,9 +244,13 @@ const CommentItem = memo(({
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <Link href={`/profile/${comment.userId}`} className="text-[11px] font-black text-white hover:text-brand transition-colors uppercase">
+          {/* Header with username and date */}
+          <div className="flex items-center justify-between mb-1 gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Link 
+                href={`/profile/${comment.userId}`} 
+                className="text-[11px] font-black text-white hover:text-brand transition-colors uppercase"
+              >
                 {comment.username}
               </Link>
               {isIdeaOwner && comment.userId === currentUserId && (
@@ -255,13 +258,16 @@ const CommentItem = memo(({
                   Founder
                 </span>
               )}
-              {comment.isEdited && <span className="text-[8px] text-neutral-600 italic">(edited)</span>}
+              {comment.isEdited && (
+                <span className="text-[8px] text-neutral-600 italic">(edited)</span>
+              )}
             </div>
-            <span className="text-[9px] text-neutral-600 font-bold">
+            <span className="text-[9px] text-neutral-600 font-bold whitespace-nowrap">
               {new Date(typeof comment.createdAt === "number" ? comment.createdAt : (comment.createdAt as any).toMillis?.() || Date.now()).toLocaleDateString()}
             </span>
           </div>
 
+          {/* Comment content or edit box */}
           {editingId === comment.id ? (
             <EditBox
               commentId={comment.id}
@@ -271,16 +277,19 @@ const CommentItem = memo(({
             />
           ) : (
             <>
-              <p className="text-sm text-neutral-400 leading-snug break-words">{comment.text}</p>
+              <p className="text-sm text-neutral-400 leading-snug break-words mb-2">
+                {comment.text}
+              </p>
 
-              <div className="flex gap-4 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              {/* Action buttons - ALWAYS VISIBLE */}
+              <div className="flex flex-wrap gap-3 sm:gap-4 mt-2">
                 {depth < maxDepth && (
                   <button
                     onClick={() => {
                       if (!currentUserId) return onAuthTrigger();
                       onReply(comment.id);
                     }}
-                    className="text-[9px] font-black text-neutral-600 hover:text-brand uppercase flex items-center gap-1"
+                    className="text-[9px] font-black text-neutral-500 hover:text-brand uppercase flex items-center gap-1 transition-colors"
                   >
                     <CornerDownRight size={10} /> Reply
                   </button>
@@ -289,16 +298,16 @@ const CommentItem = memo(({
                 {canEdit && (
                   <button
                     onClick={() => onEdit(comment.id)}
-                    className="text-[9px] font-black text-neutral-600 hover:text-brand uppercase"
+                    className="text-[9px] font-black text-neutral-500 hover:text-brand uppercase flex items-center gap-1 transition-colors"
                   >
-                    Edit
+                    <Edit3 size={10} /> Edit
                   </button>
                 )}
 
                 {canDelete && (
                   <button 
                     onClick={() => onDelete(comment.id, hasReplies)} 
-                    className="text-[9px] font-black text-neutral-600 hover:text-rose-500 uppercase flex items-center gap-1"
+                    className="text-[9px] font-black text-neutral-500 hover:text-rose-500 uppercase flex items-center gap-1 transition-colors"
                   >
                     <Trash2 size={10} /> Delete{hasReplies && isIdeaOwner && " Thread"}
                   </button>
@@ -307,6 +316,7 @@ const CommentItem = memo(({
             </>
           )}
 
+          {/* Reply box */}
           {replyingTo === comment.id && (
             <ReplyBox
               commentId={comment.id}
@@ -319,10 +329,10 @@ const CommentItem = memo(({
         </div>
       </div>
 
+      {/* Nested replies */}
       {hasReplies && replies.length > 0 && (
-        <div className="space-y-4 mt-4 border-l-2 border-neutral-800/50 pl-4">
+        <div className="space-y-4 mt-4 border-l-2 border-neutral-800/50 pl-2 sm:pl-4">
           {replies.map((reply) => {
-            // Get nested replies for this reply from allComments
             const nestedReplies = allComments
               .filter(c => c.parentId === reply.id)
               .sort((a, b) => {
@@ -350,7 +360,7 @@ const CommentItem = memo(({
                 onSubmitReply={onSubmitReply}
                 onAuthTrigger={onAuthTrigger}
                 replies={nestedReplies}
-                allComments={allComments} // Pass down for recursive nesting
+                allComments={allComments}
               />
             );
           })}
@@ -367,7 +377,7 @@ const CommentItem = memo(({
     prevProps.replyingTo === nextProps.replyingTo &&
     prevProps.replies.length === nextProps.replies.length &&
     prevProps.submitting === nextProps.submitting &&
-    prevProps.allComments.length === nextProps.allComments.length // Re-render on delete
+    prevProps.allComments.length === nextProps.allComments.length
   );
 });
 
@@ -437,11 +447,9 @@ export default function CommentsSection({
       const userData = await fetchUserData();
       if (!userData) return;
 
-      // Find the root comment to get threadOwnerId
-      let threadOwnerId = user.uid; // Default to current user
+      let threadOwnerId = user.uid;
       const parentComment = comments.find(c => c.id === parentId);
       if (parentComment) {
-        // If parent has a threadOwnerId, use it; otherwise use parent's userId (they're the thread owner)
         threadOwnerId = (parentComment as any).threadOwnerId || parentComment.userId;
       }
 
@@ -453,13 +461,12 @@ export default function CommentsSection({
         userData.photo,
         text,
         parentId,
-        threadOwnerId // Pass threadOwnerId
+        threadOwnerId
       );
 
       setComments((prev) => [...prev, comment]);
       setReplyingTo(null);
 
-      // 🔔 SEND NOTIFICATION TO ORIGINAL COMMENTER
       if (parentComment && parentComment.userId) {
         sendCommentNotification({
           recipientId: parentComment.userId,
@@ -498,13 +505,12 @@ export default function CommentsSection({
         userData.photo,
         trimmed,
         null,
-        user.uid // Top-level comment: user is the thread owner
+        user.uid
       );
 
       setComments((prev) => [comment, ...prev]);
       setNewComment("");
 
-      // 🔔 SEND NOTIFICATION TO IDEA OWNER
       sendCommentNotification({
         recipientId: ideaOwnerId,
         senderName: userData.name,
@@ -599,6 +605,7 @@ export default function CommentsSection({
 
   return (
     <div className="space-y-6">
+      {/* New comment input */}
       <div className="bg-gradient-to-br from-neutral-950/20 via-neutral-900/20 to-neutral-900 border border-neutral-800 rounded-2xl p-1 focus-within:border-brand/40 transition-all">
         <textarea
           value={newComment}
@@ -609,17 +616,20 @@ export default function CommentsSection({
           className="w-full bg-transparent p-3 text-white placeholder:text-neutral-600 focus:outline-none resize-none min-h-[70px]"
         />
         <div className="flex items-center justify-between px-3 pb-2">
-          <span className="text-[10px] text-neutral-600 font-bold uppercase tracking-widest">{submitting ? "Posting..." : "Discussion"}</span>
+          <span className="text-[10px] text-neutral-600 font-bold uppercase tracking-widest">
+            {submitting ? "Posting..." : "Discussion"}
+          </span>
           <button
             onClick={handleCommentSubmit}
             disabled={!newComment.trim() || submitting}
-            className="flex items-center gap-2 px-1 py-1 bg-brand text-white text-[11px] font-black uppercase tracking-tighter rounded-xl hover:bg-brand/90 transition-all disabled:opacity-20"
+            className="flex items-center gap-2 px-3 py-1.5 bg-brand text-white text-[11px] font-black uppercase tracking-tighter rounded-xl hover:bg-brand/90 transition-all disabled:opacity-20"
           >
-            <Send size={10} />
+            <Send size={10} /> Post
           </button>
         </div>
       </div>
 
+      {/* Comments list */}
       <div className="space-y-6">
         {loading ? (
           <div className="animate-pulse flex gap-3">
@@ -628,7 +638,9 @@ export default function CommentsSection({
           </div>
         ) : threadedComments.length === 0 ? (
           <div className="py-8 text-center border border-dashed border-neutral-800 rounded-2xl">
-            <p className="text-[10px] text-neutral-600 font-black uppercase tracking-widest">No comments yet</p>
+            <p className="text-[10px] text-neutral-600 font-black uppercase tracking-widest">
+              No comments yet
+            </p>
           </div>
         ) : (
           threadedComments.map((comment) => (
@@ -650,7 +662,7 @@ export default function CommentsSection({
               onSubmitReply={handleReplySubmit}
               onAuthTrigger={onAuthTrigger}
               replies={repliesMap.get(comment.id) || []}
-              allComments={comments} // Pass all comments for nested replies
+              allComments={comments}
             />
           ))
         )}
