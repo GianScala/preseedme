@@ -227,7 +227,11 @@ const CommentItem = memo(({
 }) => {
   const maxDepth = 3;
   const hasReplies = allComments.some(c => c.parentId === comment.id);
+  
+  // 🔒 SECURITY: Only comment author can edit their own comment
   const canEdit = currentUserId && comment.userId === currentUserId;
+  
+  // 🔒 SECURITY: Only comment author OR idea owner can delete
   const canDelete = currentUserId && (comment.userId === currentUserId || isIdeaOwner);
 
   return (
@@ -281,8 +285,9 @@ const CommentItem = memo(({
                 {comment.text}
               </p>
 
-              {/* Action buttons - ALWAYS VISIBLE */}
+              {/* Action buttons - ALWAYS VISIBLE but CONDITIONALLY RENDERED based on permissions */}
               <div className="flex flex-wrap gap-3 sm:gap-4 mt-2">
+                {/* 👥 REPLY: Anyone logged in can reply (up to max depth) */}
                 {depth < maxDepth && (
                   <button
                     onClick={() => {
@@ -295,6 +300,7 @@ const CommentItem = memo(({
                   </button>
                 )}
 
+                {/* ✏️ EDIT: ONLY shown if user is the comment author */}
                 {canEdit && (
                   <button
                     onClick={() => onEdit(comment.id)}
@@ -304,6 +310,7 @@ const CommentItem = memo(({
                   </button>
                 )}
 
+                {/* 🗑️ DELETE: ONLY shown if user is comment author OR idea owner */}
                 {canDelete && (
                   <button 
                     onClick={() => onDelete(comment.id, hasReplies)} 
