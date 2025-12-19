@@ -44,7 +44,6 @@ async function sendCommentNotification({
   parentCommentId?: string;
   senderId: string;
 }) {
-  // Don't notify yourself
   if (recipientId === senderId) {
     console.log('[NOTIF] Skipping self-notification');
     return;
@@ -165,7 +164,7 @@ const EditBox = memo(({
         value={text}
         onChange={handleChange}
         style={{ fontSize: "16px" }}
-        className="w-full bg-neutral-950 border border-neutral-800 text-white p-2 rounded-xl focus:outline-none resize-none min-h-[60px]"
+        className="w-full bg-transparent p-2 border border-neutral-800 text-white rounded-xl focus:outline-none resize-none min-h-[60px]"
       />
       <div className="flex gap-3">
         <button
@@ -187,7 +186,7 @@ const EditBox = memo(({
 
 EditBox.displayName = "EditBox";
 
-// SINGLE COMMENT ITEM
+// SINGLE COMMENT ITEM - Fixed memoization
 const CommentItem = memo(({ 
   comment,
   depth = 0,
@@ -216,7 +215,7 @@ const CommentItem = memo(({
   submitting: boolean;
   onReply: (id: string) => void;
   onEdit: (id: string) => void;
-  onDelete: (id: string, hasReplies: boolean) => void;
+  onDelete: (id: string, isOwnerDeleting: boolean, hasReplies: boolean) => void;
   onCancelReply: () => void;
   onCancelEdit: () => void;
   onSaveEdit: (id: string, text: string) => void;
@@ -226,13 +225,15 @@ const CommentItem = memo(({
   allComments: Comment[];
 }) => {
   const maxDepth = 3;
+  
+  // Check if comment has any replies
   const hasReplies = allComments.some(c => c.parentId === comment.id);
   
-  // 🔒 SECURITY: Only comment author can edit their own comment
-  const canEdit = currentUserId && comment.userId === currentUserId;
-  
-  // 🔒 SECURITY: Only comment author OR idea owner can delete
-  const canDelete = currentUserId && (comment.userId === currentUserId || isIdeaOwner);
+  // 🔒 PERMISSION CHECKS - recalculated on every render
+  const isCommentAuthor = currentUserId && comment.userId === currentUserId;
+  const canEdit = isCommentAuthor;
+  const canDelete = currentUserId && (isCommentAuthor || isIdeaOwner);
+  const isOwnerDeleting = isIdeaOwner;
 
   return (
     <div className={`${depth > 0 ? "ml-4 sm:ml-8 mt-4" : ""}`}>
@@ -248,7 +249,6 @@ const CommentItem = memo(({
         </div>
 
         <div className="flex-1 min-w-0">
-          {/* Header with username and date */}
           <div className="flex items-center justify-between mb-1 gap-2">
             <div className="flex items-center gap-2 flex-wrap">
               <Link 
@@ -257,7 +257,7 @@ const CommentItem = memo(({
               >
                 {comment.username}
               </Link>
-              {isIdeaOwner && comment.userId === currentUserId && (
+              {isIdeaOwner && isCommentAuthor && (
                 <span className="text-[8px] font-black bg-brand/10 text-brand px-1.5 py-0.5 rounded border border-brand/20 uppercase tracking-tighter">
                   Founder
                 </span>
@@ -271,7 +271,6 @@ const CommentItem = memo(({
             </span>
           </div>
 
-          {/* Comment content or edit box */}
           {editingId === comment.id ? (
             <EditBox
               commentId={comment.id}
@@ -285,9 +284,8 @@ const CommentItem = memo(({
                 {comment.text}
               </p>
 
-              {/* Action buttons - ALWAYS VISIBLE but CONDITIONALLY RENDERED based on permissions */}
+              {/* Action buttons - always visible, conditionally rendered */}
               <div className="flex flex-wrap gap-3 sm:gap-4 mt-2">
-                {/* 👥 REPLY: Anyone logged in can reply (up to max depth) */}
                 {depth < maxDepth && (
                   <button
                     onClick={() => {
@@ -300,7 +298,6 @@ const CommentItem = memo(({
                   </button>
                 )}
 
-                {/* ✏️ EDIT: ONLY shown if user is the comment author */}
                 {canEdit && (
                   <button
                     onClick={() => onEdit(comment.id)}
@@ -310,20 +307,19 @@ const CommentItem = memo(({
                   </button>
                 )}
 
-                {/* 🗑️ DELETE: ONLY shown if user is comment author OR idea owner */}
                 {canDelete && (
                   <button 
-                    onClick={() => onDelete(comment.id, hasReplies)} 
+                    onClick={() => onDelete(comment.id, isOwnerDeleting, hasReplies)} 
                     className="text-[9px] font-black text-neutral-500 hover:text-rose-500 uppercase flex items-center gap-1 transition-colors"
                   >
-                    <Trash2 size={10} /> Delete{hasReplies && isIdeaOwner && " Thread"}
+                    <Trash2 size={10} /> 
+                    {isOwnerDeleting && hasReplies ? "Delete Thread" : "Delete"}
                   </button>
                 )}
               </div>
             </>
           )}
 
-          {/* Reply box */}
           {replyingTo === comment.id && (
             <ReplyBox
               commentId={comment.id}
@@ -336,7 +332,6 @@ const CommentItem = memo(({
         </div>
       </div>
 
-      {/* Nested replies */}
       {hasReplies && replies.length > 0 && (
         <div className="space-y-4 mt-4 border-l-2 border-neutral-800/50 pl-2 sm:pl-4">
           {replies.map((reply) => {
@@ -376,10 +371,14 @@ const CommentItem = memo(({
     </div>
   );
 }, (prevProps, nextProps) => {
+  // 🎯 FIXED MEMO COMPARISON - now includes all critical props
   return (
     prevProps.comment.id === nextProps.comment.id &&
     prevProps.comment.text === nextProps.comment.text &&
     prevProps.comment.isEdited === nextProps.comment.isEdited &&
+    prevProps.comment.userId === nextProps.comment.userId && // Added: detect comment author changes
+    prevProps.currentUserId === nextProps.currentUserId && // Added: detect user login/logout
+    prevProps.isIdeaOwner === nextProps.isIdeaOwner && // Added: detect ownership changes
     prevProps.editingId === nextProps.editingId &&
     prevProps.replyingTo === nextProps.replyingTo &&
     prevProps.replies.length === nextProps.replies.length &&
@@ -549,12 +548,22 @@ export default function CommentsSection({
     }
   }, []);
 
-  const handleDelete = useCallback(async (commentId: string, hasReplies: boolean) => {
-    const message = hasReplies ? "Delete this comment and all its replies?" : "Delete this comment?";
+  const handleDelete = useCallback(async (commentId: string, isOwnerDeleting: boolean, hasReplies: boolean) => {
+    let message = "Delete this comment?";
+    let shouldDeleteThread = false;
+
+    if (hasReplies && isOwnerDeleting) {
+      message = "Delete this comment and all its replies?";
+      shouldDeleteThread = true;
+    } else if (hasReplies && !isOwnerDeleting) {
+      message = "This comment has replies. Delete anyway? (Replies will remain)";
+      shouldDeleteThread = false;
+    }
+
     if (!window.confirm(message)) return;
 
     try {
-      if (hasReplies) {
+      if (shouldDeleteThread) {
         const deletedIds = await deleteCommentWithReplies(commentId, comments);
         setComments((prev) => prev.filter((c) => !deletedIds.includes(c.id)));
       } else {
@@ -612,7 +621,6 @@ export default function CommentsSection({
 
   return (
     <div className="space-y-6">
-      {/* New comment input */}
       <div className="bg-gradient-to-br from-neutral-950/20 via-neutral-900/20 to-neutral-900 border border-neutral-800 rounded-2xl p-1 focus-within:border-brand/40 transition-all">
         <textarea
           value={newComment}
@@ -636,7 +644,6 @@ export default function CommentsSection({
         </div>
       </div>
 
-      {/* Comments list */}
       <div className="space-y-6">
         {loading ? (
           <div className="animate-pulse flex gap-3">
