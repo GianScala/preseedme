@@ -2,28 +2,14 @@
 
 import { useEffect, useState, useMemo, type MouseEvent } from "react";
 import Link from "next/link";
-import { Clock } from "lucide-react";
+import { Clock, TrendingUp, Users } from "lucide-react";
 import { formatCurrencyShort, formatNumberShort } from "@/lib/formatters";
 import type { IdeaWithLikes } from "@/lib/ideas";
 import HeartIcon from "@/components/icons/HeartIcon";
 import { getFirebaseDb } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 
-export type IdeaWithMeta = IdeaWithLikes & {
-  sector?: string | null;
-  targetAudience?: string | null;
-  // Optional: if you ever set this directly on the idea
-  founderAvatarUrl?: string | null;
-};
-
-type PublicFeaturedCardProps = {
-  idea: IdeaWithMeta;
-  currentUserId: string | null;
-  onToggleLike: () => void;
-  loadingLike: boolean;
-};
-
-// --- Date Helpers ---
+/* ---------------- Date Helpers ---------------- */
 const getMillis = (timestamp: any): number | null => {
   if (!timestamp) return null;
   if (typeof timestamp === "number") return timestamp;
@@ -37,404 +23,182 @@ const formatShortDate = (ms: number | null) => {
   return `${date.getMonth() + 1}/${date.getDate()}`;
 };
 
-// Reused Micro Components
-const TagPill = ({
-  text,
-  className,
-}: {
-  text: string;
-  className?: string;
-}) => (
-  <span
-    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-medium border border-white/5 bg-white/5 backdrop-blur-md ${className}`}
-  >
+/* ---------------- Micro Components ---------------- */
+
+const TagPill = ({ text }: { text: string }) => (
+  <span className="text-[9px] md:text-[10px] font-black text-emerald-400 uppercase tracking-widest px-2 md:px-3 py-0.5 md:py-1 rounded bg-emerald-500/10 border border-emerald-500/20">
     {text}
   </span>
 );
 
-const MetricBadge = ({
-  value,
-  label,
-  dotColor,
-}: {
-  value: string;
-  label: string;
-  dotColor: string;
-}) => (
-  <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/5 border border-white/5 backdrop-blur-sm shadow-sm">
-    <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
-    <span className="text-xs font-semibold text-neutral-200">{value}</span>
-    <span className="text-[10px] text-neutral-500 uppercase tracking-wide hidden sm:inline opacity-80">
-      {label}
-    </span>
+const MetricItem = ({ icon: Icon, val, label, color }: any) => (
+  <div className="flex items-center gap-2">
+    <div className={`p-1 md:p-1.5 rounded bg-white/5 border border-white/5 ${color}`}>
+      <Icon className="w-3 h-3 md:w-4 md:h-4" />
+    </div>
+    <div className="flex flex-col">
+      <span className="text-xs md:text-sm font-black text-neutral-100 tabular-nums leading-none mb-0.5 md:mb-1">{val}</span>
+      <span className="text-[9px] md:text-[10px] font-bold text-neutral-500 uppercase tracking-tighter leading-none">{label}</span>
+    </div>
   </div>
 );
 
-const GlassBadge = ({
-  icon: Icon,
-  label,
-  value,
-  variant = "neutral",
-}: {
-  icon: any;
-  label?: string;
-  value: string | number;
-  variant?: "neutral" | "success";
-}) => {
-  const styles = {
-    neutral: "bg-black/60 border-white/10 text-neutral-300",
-    success:
-      "bg-black/60 border-emerald-500/30 text-emerald-400 shadow-[0_0_15px_-3px_rgba(16,185,129,0.2)]",
-  };
+const GlassBadge = ({ icon: Icon, label, value, variant = "neutral" }: any) => (
+  <div className={`flex items-center gap-1 md:gap-1.5 px-2 md:px-2.5 h-6 md:h-7 rounded-lg backdrop-blur-md border text-[9px] md:text-[10px] font-bold ${
+    variant === "success" ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400" : "bg-black/40 border-white/10 text-neutral-400"
+  }`}>
+    <Icon className="w-2.5 h-2.5 md:w-3 md:h-3" />
+    <span className="uppercase opacity-60 tracking-tighter hidden sm:inline">{label}</span>
+    <span className="tabular-nums">{value}</span>
+  </div>
+);
 
-  return (
-    <div
-      className={`
-      flex items-center gap-2 px-3 h-8 rounded-full 
-      backdrop-blur-md border text-xs font-medium shadow-sm 
-      transition-all select-none
-      ${styles[variant]}
-    `}
-    >
-      <Icon
-        className={`w-3.5 h-3.5 ${variant === "success" ? "text-emerald-400" : ""}`}
-      />
-      {label && (
-        <span className="hidden xs:inline opacity-70 uppercase tracking-wider text-[10px]">
-          {label}
-        </span>
-      )}
-      <span className="tabular-nums">{value}</span>
-    </div>
-  );
-};
+/* ---------------- Main Component ---------------- */
 
 export default function PublicFeaturedCard({
   idea,
   currentUserId,
   onToggleLike,
   loadingLike,
-}: PublicFeaturedCardProps) {
+}: any) {
   const {
-    id,
-    title,
-    oneLiner,
-    thumbnailUrl,
-    monthlyRecurringRevenue,
-    userCount,
-    foundedYear,
-    likeCount: rawLikeCount,
-    likedByUserIds = [],
-    founderUsername,
-    sector,
-    targetAudience,
-    founderId,
-    founderAvatarUrl,
-    createdAt,
-    updatedAt,
+    id, title, oneLiner, thumbnailUrl, monthlyRecurringRevenue, userCount,
+    likeCount: rawLikeCount, likedByUserIds = [], founderUsername,
+    sector, targetAudience, founderId, createdAt, updatedAt,
   } = idea;
 
-  // Start from whatever might be on the idea, then override from user profile
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(
-    founderAvatarUrl ?? null
-  );
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState(false);
 
-  const likeCount = rawLikeCount ?? 0;
-  const isLiked = !!currentUserId && likedByUserIds.includes(currentUserId);
+  const isLiked = !!currentUserId && (likedByUserIds || []).includes(currentUserId);
+  const mrrLabel = monthlyRecurringRevenue ? formatCurrencyShort(monthlyRecurringRevenue) : null;
+  const usersLabel = userCount ? formatNumberShort(userCount) : null;
 
-  const mrrLabel = formatCurrencyShort(monthlyRecurringRevenue);
-  const usersLabel = formatNumberShort(userCount);
-  const foundedLabel = foundedYear ? String(foundedYear) : null;
-  const hasMetrics = !!(mrrLabel || usersLabel || foundedLabel);
-
-  // Date Logic
   const dateInfo = useMemo(() => {
     const createdMs = getMillis(createdAt);
     const updatedMs = getMillis(updatedAt);
-    const wasUpdated = updatedMs && createdMs && updatedMs > createdMs;
-    const isRecentUpdate =
-      wasUpdated && updatedMs && Date.now() - updatedMs < 48 * 60 * 60 * 1000;
-
-    return {
-      createdMs,
-      updatedMs,
-      wasUpdated,
-      isRecentUpdate,
+    return { 
+      createdMs, 
+      updatedMs, 
+      wasUpdated: !!(updatedMs && createdMs && updatedMs > createdMs) 
     };
   }, [createdAt, updatedAt]);
 
-  const handleLikeClick = (event: MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (!loadingLike) onToggleLike();
-  };
-
-  const founderInitial =
-    founderUsername?.[0]?.toUpperCase() ??
-    founderUsername?.charAt(0)?.toUpperCase() ??
-    "?";
-
-  const shouldShowInitials = !avatarUrl || avatarError;
-
-  // --- DEBUG: base render info ---
   useEffect(() => {
-    console.log("[PublicFeaturedCard] Render", {
-      ideaId: id,
-      founderId,
-      founderUsername,
-      founderAvatarUrlProp: founderAvatarUrl,
-      resolvedAvatarUrl: avatarUrl,
-      avatarError,
-    });
-  }, [id, founderId, founderUsername, founderAvatarUrl, avatarUrl, avatarError]);
-
-  // --- Load avatar from users/{founderId}.photoURL ---
-  useEffect(() => {
-    if (!founderId) {
-      console.warn(
-        "[PublicFeaturedCard] No founderId on idea, cannot load avatar",
-        { ideaId: id }
-      );
-      return;
-    }
-
-    let cancelled = false;
-
+    if (!founderId) return;
     const loadAvatar = async () => {
       try {
-        console.log(
-          "[PublicFeaturedCard] Fetching founder profile for avatar",
-          {
-            ideaId: id,
-            founderId,
-          }
-        );
-
-        const db = getFirebaseDb();
-        const ref = doc(db, "users", founderId);
-        const snap = await getDoc(ref);
-
-        if (!snap.exists()) {
-          console.warn(
-            "[PublicFeaturedCard] Founder profile not found, keeping initials",
-            { ideaId: id, founderId }
-          );
-          return;
-        }
-
-        const data = snap.data() as any;
-        const url: string | null =
-          data.photoURL ?? data.avatarUrl ?? data.avatar ?? null;
-
-        console.log("[PublicFeaturedCard] Loaded founder profile", {
-          ideaId: id,
-          founderId,
-          photoURL: data.photoURL,
-          resolvedAvatarUrl: url,
-        });
-
-        if (!cancelled) {
-          setAvatarUrl(url);
-          setAvatarError(false);
-        }
-      } catch (error) {
-        console.error(
-          "[PublicFeaturedCard] Error loading founder avatar from profile",
-          {
-            ideaId: id,
-            founderId,
-            error,
-          }
-        );
-      }
+        const snap = await getDoc(doc(getFirebaseDb(), "users", founderId));
+        if (snap.exists()) setAvatarUrl(snap.data().photoURL || snap.data().avatarUrl || null);
+      } catch (e) { console.error(e); }
     };
-
     loadAvatar();
+  }, [founderId]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [id, founderId]);
-
-  const handleAvatarError = () => {
-    console.warn("[PublicFeaturedCard] Avatar image failed to load", {
-      ideaId: id,
-      founderId,
-      avatarUrl,
-    });
-    setAvatarError(true);
-  };
-
-  const handleAvatarLoad = () => {
-    console.log("[PublicFeaturedCard] Avatar image loaded successfully", {
-      ideaId: id,
-      founderId,
-      avatarUrl,
-    });
+  const handleLikeClick = (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onToggleLike();
   };
 
   return (
-    <div
-      className="
-        group relative w-full overflow-hidden rounded-2xl 
-        border border-white/10 bg-gradient-to-br from-[var(--brand)]/5 to-white/[0.02]
-        backdrop-blur-xl shadow-2xl transition-all duration-500
-        hover:border-[var(--brand)]/30 hover:shadow-[var(--brand)]/5
-      "
-    >
-      <Link href={`/ideas/${id}`} className="flex flex-col md:flex-row h-full">
-        {/* Left: Hero Image (Desktop) / Top Image (Mobile) */}
-        {thumbnailUrl && (
-          <div className="relative h-56 md:h-auto md:w-2/5 overflow-hidden border-b md:border-b-0 md:border-r border-white/5 bg-neutral-900">
-            <img
-              src={thumbnailUrl}
-              alt={title}
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-              loading="lazy"
-            />
+    <Link href={`/ideas/${id}`} className="block">
+      <div className="group relative w-full overflow-hidden rounded-2xl md:rounded-3xl border border-white/10 bg-neutral-900/40 backdrop-blur-2xl transition-all duration-500 hover:border-white/30 shadow-2xl cursor-pointer">
+        <div className="flex flex-col md:flex-row md:min-h-[320px]">
+          
+          {/* LEFT: IMAGE HERO */}
+          <div className="relative w-full md:w-2/5 h-48 md:h-auto overflow-hidden border-b md:border-b-0 md:border-r border-white/10">
+            {thumbnailUrl ? (
+              <img src={thumbnailUrl} alt={title} className="absolute inset-0 h-full w-full object-cover opacity-60 transition-transform duration-1000 group-hover:scale-110" />
+            ) : (
+              <div className="absolute inset-0 bg-neutral-800 flex items-center justify-center text-4xl md:text-6xl font-black text-neutral-700">{title[0]}</div>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/90 via-black/20 to-transparent" />
 
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:to-black/20" />
-
-            <div className="absolute top-4 left-4">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-blue-400/80 text-blue-400 text-[10px] font-bold uppercase tracking-wider shadow-lg">
-                Today&apos;s Idea
+            {/* Today's Pick Label */}
+            <div className="absolute top-3 left-3 md:top-5 md:left-5 z-20">
+              <span className="px-2 md:px-3 py-1 md:py-1.5 rounded-full bg-[var(--brand)] text-black text-[9px] md:text-[10px] font-black uppercase tracking-[0.15em] md:tracking-[0.2em]">
+                Daily Pick
               </span>
             </div>
 
-            {/* --- BOTTOM: Date Badges --- */}
-            <div className="absolute bottom-4 left-4 right-4 z-10 flex justify-between items-end gap-2">
-              {/* Left Side: Creation Date */}
-              <GlassBadge
-                icon={Clock}
-                label="Created"
-                value={formatShortDate(dateInfo.createdMs) || "N/A"}
-                variant="neutral"
-              />
+            {/* LIKE OVERLAY */}
+            <button
+              onClick={handleLikeClick}
+              disabled={loadingLike}
+              className={`absolute top-3 right-3 md:top-5 md:right-5 z-30 flex items-center gap-1.5 md:gap-2 px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl backdrop-blur-xl border transition-all duration-300 ${
+                isLiked 
+                  ? "bg-rose-500 text-white border-rose-400" 
+                  : "bg-black/60 border-white/10 text-white hover:bg-black/80 hover:border-white/30"
+              }`}
+            >
+              {loadingLike ? (
+                <div className="w-3 h-3 md:w-4 md:h-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <HeartIcon className={`w-3 h-3 md:w-4 md:h-4 ${isLiked ? "fill-current" : ""}`} />
+              )}
+              <span className="text-xs md:text-sm font-black tabular-nums">{rawLikeCount || 0}</span>
+            </button>
 
-              {/* Right Side: Update Badge (Only if updated) */}
+            {/* DATE BADGES */}
+            <div className="absolute bottom-3 left-3 md:bottom-5 md:left-5 flex gap-2 md:gap-3">
+              <GlassBadge 
+                icon={Clock} 
+                label="Added" 
+                value={formatShortDate(dateInfo.createdMs) || "N/A"} 
+              />
               {dateInfo.wasUpdated && (
-                <div className="flex items-center gap-2">
-                  {/* Pulse effect if very recent */}
-                  {dateInfo.isRecentUpdate && (
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                  )}
-                  <GlassBadge
-                    icon={Clock}
-                    label="Updated"
-                    value={formatShortDate(dateInfo.updatedMs) || "N/A"}
-                    variant="success"
-                  />
-                </div>
+                <GlassBadge 
+                  icon={Clock} 
+                  label="Updated" 
+                  value={formatShortDate(dateInfo.updatedMs)} 
+                  variant="success" 
+                />
               )}
             </div>
           </div>
-        )}
 
-        {/* Right: Content */}
-        <div className="flex-1 flex flex-col p-6 sm:p-8">
-          {/* Header Tags */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            {sector && <TagPill text={sector} className="text-neutral-300" />}
-            {targetAudience && (
-              <TagPill text={targetAudience} className="text-neutral-400" />
-            )}
-          </div>
+          {/* RIGHT: CONTENT */}
+          <div className="flex-1 flex flex-col p-4 sm:p-6 md:p-8 lg:p-10 justify-center">
+            <div className="flex flex-wrap gap-2 md:gap-3 mb-3 md:mb-6">
+              {sector && <TagPill text={sector} />}
+              {targetAudience && <span className="text-[9px] md:text-[10px] font-black text-neutral-600 uppercase tracking-widest px-2 md:px-3 py-0.5 md:py-1 border border-white/5 rounded">{targetAudience}</span>}
+            </div>
 
-          {/* Content */}
-          <div className="flex-1">
-            <h3 className="text-2xl sm:text-3xl font-bold text-white mb-3 leading-tight group-hover:text-[var(--brand-light)] transition-colors">
-              {title}
-            </h3>
-            <p className="text-base sm:text-lg text-neutral-400 mb-6 line-clamp-3 leading-relaxed">
-              {oneLiner}
-            </p>
-          </div>
+            <div>
+              <h3 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-black text-white mb-2 md:mb-4 tracking-tight leading-tight group-hover:text-[var(--brand)] transition-colors">
+                {title}
+              </h3>
+              <p className="text-sm sm:text-base md:text-lg text-neutral-400 leading-relaxed line-clamp-2 md:line-clamp-3 font-medium opacity-90 max-w-2xl">
+                {oneLiner}
+              </p>
+            </div>
 
-          {/* Metrics & Footer */}
-          <div className="mt-auto">
-            {hasMetrics && (
-              <div className="flex flex-wrap items-center gap-3 mb-6">
-                {mrrLabel && (
-                  <MetricBadge
-                    value={mrrLabel}
-                    label="MRR"
-                    dotColor="bg-emerald-500"
-                  />
-                )}
-                {usersLabel && (
-                  <MetricBadge
-                    value={usersLabel}
-                    label="Users"
-                    dotColor="bg-[var(--brand)]"
-                  />
-                )}
-                {foundedLabel && (
-                  <span className="text-xs text-neutral-600 font-mono bg-white/5 px-2 py-1 rounded-md border border-white/5">
-                    est. {foundedLabel}
-                  </span>
-                )}
+            <div className="flex flex-col gap-4 md:gap-0 md:flex-row md:items-center md:justify-between mt-5 md:mt-10 pt-4 md:pt-8 border-t border-white/10">
+              <div className="flex items-center gap-4 md:gap-10">
+                {mrrLabel && <MetricItem icon={TrendingUp} val={mrrLabel} label="Monthly Revenue" color="text-emerald-500" />}
+                {usersLabel && <MetricItem icon={Users} val={usersLabel} label="Active Users" color="text-blue-500" />}
               </div>
-            )}
 
-            <div className="flex items-center justify-between pt-5 border-t border-white/10">
-              {/* Founder */}
-              {founderUsername && (
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-[var(--brand)] to-[var(--brand-dark)] flex items-center justify-center text-xs font-bold text-black shadow-lg shadow-[var(--brand)]/20">
-                    {shouldShowInitials ? (
-                      founderInitial
-                    ) : (
-                      <img
-                        src={avatarUrl as string}
-                        alt={`${founderUsername}'s avatar`}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                        onError={handleAvatarError}
-                        onLoad={handleAvatarLoad}
-                      />
-                    )}
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold">
-                      Founder
-                    </span>
-                    <span className="text-sm font-medium text-neutral-200">
-                      {founderUsername}
-                    </span>
-                  </div>
+              <div className="flex items-center gap-2.5 md:gap-4 md:pl-8 md:border-l border-white/10">
+                <div className="flex flex-col items-start md:items-end">
+                  <span className="text-[9px] md:text-[10px] font-black text-neutral-600 uppercase tracking-widest mb-0.5 md:mb-1">Built By</span>
+                  <span className="text-xs md:text-sm font-black text-white">@{founderUsername}</span>
                 </div>
-              )}
-
-              {/* Action */}
-              <button
-                type="button"
-                disabled={loadingLike}
-                onClick={handleLikeClick}
-                className={`
-                    flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-300
-                    ${
-                      isLiked
-                        ? "bg-rose-500/10 text-rose-400 border border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.2)]"
-                        : "bg-white/5 text-neutral-300 border border-white/10 hover:bg-white/10 hover:text-white"
-                    }
-                    disabled:opacity-60 disabled:cursor-not-allowed
-                  `}
-              >
-                {loadingLike ? (
-                  <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <HeartIcon className={`w-4 h-4`} />
-                )}
-                <span>{likeCount}</span>
-              </button>
+                <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl bg-neutral-800 ring-2 ring-white/10 overflow-hidden flex-shrink-0">
+                  {avatarUrl && !avatarError ? (
+                    <img src={avatarUrl} alt="founder" className="h-full w-full object-cover" onError={() => setAvatarError(true)} />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-base md:text-lg font-black text-neutral-600 bg-neutral-800 uppercase">
+                      {founderUsername?.[0]}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </Link>
-    </div>
+      </div>
+    </Link>
   );
 }

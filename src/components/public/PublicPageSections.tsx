@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import PublicFeaturedCard from "@/components/public/PublicFeaturedCard";
 import PublicWeeklyWinner from "@/components/public/PublicWeeklyWinner";
 import CrownIcon from "@/components/icons/CrownIcon";
@@ -10,7 +10,9 @@ import {
   type WeeklyWinner,
 } from "@/lib/weeklyWinners";
 
-// --- Featured Section ---
+/* -------------------------------------------------------------------------- */
+/* FEATURED IDEA SECTION                           */
+/* -------------------------------------------------------------------------- */
 
 type FeaturedIdeaSectionProps = {
   featuredIdea: IdeaWithLikes | null;
@@ -28,21 +30,21 @@ export function FeaturedIdeaSection({
   loadingLikeId,
 }: FeaturedIdeaSectionProps) {
   return (
-    <section className="mb-12 animate-fade-in">
-      <div className="flex items-center gap-2 mb-6">
-        <span className="w-1 h-6 rounded-full bg-[var(--brand)]" />
-        <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-         Daily Pick
-        </h2>
+    <section className="mb-16 animate-fade-in">
+      <div className="flex items-center gap-3 mb-8">
+        <span className="w-1.5 h-8 rounded-full bg-[var(--brand)]" />
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight leading-none mb-1">
+            Daily Pick
+          </h2>
+        </div>
       </div>
 
       {loading && !featuredIdea ? (
-        <div className="w-full h-96 rounded-2xl bg-white/5 animate-pulse border border-white/5" />
+        <div className="w-full h-80 rounded-3xl bg-white/5 animate-pulse border border-white/5" />
       ) : !featuredIdea ? (
-        <div className="p-12 text-center bg-white/[0.02] border border-white/5 rounded-2xl backdrop-blur-sm">
-          <p className="text-neutral-500">
-            No featured idea selected for today.
-          </p>
+        <div className="p-16 text-center bg-white/[0.02] border border-white/5 rounded-3xl backdrop-blur-sm">
+          <p className="text-neutral-500 font-medium">No featured idea for today.</p>
         </div>
       ) : (
         <PublicFeaturedCard
@@ -56,7 +58,9 @@ export function FeaturedIdeaSection({
   );
 }
 
-// --- Weekly Winners Section ---
+/* -------------------------------------------------------------------------- */
+/* WEEKLY WINNERS SECTION                           */
+/* -------------------------------------------------------------------------- */
 
 type WeeklyWinnersSectionProps = {
   currentUserId: string | null;
@@ -69,7 +73,6 @@ export function WeeklyWinnersSection({
   onToggleLike,
   loadingLikeId,
 }: WeeklyWinnersSectionProps) {
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [winners, setWinners] = useState<WeeklyWinner[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -90,162 +93,74 @@ export function WeeklyWinnersSection({
     };
   }, []);
 
-  const scroll = (direction: "left" | "right") => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    const scrollAmount = 360; // Card width + gap
-    container.scrollTo({
-      left:
-        container.scrollLeft +
-        (direction === "left" ? -scrollAmount : scrollAmount),
-      behavior: "smooth",
-    });
+  const handleToggleLike = (ideaId: string) => {
+    if (currentUserId) {
+      setWinners((prev) =>
+        prev.map((winner) => {
+          if (winner.idea.id !== ideaId) return winner;
+          const idea = winner.idea;
+          const likedBy = idea.likedByUserIds ?? [];
+          const alreadyLiked = likedBy.includes(currentUserId);
+          return {
+            ...winner,
+            idea: {
+              ...idea,
+              likedByUserIds: alreadyLiked
+                ? likedBy.filter((id) => id !== currentUserId)
+                : [...likedBy, currentUserId],
+              likeCount: alreadyLiked
+                ? (idea.likeCount ?? 0) - 1
+                : (idea.likeCount ?? 0) + 1,
+            },
+          };
+        })
+      );
+    }
+    onToggleLike(ideaId);
   };
 
   const hasWinners = winners.length > 0;
   const topFour = winners.slice(0, 4);
 
-  // 🔥 Optimistic like toggle for Weekly Winners
-  const handleToggleLike = (ideaId: string) => {
-    console.log("[WeeklyWinnersSection] handleToggleLike called", {
-      ideaId,
-      currentUserId,
-    });
-
-    if (currentUserId) {
-      setWinners((prev) =>
-        prev.map((winner) => {
-          if (winner.idea.id !== ideaId) return winner;
-
-          const idea = winner.idea;
-          const likedBy = idea.likedByUserIds ?? [];
-          const alreadyLiked = likedBy.includes(currentUserId);
-          const updatedLikedBy = alreadyLiked
-            ? likedBy.filter((id) => id !== currentUserId)
-            : [...likedBy, currentUserId];
-
-          const currentLikeCount = idea.likeCount ?? 0;
-          const updatedLikeCount = alreadyLiked
-            ? currentLikeCount - 1
-            : currentLikeCount + 1;
-
-          const updatedIdea: IdeaWithLikes = {
-            ...idea,
-            likedByUserIds: updatedLikedBy,
-            likeCount: updatedLikeCount,
-          };
-
-          console.log("[WeeklyWinnersSection] Optimistically updated winner", {
-            ideaId,
-            alreadyLiked,
-            updatedLikeCount,
-          });
-
-          return { ...winner, idea: updatedIdea };
-        })
-      );
-    } else {
-      console.warn(
-        "[WeeklyWinnersSection] No currentUserId; calling parent onToggleLike only",
-        { ideaId }
-      );
-    }
-
-    // Call the parent handler so Firestore / global state gets updated too
-    onToggleLike(ideaId);
-  };
-
   return (
-    <section className="pb-0">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="p-1.5 bg-yellow-500/10 border border-yellow-500/20 rounded-lg flex items-center justify-center">
-            <CrownIcon className="w-5 h-5 text-yellow-500" />
-          </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-            Weekly Winners
-          </h2>
-        </div>
+    <section className="pb-12">
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-4">
+        <span className="w-1.5 h-8 rounded-full bg-amber-300" />
 
-        {/* Scroll Buttons */}
-        {hasWinners && topFour.length > 1 && (
-          <div className="hidden lg:flex items-center gap-2">
-            <button
-              onClick={() => scroll("left")}
-              className="p-2 rounded-full bg-white/5 border border-white/10 text-neutral-400 hover:text-white hover:bg-white/10 transition-all active:scale-95"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
-            </button>
-            <button
-              onClick={() => scroll("right")}
-              className="p-2 rounded-full bg-white/5 border border-white/10 text-neutral-400 hover:text-white hover:bg-white/10 transition-all active:scale-95"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </button>
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight leading-none mb-1">
+              Weekly Winners
+            </h2>
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Content */}
-      {loading && !hasWinners ? (
-        <div className="flex gap-4 overflow-hidden">
-          {[1, 2, 3].map((i) => (
+      <div className="flex flex-col gap-5 sm:gap-6">
+        {loading && !hasWinners ? (
+          [1, 2, 3, 4].map((i) => (
             <div
               key={i}
-              className="flex-shrink-0 w-[300px] sm:w-[340px] h-[450px] bg-white/5 rounded-2xl animate-pulse border border-white/5"
+              className="w-full h-44 rounded-3xl bg-white/5 animate-pulse border border-white/5"
             />
-          ))}
-        </div>
-      ) : !hasWinners ? (
-        <div className="p-10 text-center bg-white/[0.02] border border-white/5 rounded-2xl backdrop-blur-sm">
-          <p className="text-neutral-500">Winners are being calculated...</p>
-        </div>
-      ) : (
-        <>
-          <div
-            ref={scrollContainerRef}
-            className="flex gap-5 overflow-x-auto pb-8 scroll-smooth snap-x snap-mandatory scrollbar-hide"
-            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-          >
-            {topFour.map(({ idea, rank }) => (
-              <div key={idea.id} className="snap-start h-full">
-                <PublicWeeklyWinner
-                  idea={idea}
-                  currentUserId={currentUserId}
-                  onToggleLike={() => handleToggleLike(idea.id)}
-                  loadingLike={loadingLikeId === idea.id}
-                  rank={rank}
-                />
-              </div>
-            ))}
+          ))
+        ) : !hasWinners ? (
+          <div className="p-16 text-center bg-white/[0.02] border border-white/5 rounded-3xl">
+            <p className="text-neutral-500 font-medium">Calculating winners...</p>
           </div>
-        </>
-      )}
+        ) : (
+          topFour.map(({ idea, rank }) => (
+            <PublicWeeklyWinner
+              key={idea.id}
+              idea={idea}
+              currentUserId={currentUserId}
+              onToggleLike={() => handleToggleLike(idea.id)}
+              loadingLike={loadingLikeId === idea.id}
+              rank={rank}
+            />
+          ))
+        )}
+      </div>
     </section>
   );
 }

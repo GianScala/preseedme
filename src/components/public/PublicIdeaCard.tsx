@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, type MouseEvent } from "react";
 import Link from "next/link";
-import { Clock } from "lucide-react";
+import { Clock, TrendingUp, Users } from "lucide-react";
 import { formatCurrencyShort, formatNumberShort } from "@/lib/formatters";
 import { IdeaWithLikes } from "@/lib/ideas";
 import HeartIcon from "@/components/icons/HeartIcon";
@@ -21,7 +21,7 @@ type PublicIdeaCardProps = {
   loadingLike: boolean;
 };
 
-// --- Date Helpers ---
+// --- Helpers ---
 const getMillis = (timestamp: any): number | null => {
   if (!timestamp) return null;
   if (typeof timestamp === "number") return timestamp;
@@ -35,80 +35,32 @@ const formatShortDate = (ms: number | null) => {
   return `${date.getMonth() + 1}/${date.getDate()}`;
 };
 
-// --- Micro Components (match weekly card style) ---
+/* ---------------- Micro Components ---------------- */
 
-const TagPill = ({
-  text,
-  className,
-}: {
-  text: string;
-  className?: string;
-}) => (
-  <span
-    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-medium border border-white/5 bg-white/5/40 backdrop-blur-md ${className}`}
-  >
+const TagPill = ({ text }: { text: string }) => (
+  <span className="text-[9px] font-black text-neutral-500 uppercase tracking-widest px-2 py-0.5 border border-white/5 rounded bg-white/[0.02]">
     {text}
   </span>
 );
 
-const MetricBadge = ({
-  value,
-  label,
-  dotColor,
-}: {
-  value: string;
-  label: string;
-  dotColor: string;
-}) => (
-  <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/5/30 border border-white/10 backdrop-blur-sm">
-    <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
-    <span className="text-[11px] font-semibold text-neutral-200">{value}</span>
-    <span className="text-[9px] text-neutral-500 uppercase tracking-wide hidden sm:inline opacity-80">
-      {label}
-    </span>
+const MetricItem = ({ icon: Icon, val, label, color }: any) => (
+  <div className="flex items-center gap-1.5">
+    <Icon className={`w-3 h-3 ${color}`} />
+    <span className="text-[11px] font-black text-neutral-200 tabular-nums">{val}</span>
+    <span className="text-[8px] font-bold text-neutral-600 uppercase tracking-tighter">{label}</span>
   </div>
 );
 
-const GlassBadge = ({
-  icon: Icon,
-  label,
-  value,
-  variant = "neutral",
-}: {
-  icon: any;
-  label?: string;
-  value: string | number;
-  variant?: "neutral" | "success";
-}) => {
-  const styles = {
-    neutral: "bg-black/60 border-white/10 text-neutral-300",
-    success:
-      "bg-black/60 border-emerald-500/30 text-emerald-400 shadow-[0_0_15px_-3px_rgba(16,185,129,0.2)]",
-  };
+const GlassBadge = ({ icon: Icon, value, variant = "neutral" }: any) => (
+  <div className={`flex items-center gap-1.5 px-2 h-6 rounded-md backdrop-blur-md border text-[10px] font-bold ${
+    variant === "success" ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400" : "bg-black/40 border-white/10 text-neutral-400"
+  }`}>
+    <Icon className="w-3 h-3" />
+    <span className="tabular-nums">{value}</span>
+  </div>
+);
 
-  return (
-    <div
-      className={`
-      flex items-center gap-2 px-3 h-8 rounded-full 
-      backdrop-blur-md border text-xs font-medium shadow-sm 
-      transition-all select-none
-      ${styles[variant]}
-    `}
-    >
-      <Icon
-        className={`w-3.5 h-3.5 ${variant === "success" ? "text-emerald-400" : ""}`}
-      />
-      {label && (
-        <span className="hidden xs:inline opacity-70 uppercase tracking-wider text-[10px]">
-          {label}
-        </span>
-      )}
-      <span className="tabular-nums">{value}</span>
-    </div>
-  );
-};
-
-// --- Main Component ---
+/* ---------------- Main Component ---------------- */
 
 export default function PublicIdeaCard({
   idea,
@@ -117,265 +69,121 @@ export default function PublicIdeaCard({
   loadingLike,
 }: PublicIdeaCardProps) {
   const {
-    id,
-    title,
-    oneLiner,
-    thumbnailUrl,
-    monthlyRecurringRevenue,
-    userCount,
-    likeCount: rawLikeCount,
-    likedByUserIds = [],
-    founderUsername,
-    sector,
-    targetAudience,
-    founderId,
-    createdAt,
-    updatedAt,
+    id, title, oneLiner, thumbnailUrl, monthlyRecurringRevenue, userCount,
+    likeCount: rawLikeCount, likedByUserIds = [], founderUsername,
+    sector, targetAudience, founderId, createdAt, updatedAt,
   } = idea;
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState(false);
 
-  const likeCount = rawLikeCount ?? 0;
   const isLiked = !!currentUserId && likedByUserIds.includes(currentUserId);
+  const mrrLabel = monthlyRecurringRevenue ? formatCurrencyShort(monthlyRecurringRevenue) : null;
+  const usersLabel = userCount ? formatNumberShort(userCount) : null;
 
-  const mrrLabel = formatCurrencyShort(monthlyRecurringRevenue);
-  const usersLabel = formatNumberShort(userCount);
-
-  // Date Logic
   const dateInfo = useMemo(() => {
     const createdMs = getMillis(createdAt);
     const updatedMs = getMillis(updatedAt);
-    const wasUpdated = updatedMs && createdMs && updatedMs > createdMs;
-    const isRecentUpdate =
-      wasUpdated && updatedMs && Date.now() - updatedMs < 48 * 60 * 60 * 1000;
-
-    return {
-      createdMs,
-      updatedMs,
-      wasUpdated,
-      isRecentUpdate,
-    };
+    return { createdMs, updatedMs, wasUpdated: updatedMs && createdMs && updatedMs > createdMs };
   }, [createdAt, updatedAt]);
 
-  const hasMetrics = !!(mrrLabel || usersLabel);
-
-  const founderInitial =
-    founderUsername?.charAt(0).toUpperCase() || founderUsername || "U";
-  const shouldShowInitials = !avatarUrl || avatarError;
-
-  // --- Load avatar from users/{founderId}.photoURL ---
   useEffect(() => {
-    if (!founderId) {
-      console.warn(
-        "[PublicIdeaCard] No founderId on idea, cannot load avatar",
-        { ideaId: id }
-      );
-      return;
-    }
-
-    let cancelled = false;
-
+    if (!founderId) return;
     const loadAvatar = async () => {
       try {
-        const db = getFirebaseDb();
-        const ref = doc(db, "users", founderId);
-        const snap = await getDoc(ref);
-
-        if (!snap.exists()) {
-          console.warn(
-            "[PublicIdeaCard] Founder profile not found, keeping initials",
-            { ideaId: id, founderId }
-          );
-          return;
-        }
-
-        const data = snap.data() as any;
-        const url: string | null =
-          data.photoURL ?? data.avatarUrl ?? data.avatar ?? null;
-
-        if (!cancelled) {
-          setAvatarUrl(url);
-          setAvatarError(false);
-        }
-      } catch (error) {
-        console.error(
-          "[PublicIdeaCard] Error loading founder avatar from profile",
-          {
-            ideaId: id,
-            founderId,
-            error,
-          }
-        );
-      }
+        const snap = await getDoc(doc(getFirebaseDb(), "users", founderId));
+        if (snap.exists()) setAvatarUrl(snap.data().photoURL || snap.data().avatarUrl || null);
+      } catch (e) { console.error(e); }
     };
-
     loadAvatar();
+  }, [founderId]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [id, founderId]);
-
-  const handleAvatarError = () => {
-    setAvatarError(true);
-  };
-
-  const handleAvatarLoad = () => {};
-
-  const handleLikeClick = (event: MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
+  const handleLikeClick = (e: MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (!loadingLike) onToggleLike();
   };
 
   return (
-    <div
-      className={`
-        group relative overflow-hidden rounded-2xl
-        border border-white/10 hover:border-white/30
-        transition-colors
-        bg-neutral-900/20
-        w-full
-        h-[380px] sm:h-[400px]
-      `}
-    >
-      {/* Whole card clickable */}
+    <div className="group relative overflow-hidden rounded-2xl border border-white/5 bg-neutral-900/20 hover:bg-neutral-900/40 hover:border-white/20 transition-all duration-300 w-full h-[400px]">
       <Link href={`/ideas/${id}`} className="flex flex-col h-full">
-        {/* -------- HEADER IMAGE (same style as weekly winner) -------- */}
-        {thumbnailUrl && (
-          <div className="relative h-40 w-full overflow-hidden border-b border-white/10">
-            <img
-              src={thumbnailUrl}
-              alt={title}
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-              loading="lazy"
-            />
+        
+        {/* IMAGE HEADER WITH OVERLAYS */}
+        <div className="relative h-44 w-full overflow-hidden border-b border-white/5">
+          {thumbnailUrl ? (
+            <img src={thumbnailUrl} alt={title} className="absolute inset-0 h-full w-full object-cover opacity-60 transition-transform duration-700 group-hover:scale-105" />
+          ) : (
+            <div className="absolute inset-0 w-full h-full bg-neutral-800 flex items-center justify-center text-3xl font-black text-neutral-700">{title[0]}</div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
 
-            {/* Fade to dark at bottom */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+          {/* Top Right: LIKE BUTTON */}
+          <button
+            onClick={handleLikeClick}
+            disabled={loadingLike}
+            className={`absolute top-3 right-3 z-20 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg backdrop-blur-md border transition-all duration-300 ${
+              isLiked 
+                ? "bg-rose-500 text-white border-rose-400 shadow-lg shadow-rose-500/40" 
+                : "bg-black/40 border-white/10 text-white hover:bg-black/60 hover:border-white/30"
+            }`}
+          >
+            {loadingLike ? (
+              <div className="w-3 h-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            ) : (
+              <HeartIcon className={`w-3.5 h-3.5 ${isLiked ? "fill-current" : ""}`} />
+            )}
+            <span className="text-xs font-black tabular-nums">{rawLikeCount || 0}</span>
+          </button>
 
-            {/* --- BOTTOM: Date Badges --- */}
-            <div className="absolute bottom-3 left-3 right-3 z-10 flex justify-between items-end gap-2">
-              {/* Left Side: Creation Date */}
-              <GlassBadge
-                icon={Clock}
-                label="Created"
-                value={formatShortDate(dateInfo.createdMs) || "N/A"}
-                variant="neutral"
-              />
-
-              {/* Right Side: Update Badge (Only if updated) */}
-              {dateInfo.wasUpdated && (
-                <div className="flex items-center gap-2">
-                  {/* Pulse effect if very recent */}
-                  {dateInfo.isRecentUpdate && (
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                  )}
-                  <GlassBadge
-                    icon={Clock}
-                    label="Updated"
-                    value={formatShortDate(dateInfo.updatedMs) || "N/A"}
-                    variant="success"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* -------- TRANSLUCENT CONTENT SECTION -------- */}
-        <div className="flex-1 flex flex-col px-4 pt-3 pb-4 gap-3 bg-black/20 backdrop-blur-sm">
-          {/* Tags */}
-          <div className="flex flex-wrap gap-1.5">
-            {sector && <TagPill text={sector} className="text-neutral-300" />}
-            {targetAudience && (
-              <TagPill text={targetAudience} className="text-neutral-400" />
+          {/* Bottom Left: DATE BADGES */}
+          <div className="absolute bottom-3 left-3 flex gap-2">
+            <GlassBadge icon={Clock} value={formatShortDate(dateInfo.createdMs) || "N/A"} />
+            {dateInfo.wasUpdated && (
+              <GlassBadge icon={Clock} value={formatShortDate(dateInfo.updatedMs)} variant="success" />
             )}
           </div>
+        </div>
 
-          {/* Title + description */}
+        {/* CONTENT SECTION */}
+        <div className="flex-1 flex flex-col p-5 gap-3 bg-black/10 backdrop-blur-sm">
+          <div className="flex flex-wrap gap-2">
+            {sector && <TagPill text={sector} />}
+            {targetAudience && <TagPill text={targetAudience} />}
+          </div>
+
           <div className="flex-1">
-            <h3 className="text-base sm:text-lg font-semibold text-white mb-1 line-clamp-2">
+            <h3 className="text-lg font-bold text-white mb-1.5 line-clamp-2 group-hover:text-[var(--brand)] transition-colors tracking-tight">
               {title}
             </h3>
-            <p className="text-[12px] sm:text-[13px] text-neutral-300 leading-relaxed line-clamp-3">
+            <p className="text-sm text-neutral-400 leading-relaxed line-clamp-3 font-medium opacity-80">
               {oneLiner}
             </p>
           </div>
 
-          {/* Metrics */}
-          {hasMetrics && (
-            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/10">
-              {mrrLabel && (
-                <MetricBadge
-                  value={mrrLabel}
-                  label="MRR"
-                  dotColor="bg-emerald-500"
-                />
-              )}
-              {usersLabel && (
-                <MetricBadge
-                  value={usersLabel}
-                  label="Users"
-                  dotColor="bg-[var(--brand)]"
-                />
-              )}
+          {/* FOOTER: Metrics Left, Founder Right */}
+          <div className="flex items-center justify-between pt-4 border-t border-white/5">
+            {/* Metrics */}
+            <div className="flex flex-col gap-1.5">
+              {mrrLabel && <MetricItem icon={TrendingUp} val={mrrLabel} label="MRR" color="text-emerald-500" />}
+              {usersLabel && <MetricItem icon={Users} val={usersLabel} label="Users" color="text-blue-500" />}
             </div>
-          )}
 
-          {/* Footer: founder + likes */}
-          <div className="flex items-center justify-between pt-2 border-t border-white/10">
-            {/* Founder */}
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full overflow-hidden bg-gradient-to-br from-[var(--brand)] to-[var(--brand-dark)] flex items-center justify-center text-[10px] font-bold text-black">
-                {shouldShowInitials ? (
-                  founderInitial
+            {/* Founder Identity (Right Side) */}
+            <div className="flex items-center gap-2.5 pl-4 border-l border-white/5">
+              <div className="flex flex-col items-end min-w-0">
+                <span className="text-[9px] font-black text-neutral-600 uppercase tracking-tighter">Founder</span>
+                <span className="text-xs font-bold text-neutral-200 truncate max-w-[80px]">@{founderUsername}</span>
+              </div>
+              <div className="h-8 w-8 rounded-full bg-neutral-800 ring-2 ring-white/5 overflow-hidden flex-shrink-0">
+                {avatarUrl && !avatarError ? (
+                  <img src={avatarUrl} alt="founder" className="h-full w-full object-cover" onError={() => setAvatarError(true)} />
                 ) : (
-                  <img
-                    src={avatarUrl as string}
-                    alt={`${founderUsername}'s avatar`}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                    onError={handleAvatarError}
-                    onLoad={handleAvatarLoad}
-                  />
+                  <div className="h-full w-full flex items-center justify-center text-[10px] font-bold text-neutral-500 uppercase bg-neutral-800">
+                    {founderUsername?.[0]}
+                  </div>
                 )}
               </div>
-              <div className="flex flex-col">
-                <span className="text-[9px] text-neutral-400 uppercase tracking-wide">
-                  Founder
-                </span>
-                <span className="text-[11px] text-neutral-200 truncate max-w-[120px]">
-                  {founderUsername || "Anonymous"}
-                </span>
-              </div>
             </div>
-
-            {/* Like button (compact, same vibe as weekly card) */}
-            <button
-              onClick={handleLikeClick}
-              disabled={loadingLike}
-              className={`
-                flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-300
-                ${
-                  isLiked
-                    ? "bg-rose-500/10 text-rose-400 border border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.2)]"
-                    : "bg-white/5 text-neutral-300 border border-white/10 hover:bg-white/10 hover:text-white"
-                }
-                disabled:opacity-60 disabled:cursor-not-allowed
-              `}
-            >
-              {loadingLike ? (
-                <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <HeartIcon className={`w-3.5 h-3.5`} />
-              )}
-              <span>{likeCount}</span>
-            </button>
           </div>
         </div>
       </Link>
