@@ -11,12 +11,23 @@ interface InfoCardProps {
 export default function InfoCard({ title, content }: InfoCardProps) {
   const [expanded, setExpanded] = useState(false);
 
+  // Determine content type
   const isArray = Array.isArray(content);
   const text = isArray ? "" : (content as string);
-  const shouldTruncate = !isArray && text.length > 180;
+  
+  // Check if text contains bullet points
+  const hasBulletPoints = !isArray && (text.includes("■") || text.includes("•"));
+  
+  // Split by bullet points if they exist
+  const bulletItems = hasBulletPoints 
+    ? text.split(/[■•]/).filter(item => item.trim().length > 0)
+    : [];
+  
+  const shouldTruncate = !isArray && !hasBulletPoints && text.length > 180;
 
   return (
     <div className="relative w-full overflow-hidden rounded-2xl border bg-gradient-to-br from-neutral-950/40 via-neutral-900/20 to-neutral-900 border-neutral-800/70 shadow-xl px-5 py-5 sm:px-6 sm:py-6">
+      
       {/* Header */}
       <div className="mb-4">
         <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
@@ -26,7 +37,7 @@ export default function InfoCard({ title, content }: InfoCardProps) {
 
       {/* Content */}
       {isArray ? (
-        // Tags
+        // Array Content - Tags
         <div className="flex flex-wrap gap-2">
           {content.map((item, i) => (
             <span
@@ -37,12 +48,34 @@ export default function InfoCard({ title, content }: InfoCardProps) {
             </span>
           ))}
         </div>
+      ) : hasBulletPoints ? (
+        // Text with bullet points - render as list
+        <div className="text-sm sm:text-base leading-relaxed text-neutral-300 space-y-3">
+          {bulletItems.map((item, i) => {
+            const trimmedItem = item.trim();
+            // First item might be intro text before bullets
+            if (i === 0 && !trimmedItem.match(/^(Meta ROI|Paste url|Winning Angles|24\/7)/i)) {
+              return (
+                <p key={i} className="mb-4">
+                  {trimmedItem}
+                </p>
+              );
+            }
+            return (
+              <div key={i} className="flex gap-3">
+                <span className="w-1.5 h-1.5 rounded-full bg-brand mt-2 flex-shrink-0"></span>
+                <p className="flex-1">{trimmedItem}</p>
+              </div>
+            );
+          })}
+        </div>
       ) : (
-        // Text with smart "Read more"
+        // Regular text with expand/collapse
         <div className="text-sm sm:text-base leading-relaxed text-neutral-300">
           <p className={!expanded && shouldTruncate ? "line-clamp-3" : ""}>
             {text}
           </p>
+
           {shouldTruncate && (
             <button
               type="button"
@@ -67,6 +100,7 @@ export default function InfoCard({ title, content }: InfoCardProps) {
           )}
         </div>
       )}
+      
     </div>
   );
 }
