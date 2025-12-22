@@ -1,3 +1,4 @@
+// app/ideas/new/utils/submitIdea.ts
 import { getFirebaseDb, getFirebaseStorage } from "@/lib/firebase";
 import {
   addDoc,
@@ -6,6 +7,10 @@ import {
   updateDoc,
   doc,
   arrayUnion,
+  query,
+  where,
+  getDocs,
+  limit,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { toNumberOrUndefined } from "@/lib/utils";
@@ -20,18 +25,39 @@ interface SubmitResult {
 export async function submitIdea(
   formData: IdeaFormData,
   user: any,
-  profile: any
+  profile: any,
+  idempotencyKey: string
 ): Promise<SubmitResult> {
+  // ✅ Validation
   if (!formData.title.trim() || !formData.oneLiner.trim()) {
-    formData.error = "Please provide at least a title and a one-liner.";
-    return { success: false, error: formData.error };
+    const error = "Please provide at least a title and a one-liner.";
+    return { success: false, error };
   }
-
-  formData.saving = true;
-  formData.error = "";
 
   try {
     const db = getFirebaseDb();
+
+    // ✅ IDEMPOTENCY CHECK: Check if this submission already exists
+    const idempotencyRef = collection(db, "ideaSubmissions");
+    const idempotencyQuery = query(
+      idempotencyRef,
+      where("idempotencyKey", "==", idempotencyKey),
+      where("userId", "==", user.uid), // ✅ FIXED: Added userId to match security rules
+      limit(1)
+    );
+    const existingSubmission = await getDocs(idempotencyQuery);
+
+    if (!existingSubmission.empty) {
+      // ✅ Submission already exists, return existing idea ID
+      const existingData = existingSubmission.docs[0].data();
+      console.log("✅ Duplicate submission prevented:", idempotencyKey);
+      return {
+        success: true,
+        ideaId: existingData.ideaId,
+      };
+    }
+
+    // ✅ Prepare idea data
     const ideasRef = collection(db, "ideas");
 
     const data: any = {
@@ -42,7 +68,7 @@ export async function submitIdea(
       founderHandle: profile.handle,
       founderUsername: profile.username,
       createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(), // ✅ Added
+      updatedAt: serverTimestamp(),
     };
 
     if (formData.websiteUrl.trim())
@@ -61,7 +87,9 @@ export async function submitIdea(
       data.targetMarket = formData.targetMarket;
 
     const foundedYearNum = toNumberOrUndefined(formData.foundedYear);
-    const totalRevenueNum = toNumberOrUndefined(formData.totalRevenueSinceInception);
+    const totalRevenueNum = toNumberOrUndefined(
+      formData.totalRevenueSinceInception
+    );
     const mrrNum = toNumberOrUndefined(formData.monthlyRecurringRevenue);
     const userCountNum = toNumberOrUndefined(formData.userCount);
 
@@ -81,8 +109,12 @@ export async function submitIdea(
       data.valuePropositionDetail = formData.valuePropositionDetail.trim();
 
     const fundraisingGoalNum = toNumberOrUndefined(formData.fundraisingGoal);
-    const fundraisingRaisedNum = toNumberOrUndefined(formData.fundraisingRaisedSoFar);
-    const fundraisingMinCheckNum = toNumberOrUndefined(formData.fundraisingMinCheckSize);
+    const fundraisingRaisedNum = toNumberOrUndefined(
+      formData.fundraisingRaisedSoFar
+    );
+    const fundraisingMinCheckNum = toNumberOrUndefined(
+      formData.fundraisingMinCheckSize
+    );
 
     if (formData.isFundraising) {
       data.isFundraising = true;
@@ -94,7 +126,6 @@ export async function submitIdea(
         data.fundraisingMinCheckSize = fundraisingMinCheckNum;
     }
 
-    // ✅ Updated deliverables section
     if (formData.deliverablesOverview.trim()) {
       data.deliverablesOverview = formData.deliverablesOverview.trim();
     }
@@ -102,11 +133,11 @@ export async function submitIdea(
       data.deliverables = formData.deliverables;
       data.deliverablesUpdatedAt = Date.now();
     }
-    // Backwards compatibility
     if (formData.deliverablesMilestones.trim()) {
       data.deliverablesMilestones = formData.deliverablesMilestones.trim();
     }
 
+    // ✅ Handle thumbnail upload
     if (formData.thumbnailFile) {
       const storage = getFirebaseStorage();
       const storageRef = ref(
@@ -118,19 +149,34 @@ export async function submitIdea(
       data.thumbnailUrl = downloadUrl;
     }
 
+    // ✅ Create the idea document
     const docRef = await addDoc(ideasRef, data);
 
+    // ✅ Store idempotency record with TTL (auto-delete after 5 minutes)
+    const fiveMinutesFromNow = new Date(Date.now() + 5 * 60 * 1000);
+    
+    await addDoc(idempotencyRef, {
+      idempotencyKey,
+      ideaId: docRef.id,
+      userId: user.uid,
+      createdAt: serverTimestamp(),
+      expireAt: fiveMinutesFromNow,
+    });
+
+    // ✅ Update user's published ideas
     const userRef = doc(db, "users", user.uid);
     await updateDoc(userRef, {
       publishedIdeaIds: arrayUnion(docRef.id),
     });
 
-    formData.saving = false;
+    console.log("✅ New idea created successfully:", docRef.id);
+
     return { success: true, ideaId: docRef.id };
   } catch (err: any) {
-    console.error(err);
-    formData.saving = false;
-    formData.error = err.message ?? "Failed to publish your idea.";
-    return { success: false, error: formData.error };
+    console.error("❌ Submit idea error:", err);
+    return {
+      success: false,
+      error: err.message ?? "Failed to publish your idea.",
+    };
   }
 }
