@@ -34,8 +34,8 @@ export interface IdeaFormData {
   fundraisingRaisedSoFar: string;
   fundraisingMinCheckSize: string;
   deliverablesOverview: string;
-  deliverables: Deliverable[]; // ✅ Added
-  deliverablesMilestones: string; // Kept for backwards compatibility
+  deliverables: Deliverable[];
+  deliverablesMilestones: string;
   saving: boolean;
   error: string;
 }
@@ -67,7 +67,7 @@ export function useNewIdeaForm() {
     fundraisingRaisedSoFar: "",
     fundraisingMinCheckSize: "",
     deliverablesOverview: "",
-    deliverables: [], // ✅ Added
+    deliverables: [],
     deliverablesMilestones: "",
     saving: false,
     error: "",

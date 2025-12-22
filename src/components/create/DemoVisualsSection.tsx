@@ -1,4 +1,3 @@
-// src/components/create/DemoVisualsSection.tsx
 import { ChangeEvent } from "react";
 import { IdeaFormData } from "@/hooks/useNewIdeaForm";
 import SectionWrapper from "./SectionWrapper";
@@ -56,7 +55,7 @@ export default function DemoVisualsSection({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
         </svg>
       }
-      isComplete={!!(formData.demoVideoUrl || formData.thumbnailFile)}
+      isComplete={!!(formData.thumbnailFile || formData.thumbnailPreview)}
       showEmptyWarning={showEmptyWarning}
     >
       <div className="space-y-6">
@@ -73,10 +72,10 @@ export default function DemoVisualsSection({
           }
         />
 
-        {/* Thumbnail Upload */}
+        {/* Thumbnail Upload - REQUIRED */}
         <div className="space-y-3">
           <label className="block text-sm font-semibold text-neutral-200">
-            Thumbnail Image
+            Thumbnail Image <span className="text-red-400">*</span>
           </label>
           
           <div className="flex flex-col sm:flex-row items-start gap-4">
@@ -89,7 +88,7 @@ export default function DemoVisualsSection({
                 </div>
                 <div>
                   <p className="text-sm font-medium text-neutral-200">
-                    {formData.thumbnailFile ? "Change Image" : "Upload Image"}
+                    {formData.thumbnailFile || formData.thumbnailPreview ? "Change Image" : "Upload Image"}
                   </p>
                   <p className="text-xs text-neutral-500">JPG, PNG • 16:9 ratio</p>
                 </div>

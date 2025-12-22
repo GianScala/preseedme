@@ -42,13 +42,13 @@ export default function SectionWrapper({
   return (
     <section
       className={`
-        relative group rounded-2xl border transition-colors duration-300 ease-out
+        relative group rounded-xl sm:rounded-2xl border transition-colors duration-300 ease-out
         ${containerClasses}
       `}
     >
       {/* Active "Glow" Backdrop */}
       <div 
-        className={`absolute inset-0 bg-gradient-to-b from-brand/5 to-transparent pointer-events-none transition-opacity duration-500 rounded-2xl ${isOpen ? 'opacity-100' : 'opacity-0'}`} 
+        className={`absolute inset-0 bg-gradient-to-b from-brand/5 to-transparent pointer-events-none transition-opacity duration-500 rounded-xl sm:rounded-2xl ${isOpen ? 'opacity-100' : 'opacity-0'}`} 
       />
 
       {/* Header Button */}
@@ -58,14 +58,14 @@ export default function SectionWrapper({
         aria-expanded={isOpen}
         aria-controls={panelId}
         id={sectionId}
-        className="relative z-10 w-full flex items-center justify-between gap-4 p-4 sm:p-5 text-left outline-none rounded-2xl focus-visible:ring-2 focus-visible:ring-brand/50"
+        className="relative z-10 w-full flex items-center justify-between gap-3 sm:gap-4 p-3 sm:p-5 text-left outline-none rounded-xl sm:rounded-2xl focus-visible:ring-2 focus-visible:ring-brand/50"
       >
-        <div className="flex items-start gap-4 flex-1">
+        <div className="flex items-start gap-3 sm:gap-4 flex-1">
           {/* Icon Container with Status Badges */}
           <div className="relative flex-shrink-0">
             <div
               className={`
-                w-12 h-12 rounded-xl flex items-center justify-center
+                w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center
                 transition-all duration-300
                 ${iconRingClasses}
               `}
@@ -77,15 +77,15 @@ export default function SectionWrapper({
             <div className="absolute -bottom-1 -right-1 z-20">
               {isComplete && !isOpen && (
                 <div className="bg-neutral-950 rounded-full border border-neutral-800 p-0.5 animate-in zoom-in">
-                  <div className="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center">
-                    <Check className="w-2.5 h-2.5 text-neutral-950 stroke-[3]" />
+                  <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-emerald-500 flex items-center justify-center">
+                    <Check className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-neutral-950 stroke-[3]" />
                   </div>
                 </div>
               )}
               {showEmptyWarning && !isComplete && (
                 <div className="bg-neutral-950 rounded-full border border-neutral-800 p-0.5 animate-pulse">
-                  <div className="w-4 h-4 rounded-full bg-orange-500 flex items-center justify-center">
-                    <AlertCircle className="w-2.5 h-2.5 text-neutral-950 stroke-[3]" />
+                  <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-orange-500 flex items-center justify-center">
+                    <AlertCircle className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-neutral-950 stroke-[3]" />
                   </div>
                 </div>
               )}
@@ -93,28 +93,28 @@ export default function SectionWrapper({
           </div>
 
           {/* Text Info */}
-          <div className="flex-1 pt-1">
-            <div className="flex items-center gap-2 mb-1">
+          <div className="flex-1 pt-0.5 sm:pt-1">
+            <div className="flex items-center gap-2 mb-0.5 sm:mb-1">
               <span className={`
-                text-[10px] uppercase tracking-wider font-bold
+                text-[9px] sm:text-[10px] uppercase tracking-wider font-bold
                 ${isOpen ? 'text-brand' : 'text-neutral-500'}
               `}>
                 Step {number}
               </span>
               {isComplete && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-500/20">
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-medium text-emerald-400 border border-emerald-500/20">
                   Done
                 </span>
               )}
             </div>
             
             <h2 className={`
-              text-lg sm:text-xl font-bold transition-colors duration-200
+              text-base sm:text-lg md:text-xl font-bold transition-colors duration-200
               ${isOpen ? 'text-white' : 'text-neutral-300 group-hover:text-white'}
             `}>
               {title}
             </h2>
-            <p className="text-sm text-neutral-400 group-hover:text-neutral-300 transition-colors">
+            <p className="text-xs sm:text-sm text-neutral-400 group-hover:text-neutral-300 transition-colors mt-0.5">
               {description}
             </p>
           </div>
@@ -126,7 +126,7 @@ export default function SectionWrapper({
           text-neutral-500 group-hover:text-neutral-300
           ${isOpen ? 'rotate-90 text-brand' : ''}
         `}>
-          <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
+          <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
         </div>
       </button>
 
@@ -143,7 +143,7 @@ export default function SectionWrapper({
         <div className="overflow-hidden min-h-0">
           <div 
             className={`
-              border-t border-neutral-800/50 p-4 sm:p-6 bg-neutral-950/20 transition-opacity duration-300 delay-75
+              border-t border-neutral-800/50 p-3 sm:p-4 md:p-6 bg-neutral-950/20 transition-opacity duration-300 delay-75
               ${isOpen ? 'opacity-100' : 'opacity-0'}
             `}
           >

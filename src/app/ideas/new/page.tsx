@@ -1,4 +1,3 @@
-// app/ideas/new/page.tsx
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -53,6 +52,61 @@ export default function NewIdeaPage() {
       updateFormData({
         error: "User not authenticated. Please sign in.",
       });
+      return;
+    }
+
+    // ✅ NEW: Validate required Core Pitch fields
+    const missingCorePitchFields = [];
+    if (!formData.title || formData.title.trim() === "") {
+      missingCorePitchFields.push("Project Name");
+    }
+    if (!formData.oneLiner || formData.oneLiner.trim() === "") {
+      missingCorePitchFields.push("One-Liner");
+    }
+    if (!formData.description || formData.description.trim() === "") {
+      missingCorePitchFields.push("Full Description");
+    }
+
+    if (missingCorePitchFields.length > 0) {
+      updateFormData({
+        error: `Please complete the following required fields: ${missingCorePitchFields.join(", ")}`,
+      });
+      setOpenSection("core");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    // ✅ NEW: Validate required thumbnail image
+    if (!formData.thumbnailFile && !formData.thumbnailPreview) {
+      updateFormData({
+        error: "Please upload a thumbnail image to continue.",
+      });
+      setOpenSection("demo");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    // ✅ NEW: Validate ALL required "Why Win" fields
+    const missingWhyWinFields = [];
+    if (!formData.teamBackground || formData.teamBackground.trim() === "") {
+      missingWhyWinFields.push("Team Background");
+    }
+    if (!formData.teamWhyYouWillWin || formData.teamWhyYouWillWin.trim() === "") {
+      missingWhyWinFields.push("Competitive Advantage");
+    }
+    if (!formData.industryInsights || formData.industryInsights.trim() === "") {
+      missingWhyWinFields.push("Market Insights");
+    }
+    if (!formData.valuePropositionDetail || formData.valuePropositionDetail.trim() === "") {
+      missingWhyWinFields.push("Value Proposition");
+    }
+
+    if (missingWhyWinFields.length > 0) {
+      updateFormData({
+        error: `Please complete the following required fields: ${missingWhyWinFields.join(", ")}`,
+      });
+      setOpenSection("why-win");
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
 
@@ -131,7 +185,7 @@ export default function NewIdeaPage() {
             </h1>
             <p className="text-sm text-neutral-400">
               Create your pitch in{" "}
-              <span className="text-brand font-semibold">~5 minutes</span>
+              <span className="text-brand font-semibold">~3 minutes</span>
             </p>
           </div>
         </header>
@@ -143,6 +197,12 @@ export default function NewIdeaPage() {
             isOpen={openSection === "core"}
             onToggle={() =>
               setOpenSection(openSection === "core" ? null : "core")
+            }
+            showEmptyWarning={
+              (!formData.title || formData.title.trim() === "" ||
+               !formData.oneLiner || formData.oneLiner.trim() === "" ||
+               !formData.description || formData.description.trim() === "") && 
+              !!formData.error
             }
           />
 
@@ -162,6 +222,7 @@ export default function NewIdeaPage() {
             onToggle={() =>
               setOpenSection(openSection === "demo" ? null : "demo")
             }
+            showEmptyWarning={(!formData.thumbnailFile && !formData.thumbnailPreview) && !!formData.error}
           />
 
           <BusinessSnapshotSection
@@ -179,6 +240,13 @@ export default function NewIdeaPage() {
             isOpen={openSection === "why-win"}
             onToggle={() =>
               setOpenSection(openSection === "why-win" ? null : "why-win")
+            }
+            showEmptyWarning={
+              (!formData.teamBackground || formData.teamBackground.trim() === "" ||
+               !formData.teamWhyYouWillWin || formData.teamWhyYouWillWin.trim() === "" ||
+               !formData.industryInsights || formData.industryInsights.trim() === "" ||
+               !formData.valuePropositionDetail || formData.valuePropositionDetail.trim() === "") && 
+              !!formData.error
             }
           />
 
@@ -204,15 +272,18 @@ export default function NewIdeaPage() {
             }
           />
 
-          <div className="flex flex-wrap items-center gap-3 pt-6">
+          {/* Mobile: Full-width stacked buttons (Publish on top for thumb reach) */}
+          {/* Desktop: Right-aligned horizontal buttons (Cancel, then Publish) */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 pt-6">
+            {/* Mobile order: Publish first (top) */}
+            {/* Desktop order: Cancel first (left), Publish second (right) */}
             <button
               type="submit"
-              // ✅ Protection Layer 6: Disable based on BOTH ref AND state
               disabled={formData.saving || isSubmittingRef.current}
-              className="px-6 py-3 rounded-xl bg-gradient-to-r from-brand to-brand-dark text-black text-sm font-bold hover:shadow-lg hover:shadow-brand/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full sm:w-auto sm:order-2 px-6 py-3 rounded-xl bg-gradient-to-r from-brand to-brand-dark text-black text-sm font-bold hover:shadow-lg hover:shadow-brand/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {formData.saving || isSubmittingRef.current ? (
-                <span className="flex items-center gap-2">
+                <span className="flex items-center justify-center gap-2">
                   <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                     <circle
                       className="opacity-25"
@@ -232,7 +303,7 @@ export default function NewIdeaPage() {
                   Publishing...
                 </span>
               ) : (
-                <span className="flex items-center gap-2">Publish Idea</span>
+                <span className="flex items-center justify-center gap-2">Publish Idea</span>
               )}
             </button>
 
@@ -240,28 +311,28 @@ export default function NewIdeaPage() {
               type="button"
               onClick={() => router.back()}
               disabled={formData.saving || isSubmittingRef.current}
-              className="px-6 py-3 rounded-xl border border-neutral-700 text-neutral-300 text-sm font-semibold hover:bg-neutral-900 hover:border-neutral-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full sm:w-auto sm:order-1 px-6 py-3 rounded-xl border border-neutral-700 text-neutral-300 text-sm font-semibold hover:bg-neutral-900 hover:border-neutral-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
           </div>
 
           {formData.error && (
-            <div className="flex items-start gap-3 text-sm text-red-400 bg-red-950/40 border border-red-900/60 rounded-xl px-4 py-3.5 animate-in fade-in slide-in-from-top-2">
+            <div className="flex items-start gap-3 text-sm text-orange-200 bg-orange-950/30 border border-orange-800/50 rounded-xl px-4 py-3.5 animate-in fade-in slide-in-from-top-2">
               <svg
-                className="w-5 h-5 flex-shrink-0 mt-0.5"
+                className="w-5 h-5 flex-shrink-0 mt-0.5 text-orange-400"
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
                 <path
                   fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
                   clipRule="evenodd"
                 />
               </svg>
               <div>
-                <p className="font-semibold mb-1">Error</p>
-                <p>{formData.error}</p>
+                <p className="font-semibold text-orange-300 mb-1">Just a few more details needed</p>
+                <p className="text-orange-100">{formData.error}</p>
               </div>
             </div>
           )}

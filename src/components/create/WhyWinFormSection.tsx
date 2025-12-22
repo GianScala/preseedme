@@ -18,6 +18,18 @@ export default function WhyWinFormSection({
   onToggle,
   showEmptyWarning = false,
 }: WhyWinFormSectionProps) {
+  // Check if ALL fields are complete
+  const isComplete = !!(
+    formData.teamBackground &&
+    formData.teamBackground.trim() !== "" &&
+    formData.teamWhyYouWillWin &&
+    formData.teamWhyYouWillWin.trim() !== "" &&
+    formData.industryInsights &&
+    formData.industryInsights.trim() !== "" &&
+    formData.valuePropositionDetail &&
+    formData.valuePropositionDetail.trim() !== ""
+  );
+
   return (
     <SectionWrapper
       number={5}
@@ -35,14 +47,18 @@ export default function WhyWinFormSection({
           />
         </svg>
       }
-      isComplete={false}
+      isComplete={isComplete}
       showEmptyWarning={showEmptyWarning}
     >
       <div className="space-y-5">
-        {/* Team Background */}
+        {/* Team Background - REQUIRED */}
         <div className="max-h-64 overflow-y-auto">
           <FormTextarea
-            label="Team Background"
+            label={
+              <span>
+                Team Background <span className="text-red-400">*</span>
+              </span>
+            }
             value={formData.teamBackground}
             onChange={(value) => updateFormData({ teamBackground: value })}
             placeholder="Who's on the team? Highlight relevant experience, past wins, or unique skills that make you credible."
@@ -51,10 +67,14 @@ export default function WhyWinFormSection({
           />
         </div>
 
-        {/* Competitive Advantage */}
+        {/* Competitive Advantage - REQUIRED */}
         <div className="max-h-64 overflow-y-auto">
           <FormTextarea
-            label="Competitive Advantage"
+            label={
+              <span>
+                Competitive Advantage <span className="text-red-400">*</span>
+              </span>
+            }
             value={formData.teamWhyYouWillWin}
             onChange={(value) => updateFormData({ teamWhyYouWillWin: value })}
             placeholder="Why are you uniquely positioned to dominate this market? Think: distribution, speed, network effects, or insider knowledge."
@@ -63,10 +83,14 @@ export default function WhyWinFormSection({
           />
         </div>
 
-        {/* Market Insights */}
+        {/* Market Insights - REQUIRED */}
         <div className="max-h-64 overflow-y-auto">
           <FormTextarea
-            label="Market Insights"
+            label={
+              <span>
+                Market Insights <span className="text-red-400">*</span>
+              </span>
+            }
             value={formData.industryInsights}
             onChange={(value) => updateFormData({ industryInsights: value })}
             placeholder="What non-obvious insight do you have about this problem or market? Share data, examples, or stories that prove you understand the space."
@@ -75,10 +99,14 @@ export default function WhyWinFormSection({
           />
         </div>
 
-        {/* Value Proposition (Detailed) */}
+        {/* Value Proposition (Detailed) - REQUIRED */}
         <div className="max-h-64 overflow-y-auto">
           <FormTextarea
-            label="Value Proposition (Detailed)"
+            label={
+              <span>
+                Value Proposition (Detailed) <span className="text-red-400">*</span>
+              </span>
+            }
             value={formData.valuePropositionDetail}
             onChange={(value) => updateFormData({ valuePropositionDetail: value })}
             placeholder="Explain in concrete terms how your product creates value. How does it save time, make money, or solve a painful problem for users?"

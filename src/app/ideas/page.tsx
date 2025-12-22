@@ -9,7 +9,6 @@ import PublicIdeaCard from "@/components/public/PublicIdeaCard";
 import SignInModal from "@/components/common/modal/SignInModal";
 import HeroSearchSection from "@/components/search/HeroSearchSection";
 import FiltersSection from "@/components/search/FiltersSection";
-import AdBanner from "@/components/common/AdBanner";
 
 // Context & Lib
 import { useAuth } from "@/context/AuthContext";
@@ -19,6 +18,7 @@ import {
   toggleLikeIdea,
   getFeaturedProjectId,
 } from "@/lib/ideas";
+import { sortIdeas } from "@/lib/sorting";
 
 // ============================================================================
 // Loading Skeleton Component
@@ -148,7 +148,7 @@ export default function IdeasPage() {
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState<"newest" | "mostLiked">("newest");
+  const [sortBy, setSortBy] = useState<"smart" | "newest" | "mostLiked" | "recentlyUpdated">("smart");
   const [minLikes, setMinLikes] = useState(0);
 
   // ============================================================================
@@ -172,6 +172,20 @@ export default function IdeasPage() {
 
         setIdeas(ideasData);
         setFeaturedId(featuredIdData);
+        
+        // ✅ DEBUG: Log first 5 ideas to check timestamps
+        console.log('=== IDEAS TIMESTAMP DEBUG ===');
+        ideasData.slice(0, 5).forEach(idea => {
+          console.log({
+            title: idea.title,
+            createdAt: idea.createdAt,
+            updatedAt: idea.updatedAt,
+            createdDate: new Date(idea.createdAt).toLocaleDateString(),
+            updatedDate: idea.updatedAt ? new Date(idea.updatedAt).toLocaleDateString() : 'NO UPDATE',
+            likes: idea.likeCount ?? 0
+          });
+        });
+        
       } catch (err) {
         console.error("Failed to load ideas:", err);
         if (!cancelled) {
@@ -303,8 +317,20 @@ export default function IdeasPage() {
     }
 
     // Sorting
-    if (sortBy === "mostLiked") {
-      result.sort((a, b) => (b.likeCount ?? 0) - (a.likeCount ?? 0));
+    result = sortIdeas(result, sortBy);
+    
+    // ✅ DEBUG: Log sorted results
+    if (sortBy === "smart") {
+      console.log('=== SMART SORT RESULTS (First 5) ===');
+      result.slice(0, 5).forEach((idea, idx) => {
+        const timestamp = idea.updatedAt || idea.createdAt;
+        console.log(`${idx + 1}. ${idea.title}`, {
+          updated: idea.updatedAt ? new Date(idea.updatedAt).toLocaleDateString() : 'NO',
+          created: new Date(idea.createdAt).toLocaleDateString(),
+          likes: idea.likeCount ?? 0,
+          ageInDays: ((Date.now() - timestamp) / (1000 * 60 * 60 * 24)).toFixed(1)
+        });
+      });
     }
 
     return result;
@@ -411,12 +437,12 @@ export default function IdeasPage() {
               searchQuery !== "" ||
               selectedTags.length > 0 ||
               minLikes > 0 ||
-              sortBy !== "newest"
+              sortBy !== "smart"
             }
             onClearAll={() => {
               setSearchQuery("");
               setSelectedTags([]);
-              setSortBy("newest");
+              setSortBy("smart");
               setMinLikes(0);
             }}
           />
@@ -430,7 +456,7 @@ export default function IdeasPage() {
                 onClearFilters={() => {
                   setSearchQuery("");
                   setSelectedTags([]);
-                  setSortBy("newest");
+                  setSortBy("smart");
                   setMinLikes(0);
                 }}
               />
@@ -446,7 +472,6 @@ export default function IdeasPage() {
                   </span>
                 </div>
 
-                {/* HERE IS THE UPDATED GRID (LESS HORIZONTAL GAP) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-2 gap-y-4">
                   {filteredIdeas.map((idea) => (
                     <PublicIdeaCard

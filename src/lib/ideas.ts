@@ -37,6 +37,14 @@ export function mapIdeaDoc(snapshot: any): IdeaWithLikes {
     );
   }
 
+  // ✅ Enhanced timestamp handling with fallback
+  const createdAtValue = toMillis(data.createdAt) ?? data.createdAt ?? Date.now();
+  const updatedAtValue = toMillis(data.updatedAt) ?? data.updatedAt ?? null;
+  const deliverablesUpdatedValue = toMillis(data.deliverablesUpdatedAt) ?? data.deliverablesUpdatedAt ?? null;
+  
+  // Use updatedAt if available, otherwise fall back to deliverablesUpdatedAt
+  const finalUpdatedAt = updatedAtValue || deliverablesUpdatedValue;
+
   return {
     // identity
     id: snapshot.id,
@@ -59,9 +67,9 @@ export function mapIdeaDoc(snapshot: any): IdeaWithLikes {
       data.founderProfileImage ??
       null,
 
-    // timestamps
-    createdAt: toMillis(data.createdAt) ?? data.createdAt ?? Date.now(),
-    updatedAt: toMillis(data.updatedAt) ?? data.updatedAt ?? null,
+    // timestamps - ✅ IMPROVED
+    createdAt: createdAtValue,
+    updatedAt: finalUpdatedAt,
 
     // media
     websiteUrl: data.websiteUrl,
@@ -107,7 +115,7 @@ export function mapIdeaDoc(snapshot: any): IdeaWithLikes {
     likeCount: data.likeCount ?? 0,
     likedByUserIds: data.likedByUserIds ?? [],
 
-    // achievements ✅ (your new UI depends on this)
+    // achievements
     achievements: data.achievements ?? [],
   };
 }
@@ -171,7 +179,6 @@ async function getIdeaById(ideaId: string): Promise<IdeaWithLikes | null> {
   }
 }
 
-// ✅ You explicitly asked to keep these:
 export async function getFeaturedProjectId(): Promise<string | null> {
   return getCollectionProjectId("featured_projects");
 }
