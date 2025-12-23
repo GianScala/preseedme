@@ -1,19 +1,29 @@
 // app/ideas/page.tsx
-import React from "react";
 import IdeasPageClient from "@/components/IdeasPageClient";
-import { getLatestIdeas, getFeaturedProjectId } from "@/lib/ideas";
+import { getLatestIdeas, getFeaturedIdea } from "@/lib/ideas";
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function IdeasPage() {
-  // Fetch data on the SERVER
-  const [ideasData, featuredIdData] = await Promise.all([
+  const [ideasData, featuredIdeaData] = await Promise.all([
     getLatestIdeas(50),
-    getFeaturedProjectId(),
+    getFeaturedIdea(), // ✅ Changed from getFeaturedProjectId()
   ]);
+
+  // ✅ Merge featured idea into ideas array if it's not already there
+  let allIdeas = ideasData;
+  if (featuredIdeaData) {
+    const featuredExists = ideasData.some(idea => idea.id === featuredIdeaData.id);
+    if (!featuredExists) {
+      allIdeas = [featuredIdeaData, ...ideasData];
+    }
+  }
 
   return (
     <IdeasPageClient 
-      initialIdeas={ideasData} 
-      initialFeaturedId={featuredIdData} 
+      initialIdeas={allIdeas} 
+      initialFeaturedId={featuredIdeaData?.id ?? null} 
     />
   );
 }

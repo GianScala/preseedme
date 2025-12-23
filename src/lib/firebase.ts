@@ -19,6 +19,8 @@ import {
   setDoc,
   serverTimestamp,
   updateDoc,
+  initializeFirestore,
+  memoryLocalCache,
 } from "firebase/firestore";
 import {
   getStorage,
@@ -60,7 +62,19 @@ export function getFirebaseAuth() {
 export function getFirebaseDb() {
   if (!db) {
     const app = getFirebaseApp();
-    db = getFirestore(app);
+    
+    // ✅ CRITICAL FIX: Use memory-only cache to prevent stale data
+    // This disables IndexedDB persistence and forces fresh server fetches
+    try {
+      db = initializeFirestore(app, {
+        localCache: memoryLocalCache()
+      });
+      console.log("✓ Firestore initialized with memory-only cache (no persistence)");
+    } catch (error) {
+      // Firestore already initialized, use the existing instance
+      db = getFirestore(app);
+      console.log("✓ Using existing Firestore instance");
+    }
   }
   return db;
 }
