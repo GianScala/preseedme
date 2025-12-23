@@ -1,5 +1,6 @@
 // app/page.tsx
-import React from "react";
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 import HomePageClient from "@/components/HomePageClient";
 import AdBanner from "@/components/common/AdBanner";
 import { getProjectDaily, getLatestIdeas } from "@/lib/ideas";
