@@ -1,6 +1,7 @@
+// components/IdeasPageClient.tsx
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 // Components
@@ -12,10 +13,7 @@ import FiltersSection from "@/components/search/FiltersSection";
 
 // Context & Lib
 import { useAuth } from "@/context/AuthContext";
-import {
-  IdeaWithLikes,
-  toggleLikeIdea,
-} from "@/lib/ideas";
+import { IdeaWithLikes, toggleLikeIdea } from "@/lib/ideas";
 import { sortIdeas } from "@/lib/sorting";
 
 // ============================================================================
@@ -25,18 +23,13 @@ import { sortIdeas } from "@/lib/sorting";
 function IdeasLoadingSkeleton() {
   return (
     <div className="space-y-8">
-      {/* Hero skeleton */}
       <div className="h-72 sm:h-80 rounded-2xl border border-neutral-800 bg-neutral-900/60 animate-pulse" />
-
-      {/* Featured skeleton */}
       <section>
         <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
           <div className="h-5 w-28 rounded-full bg-neutral-800 animate-pulse" />
         </div>
         <div className="h-64 rounded-2xl border border-neutral-800 bg-neutral-900/60 animate-pulse" />
       </section>
-
-      {/* Grid skeleton */}
       <section>
         <div className="h-24 rounded-2xl border border-neutral-800 bg-neutral-900/60 animate-pulse mb-4" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
@@ -113,17 +106,66 @@ function NoResultsState({ onClearFilters }: { onClearFilters: () => void }) {
 }
 
 // ============================================================================
+// Refresh Banner Component
+// ============================================================================
+
+function RefreshBanner({ onRefresh }: { onRefresh: () => void }) {
+  return (
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-slide-down">
+      <div className="bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl px-4 py-3 flex items-center gap-3">
+        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+        <p className="text-sm text-neutral-300">
+          New ideas available
+        </p>
+        <button
+          onClick={onRefresh}
+          className="px-3 py-1 bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white text-sm font-medium rounded transition-colors"
+        >
+          Refresh
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Error Banner Component
+// ============================================================================
+
+function ErrorBanner({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  return (
+    <div className="mb-4 p-4 bg-red-900/20 border border-red-800 rounded-lg flex items-start justify-between">
+      <div className="flex items-start gap-3">
+        <svg className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+        </svg>
+        <p className="text-sm text-red-200">{message}</p>
+      </div>
+      <button onClick={onDismiss} className="text-red-400 hover:text-red-300 transition-colors">
+        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+// ============================================================================
 // Main Client Component
 // ============================================================================
 
 interface IdeasPageClientProps {
   initialIdeas: IdeaWithLikes[];
   initialFeaturedId: string | null;
+  serverGeneratedAt: string;
+  initialError?: string;
 }
 
 export default function IdeasPageClient({
   initialIdeas,
   initialFeaturedId,
+  serverGeneratedAt,
+  initialError,
 }: IdeasPageClientProps) {
   const router = useRouter();
   const { user } = useAuth();
@@ -134,12 +176,123 @@ export default function IdeasPageClient({
   const [loadingLikeId, setLoadingLikeId] = useState<string | null>(null);
   const [showSignInModal, setShowSignInModal] = useState(false);
   const [clickedButtonRef, setClickedButtonRef] = useState<HTMLElement | null>(null);
+  const [error, setError] = useState<string | null>(initialError || null);
+  
+  // Refresh state
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showRefreshBanner, setShowRefreshBanner] = useState(false);
+  const [lastGeneratedAt, setLastGeneratedAt] = useState(serverGeneratedAt);
+  
+  // Refs
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const visibilityCheckRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<"smart" | "newest" | "mostLiked" | "recentlyUpdated">("smart");
   const [minLikes, setMinLikes] = useState(0);
+
+  // ============================================================================
+  // Refresh Handler
+  // ============================================================================
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    setShowRefreshBanner(false);
+    
+    try {
+      // Force router to refetch server component
+      router.refresh();
+      
+      // Small delay for UX
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (err) {
+      console.error('Failed to refresh:', err);
+      setError('Failed to refresh ideas. Please try again.');
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [router]);
+
+  // ============================================================================
+  // Auto-refresh on Page Visibility
+  // ============================================================================
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('👀 [Client] Tab became visible, refreshing...');
+        
+        // Debounce to avoid multiple rapid refreshes
+        if (visibilityCheckRef.current) {
+          clearTimeout(visibilityCheckRef.current);
+        }
+        
+        visibilityCheckRef.current = setTimeout(() => {
+          handleRefresh();
+        }, 300);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (visibilityCheckRef.current) {
+        clearTimeout(visibilityCheckRef.current);
+      }
+    };
+  }, [handleRefresh]);
+
+  // ============================================================================
+  // Update State When Server Data Changes
+  // ============================================================================
+
+  useEffect(() => {
+    // Only update if server generated new data
+    if (serverGeneratedAt !== lastGeneratedAt) {
+      console.log('🔄 [Client] Server data changed, updating state');
+      setIdeas(initialIdeas);
+      setFeaturedId(initialFeaturedId);
+      setLastGeneratedAt(serverGeneratedAt);
+      
+      // Show banner if user is active and data updated
+      if (!document.hidden && ideas.length > 0 && initialIdeas.length !== ideas.length) {
+        setShowRefreshBanner(true);
+        
+        // Auto-hide banner after 10 seconds
+        if (refreshTimeoutRef.current) {
+          clearTimeout(refreshTimeoutRef.current);
+        }
+        refreshTimeoutRef.current = setTimeout(() => {
+          setShowRefreshBanner(false);
+        }, 10000);
+      }
+    }
+    
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+    };
+  }, [initialIdeas, initialFeaturedId, serverGeneratedAt, lastGeneratedAt, ideas.length]);
+
+  // ============================================================================
+  // Optional: Periodic Polling for Real-time Updates
+  // ============================================================================
+
+  useEffect(() => {
+    // Poll every 30 seconds if tab is visible
+    const pollInterval = setInterval(() => {
+      if (!document.hidden) {
+        console.log('⏰ [Client] Periodic refresh check');
+        router.refresh();
+      }
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [router]);
 
   // ============================================================================
   // Like Toggle Handler
@@ -156,6 +309,7 @@ export default function IdeasPageClient({
       try {
         setLoadingLikeId(ideaId);
 
+        // Optimistic update
         setIdeas((prev) =>
           prev.map((idea) => {
             if (idea.id !== ideaId) return idea;
@@ -179,11 +333,15 @@ export default function IdeasPageClient({
         await toggleLikeIdea(ideaId, user.uid);
       } catch (err) {
         console.error("Failed to toggle like:", err);
+        setError("Failed to update like. Please try again.");
+        
+        // Revert optimistic update on error
+        router.refresh();
       } finally {
         setLoadingLikeId(null);
       }
     },
-    [user]
+    [user, router]
   );
 
   // ============================================================================
@@ -263,10 +421,18 @@ export default function IdeasPageClient({
   const hasIdeas = ideas.length > 0;
 
   // ============================================================================
-  // Render States
+  // Loading State
   // ============================================================================
 
-  if (!hasIdeas) {
+  if (isRefreshing) {
+    return <IdeasLoadingSkeleton />;
+  }
+
+  // ============================================================================
+  // Empty State
+  // ============================================================================
+
+  if (!hasIdeas && !initialError) {
     return (
       <div className="space-y-6 sm:space-y-8">
         <HeroSearchSection
@@ -291,11 +457,15 @@ export default function IdeasPageClient({
         onClose={() => setShowSignInModal(false)}
       />
 
+      {showRefreshBanner && <RefreshBanner onRefresh={handleRefresh} />}
+      
+      {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
+
       <HeroSearchSection
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         totalResults={filteredIdeas.length}
-        isLoading={false}
+        isLoading={isRefreshing}
       />
 
       <div className="space-y-6 sm:space-y-8">
