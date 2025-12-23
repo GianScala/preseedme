@@ -62,7 +62,8 @@ export default function PublicWeeklyWinner({
               alt={idea.title}
               fill
               priority={rank <= 2}
-              sizes="(max-width: 768px) 100vw, 208px"
+              quality={75}
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 33vw, 208px"
               className="object-cover opacity-70 transition-transform duration-700 group-hover:scale-105 group-hover:opacity-90"
             />
           ) : (
@@ -132,6 +133,7 @@ export default function PublicWeeklyWinner({
                   src={avatarUrl} 
                   alt="founder" 
                   fill
+                  quality={70}
                   sizes="36px"
                   className="object-cover" 
                   onError={() => setAvatarError(true)} 

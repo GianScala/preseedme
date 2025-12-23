@@ -115,6 +115,7 @@ export default function PublicFeaturedCard({
                 alt={title}
                 fill
                 priority
+                quality={80} 
                 sizes="(max-width: 768px) 100vw, 40vw"
                 className="object-cover opacity-60 transition-transform duration-1000 group-hover:scale-110"
               />
@@ -199,6 +200,7 @@ export default function PublicFeaturedCard({
                       src={avatarUrl} 
                       alt="founder" 
                       fill
+                      quality={75}
                       sizes="48px"
                       className="object-cover" 
                       onError={() => setAvatarError(true)} 

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Calendar, Clock, ExternalLink } from "lucide-react";
 import { ensureProtocol } from "@/lib/utils";
 
@@ -14,13 +15,16 @@ export default function IdeaThumbnail({ idea }: { idea: any }) {
 
   return (
     <div className="relative aspect-video w-full rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-900 shrink-0 shadow-lg">
-      <img 
-        src={idea.thumbnailUrl || "/placeholder-bg.jpg"} 
-        alt="" 
-        className="w-full h-full object-cover"
-      />
+      <Image 
+          src={idea.thumbnailUrl || "/placeholder-bg.jpg"} 
+          alt={idea.title || "Project thumbnail"}
+          fill
+          quality={75}
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          className="object-cover"
+        />
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 pointer-events-none" />
-      
+
       {/* Top Left: Website */}
       {idea.websiteUrl && (
         <a href={ensureProtocol(idea.websiteUrl)} target="_blank" className="absolute top-3 left-3 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-bold text-white hover:bg-brand transition-all">

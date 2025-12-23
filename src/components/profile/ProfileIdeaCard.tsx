@@ -1,6 +1,7 @@
 // src/components/ProfileIdeaCard.tsx
 import type { MouseEvent } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Idea } from "@/types";
 import { formatCurrencyShort, formatNumberShort } from "@/lib/formatters";
 import HeartIcon from "@/components/icons/HeartIcon";
@@ -310,17 +311,18 @@ export default function ProfileIdeaCard({
 
         {/* Thumbnail - wrapped in Link */}
         {idea.thumbnailUrl && (
-          <Link href={`/ideas/${idea.id}`} className="w-16 sm:w-20 md:w-24 lg:w-28 xl:w-32 flex-shrink-0 relative">
-            <div className="relative h-full min-h-[90px] sm:min-h-[100px] md:min-h-[120px] overflow-hidden rounded-md sm:rounded-lg border border-neutral-800/50 bg-neutral-900/40">
-              <img
-                src={idea.thumbnailUrl}
-                alt={idea.title}
-                className="absolute inset-0 h-full w-full object-cover opacity-90 transition-all duration-300 group-hover:opacity-100 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/60 via-transparent to-transparent" />
-            </div>
+        <Link href={`/ideas/${idea.id}`} className="w-16 sm:w-20 md:w-24 lg:w-28 xl:w-32 flex-shrink-0 relative">
+            <Image
+              src={idea.thumbnailUrl}
+              alt={idea.title}
+              fill
+              quality={70}
+              sizes="(max-width: 640px) 64px, (max-width: 768px) 80px, (max-width: 1024px) 96px, (max-width: 1280px) 112px, 128px"
+              className="object-cover opacity-90 transition-all duration-300 group-hover:opacity-100 group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/60 via-transparent to-transparent" />
           </Link>
-        )}
+      )}
       </div>
     </div>
   );
