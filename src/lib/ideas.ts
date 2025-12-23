@@ -8,6 +8,8 @@ import {
   limit,
   runTransaction,
   doc,
+  getDocsFromServer, // ✅ Force server fetch
+  getDocFromServer,  // ✅ Force server fetch
 } from "firebase/firestore";
 import { getFirebaseDb } from "./firebase";
 import type { Idea } from "@/types";
@@ -67,7 +69,7 @@ export function mapIdeaDoc(snapshot: any): IdeaWithLikes {
       data.founderProfileImage ??
       null,
 
-    // timestamps - ✅ IMPROVED
+    // timestamps
     createdAt: createdAtValue,
     updatedAt: finalUpdatedAt,
 
@@ -127,7 +129,9 @@ export async function getLatestIdeas(limitCount = 50): Promise<IdeaWithLikes[]> 
   const db = getFirebaseDb();
   const ideasRef = collection(db, "ideas");
   const q = query(ideasRef, orderBy("createdAt", "desc"), limit(limitCount));
-  const snap = await getDocs(q);
+  
+  // ✅ FORCE SERVER FETCH - bypass cache
+  const snap = await getDocsFromServer(q);
   return snap.docs.map(mapIdeaDoc);
 }
 
@@ -140,10 +144,12 @@ async function getCollectionProjectId(collectionName: string): Promise<string | 
   try {
     const ref = collection(db, collectionName);
     const q = query(ref, limit(1));
-    const snap = await getDocs(q);
+    
+    // ✅ FORCE SERVER FETCH - bypass cache
+    const snap = await getDocsFromServer(q);
 
     if (DEBUG) {
-      console.log(`[ideas.ts] ${collectionName}: found ${snap.size} docs`);
+      console.log(`[ideas.ts] ${collectionName}: found ${snap.size} docs (fresh from server)`);
     }
 
     if (snap.empty) return null;
@@ -171,7 +177,13 @@ async function getIdeaById(ideaId: string): Promise<IdeaWithLikes | null> {
   const db = getFirebaseDb();
 
   try {
-    const snap = await getDoc(doc(db, "ideas", ideaId));
+    // ✅ FORCE SERVER FETCH - bypass cache
+    const snap = await getDocFromServer(doc(db, "ideas", ideaId));
+    
+    if (DEBUG) {
+      console.log(`[ideas.ts] Fetched idea ${ideaId} from server`);
+    }
+    
     return snap.exists() ? mapIdeaDoc(snap) : null;
   } catch (error) {
     console.error(`[ideas.ts] Error fetching idea ${ideaId}:`, error);

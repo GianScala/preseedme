@@ -24,6 +24,15 @@ const formatShortDate = (ms: number | null) => {
   return `${date.getMonth() + 1}/${date.getDate()}`;
 };
 
+/* ---------------- Cache Busting Helper ---------------- */
+const addCacheBuster = (url: string | null | undefined): string | null => {
+  if (!url) return null;
+  const separator = url.includes('?') ? '&' : '?';
+  // Use current hour for cache busting (updates every hour)
+  const cacheBuster = Math.floor(Date.now() / (1000 * 60 * 60));
+  return `${url}${separator}cb=${cacheBuster}`;
+};
+
 /* ---------------- Micro Components ---------------- */
 
 const TagPill = ({ text }: { text: string }) => (
@@ -70,6 +79,8 @@ export default function PublicFeaturedCard({
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState(false);
+  // ✅ Add key to force re-render when idea changes
+  const [imageKey, setImageKey] = useState(0);
 
   const isLiked = !!currentUserId && (likedByUserIds || []).includes(currentUserId);
   const mrrLabel = monthlyRecurringRevenue ? formatCurrencyShort(monthlyRecurringRevenue) : null;
@@ -84,6 +95,12 @@ export default function PublicFeaturedCard({
       wasUpdated: !!(updatedMs && createdMs && updatedMs > createdMs) 
     };
   }, [createdAt, updatedAt]);
+
+  // ✅ Reset image key when idea ID changes
+  useEffect(() => {
+    setImageKey(prev => prev + 1);
+    setAvatarError(false);
+  }, [id]);
 
   useEffect(() => {
     if (!founderId) return;
@@ -102,6 +119,17 @@ export default function PublicFeaturedCard({
     onToggleLike();
   };
 
+  // ✅ Add cache-busting to thumbnail URL
+  const thumbnailUrlWithCacheBuster = useMemo(() => 
+    addCacheBuster(thumbnailUrl), 
+    [thumbnailUrl]
+  );
+
+  const avatarUrlWithCacheBuster = useMemo(() => 
+    addCacheBuster(avatarUrl), 
+    [avatarUrl]
+  );
+
   return (
     <Link href={`/ideas/${id}`} className="block">
       <div className="group relative w-full overflow-hidden rounded-2xl md:rounded-3xl border border-white/10 bg-neutral-900/40 backdrop-blur-2xl transition-all duration-500 hover:border-white/30 shadow-2xl cursor-pointer">
@@ -109,13 +137,15 @@ export default function PublicFeaturedCard({
           
           {/* LEFT: IMAGE HERO */}
           <div className="relative w-full md:w-2/5 h-48 md:h-auto overflow-hidden border-b md:border-b-0 md:border-r border-white/10">
-            {thumbnailUrl ? (
+            {thumbnailUrlWithCacheBuster ? (
               <Image 
-                src={thumbnailUrl} 
+                key={`thumbnail-${imageKey}`} // ✅ Force re-mount when changed
+                src={thumbnailUrlWithCacheBuster} 
                 alt={title}
                 fill
                 priority
-                quality={80} 
+                quality={80}
+                unoptimized={false} // Keep optimization but with cache busting
                 sizes="(max-width: 768px) 100vw, 40vw"
                 className="object-cover opacity-60 transition-transform duration-1000 group-hover:scale-110"
               />
@@ -195,9 +225,10 @@ export default function PublicFeaturedCard({
                   <span className="text-xs md:text-sm font-black text-white">@{founderUsername}</span>
                 </div>
                 <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl bg-neutral-800 ring-2 ring-white/10 overflow-hidden flex-shrink-0 relative">
-                  {avatarUrl && !avatarError ? (
+                  {avatarUrlWithCacheBuster && !avatarError ? (
                     <Image 
-                      src={avatarUrl} 
+                      key={`avatar-${imageKey}`} // ✅ Force re-mount when changed
+                      src={avatarUrlWithCacheBuster} 
                       alt="founder" 
                       fill
                       quality={75}
