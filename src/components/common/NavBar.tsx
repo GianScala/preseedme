@@ -12,10 +12,16 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [scrolled, setScrolled] = useState(false);
+  const [mounted, setMounted] = useState(false);
   
   // Dropdown state for Desktop
   const [aboutOpen, setAboutOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Mount effect - prevents hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Scroll Effect
   useEffect(() => {
@@ -35,29 +41,45 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Unread Messages Logic
+  // Unread Messages Logic - DEFERRED (only load after mount and if user exists)
   useEffect(() => {
-    if (!user) { setUnreadCount(0); return; }
-    const db = getFirebaseDb();
-    const q = query(
-      collection(db, "conversations"),
-      where("participants", "array-contains", user.uid),
-      orderBy("lastMessageAt", "desc")
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      let count = 0;
-      snap.docs.forEach((docSnap) => {
-        const data = docSnap.data();
-        if (data.lastMessageSenderId && data.lastMessageSenderId !== user.uid) {
-          const lastMsg = data.lastMessageAt?.toMillis?.() ?? 0;
-          const lastRead = data.lastReadAt?.[user.uid]?.toMillis?.() ?? 0;
-          if (lastRead < lastMsg) count++;
-        }
+    if (!mounted || !user) { 
+      setUnreadCount(0); 
+      return; 
+    }
+    
+    // Add a small delay to defer this non-critical feature
+    const timer = setTimeout(() => {
+      const db = getFirebaseDb();
+      const q = query(
+        collection(db, "conversations"),
+        where("participants", "array-contains", user.uid),
+        orderBy("lastMessageAt", "desc")
+      );
+      
+      const unsub = onSnapshot(q, (snap) => {
+        let count = 0;
+        snap.docs.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data.lastMessageSenderId && data.lastMessageSenderId !== user.uid) {
+            const lastMsg = data.lastMessageAt?.toMillis?.() ?? 0;
+            const lastRead = data.lastReadAt?.[user.uid]?.toMillis?.() ?? 0;
+            if (lastRead < lastMsg) count++;
+          }
+        });
+        setUnreadCount(count);
       });
-      setUnreadCount(count);
-    });
-    return () => unsub();
-  }, [user]);
+      
+      return () => unsub();
+    }, 500); // Defer by 500ms
+    
+    return () => clearTimeout(timer);
+  }, [user, mounted]);
+
+  // Don't render until mounted to avoid hydration issues
+  if (!mounted) {
+    return <NavbarSkeleton />;
+  }
 
   return (
     <header
@@ -215,6 +237,29 @@ export default function Navbar() {
               )}
             </div>
           </div>
+        </div>
+      </nav>
+    </header>
+  );
+}
+
+// Inline skeleton for initial render
+function NavbarSkeleton() {
+  return (
+    <header className="fixed top-0 w-full z-50 bg-black/80 backdrop-blur-xl border-b border-white/10 shadow-lg">
+      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          <div className="font-bold text-xl tracking-tight text-white">
+            Preseed<span className="text-[var(--brand)]">Me</span>
+          </div>
+          <div className="hidden md:flex items-center gap-8">
+            <div className="h-4 w-24 bg-white/10 rounded animate-pulse" />
+            <div className="h-4 w-20 bg-white/10 rounded animate-pulse" />
+            <div className="pl-4 border-l border-white/10 ml-2">
+              <div className="w-8 h-8 rounded-full bg-white/10 animate-pulse" />
+            </div>
+          </div>
+          <div className="md:hidden w-6 h-6 bg-white/10 rounded animate-pulse" />
         </div>
       </nav>
     </header>

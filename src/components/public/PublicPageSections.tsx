@@ -1,14 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import PublicFeaturedCard from "@/components/public/PublicFeaturedCard";
 import PublicWeeklyWinner from "@/components/public/PublicWeeklyWinner";
-import CrownIcon from "@/components/icons/CrownIcon";
 import type { IdeaWithLikes } from "@/lib/ideas";
-import {
-  fetchWeeklyWinnersFromFirebase,
-  type WeeklyWinner,
-} from "@/lib/weeklyWinners";
+import type { WeeklyWinner } from "@/lib/weeklyWinners";
 
 /* -------------------------------------------------------------------------- */
 /* FEATURED IDEA SECTION                           */
@@ -63,35 +59,19 @@ export function FeaturedIdeaSection({
 /* -------------------------------------------------------------------------- */
 
 type WeeklyWinnersSectionProps = {
+  initialWinners: WeeklyWinner[];
   currentUserId: string | null;
   onToggleLike: (ideaId: string) => void;
   loadingLikeId: string | null;
 };
 
 export function WeeklyWinnersSection({
+  initialWinners,
   currentUserId,
   onToggleLike,
   loadingLikeId,
 }: WeeklyWinnersSectionProps) {
-  const [winners, setWinners] = useState<WeeklyWinner[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await fetchWeeklyWinnersFromFirebase();
-        if (!cancelled) setWinners(data);
-      } catch (err) {
-        console.error("Failed to load weekly winners", err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const [winners, setWinners] = useState<WeeklyWinner[]>(initialWinners);
 
   const handleToggleLike = (ideaId: string) => {
     if (currentUserId) {
@@ -126,8 +106,7 @@ export function WeeklyWinnersSection({
     <section className="pb-12">
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
-        <span className="w-1.5 h-8 rounded-full bg-amber-300" />
-
+          <span className="w-1.5 h-8 rounded-full bg-amber-300" />
           <div>
             <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight leading-none mb-1">
               Weekly Winners
@@ -137,14 +116,7 @@ export function WeeklyWinnersSection({
       </div>
 
       <div className="flex flex-col gap-5 sm:gap-6">
-        {loading && !hasWinners ? (
-          [1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className="w-full h-44 rounded-3xl bg-white/5 animate-pulse border border-white/5"
-            />
-          ))
-        ) : !hasWinners ? (
+        {!hasWinners ? (
           <div className="p-16 text-center bg-white/[0.02] border border-white/5 rounded-3xl">
             <p className="text-neutral-500 font-medium">Calculating winners...</p>
           </div>

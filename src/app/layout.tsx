@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Titillium_Web } from "next/font/google";
 import { Suspense } from "react";
 import Navbar from "@/components/common/NavBar";
+import NavbarSkeleton from "@/components/common/NavbarSkeleton";
 import Footer from "@/components/common/Footer";
 import { AuthProvider } from "@/context/AuthContext";
 import InteractiveBackground from "@/components/ui/InteractiveBackground";
@@ -33,10 +34,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <ScrollToTop />
           </Suspense>
           <InteractiveBackground />
-          <Navbar />
+          
+          {/* Navbar with Suspense boundary */}
+          <Suspense fallback={<NavbarSkeleton />}>
+            <Navbar />
+          </Suspense>
+          
           <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-4">
             {children}
           </main>
+          
           <Footer />
         </AuthProvider>
         <Analytics />

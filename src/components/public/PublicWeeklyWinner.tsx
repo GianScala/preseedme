@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type MouseEvent } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { formatCurrencyShort, formatNumberShort } from "@/lib/formatters";
 import HeartIcon from "@/components/icons/HeartIcon";
 import { getFirebaseDb } from "@/lib/firebase";
@@ -56,10 +57,13 @@ export default function PublicWeeklyWinner({
         {/* LEFT: IMAGE SECTION (Overlayed with Rank & Like) */}
         <div className="relative w-full md:w-52 h-40 md:h-auto flex-shrink-0 overflow-hidden border-b md:border-b-0 md:border-r border-white/5">
           {idea.thumbnailUrl ? (
-            <img 
+            <Image 
               src={idea.thumbnailUrl} 
-              alt={idea.title} 
-              className="absolute inset-0 w-full h-full object-cover opacity-70 transition-transform duration-700 group-hover:scale-105 group-hover:opacity-90" 
+              alt={idea.title}
+              fill
+              priority={rank <= 2}
+              sizes="(max-width: 768px) 100vw, 208px"
+              className="object-cover opacity-70 transition-transform duration-700 group-hover:scale-105 group-hover:opacity-90"
             />
           ) : (
             <div className="absolute inset-0 w-full h-full bg-neutral-800 flex items-center justify-center text-3xl font-black text-neutral-700">
@@ -122,9 +126,16 @@ export default function PublicWeeklyWinner({
           
           {/* Founder Profile - Now on the right */}
           <div className="flex items-center gap-3 md:w-full md:pb-4 md:mb-4 md:border-b md:border-white/5">
-            <div className="h-9 w-9 rounded-full bg-neutral-800 ring-2 ring-white/5 overflow-hidden flex-shrink-0">
+            <div className="h-9 w-9 rounded-full bg-neutral-800 ring-2 ring-white/5 overflow-hidden flex-shrink-0 relative">
               {avatarUrl && !avatarError ? (
-                <img src={avatarUrl} alt="founder" className="h-full w-full object-cover" onError={() => setAvatarError(true)} />
+                <Image 
+                  src={avatarUrl} 
+                  alt="founder" 
+                  fill
+                  sizes="36px"
+                  className="object-cover" 
+                  onError={() => setAvatarError(true)} 
+                />
               ) : (
                 <div className="h-full w-full flex items-center justify-center text-xs font-bold text-neutral-500 bg-neutral-800 uppercase">
                   {idea.founderUsername?.[0]}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, type MouseEvent } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Clock, TrendingUp, Users } from "lucide-react";
 import { formatCurrencyShort, formatNumberShort } from "@/lib/formatters";
 import type { IdeaWithLikes } from "@/lib/ideas";
@@ -110,7 +111,14 @@ export default function FeaturedCard({
           {/* LEFT: IMAGE HERO */}
           <div className="relative w-full md:w-2/5 h-48 md:h-auto overflow-hidden border-b md:border-b-0 md:border-r border-white/10">
             {thumbnailUrl ? (
-              <img src={thumbnailUrl} alt={title} className="absolute inset-0 h-full w-full object-cover opacity-60 transition-transform duration-1000 group-hover:scale-110" />
+              <Image 
+                src={thumbnailUrl} 
+                alt={title}
+                fill
+                priority
+                sizes="(max-width: 768px) 100vw, 40vw"
+                className="object-cover opacity-60 transition-transform duration-1000 group-hover:scale-110"
+              />
             ) : (
               <div className="absolute inset-0 bg-neutral-800 flex items-center justify-center text-4xl md:text-6xl font-black text-neutral-700">{title[0]}</div>
             )}
@@ -190,9 +198,16 @@ export default function FeaturedCard({
                   <span className="text-[9px] md:text-[10px] font-black text-neutral-600 uppercase tracking-widest mb-0.5 md:mb-1">Built By</span>
                   <span className="text-xs md:text-sm font-black text-white">@{founderUsername}</span>
                 </div>
-                <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl bg-neutral-800 ring-2 ring-white/10 overflow-hidden flex-shrink-0">
+                <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl bg-neutral-800 ring-2 ring-white/10 overflow-hidden flex-shrink-0 relative">
                   {avatarUrl && !avatarError ? (
-                    <img src={avatarUrl} alt="founder" className="h-full w-full object-cover" onError={() => setAvatarError(true)} />
+                    <Image 
+                      src={avatarUrl} 
+                      alt="founder" 
+                      fill
+                      sizes="48px"
+                      className="object-cover" 
+                      onError={() => setAvatarError(true)} 
+                    />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center text-base md:text-lg font-black text-neutral-600 bg-neutral-800 uppercase">
                       {founderUsername?.[0]}

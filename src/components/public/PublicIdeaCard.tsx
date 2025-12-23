@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, type MouseEvent } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Clock, TrendingUp, Users } from "lucide-react";
 import { formatCurrencyShort, formatNumberShort } from "@/lib/formatters";
 import { IdeaWithLikes } from "@/lib/ideas";
@@ -111,7 +112,13 @@ export default function PublicIdeaCard({
         {/* IMAGE HEADER WITH OVERLAYS */}
         <div className="relative h-44 w-full overflow-hidden border-b border-white/5">
           {thumbnailUrl ? (
-            <img src={thumbnailUrl} alt={title} className="absolute inset-0 h-full w-full object-cover opacity-60 transition-transform duration-700 group-hover:scale-105" />
+            <Image 
+              src={thumbnailUrl} 
+              alt={title}
+              fill
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              className="object-cover opacity-60 transition-transform duration-700 group-hover:scale-105"
+            />
           ) : (
             <div className="absolute inset-0 w-full h-full bg-neutral-800 flex items-center justify-center text-3xl font-black text-neutral-700">{title[0]}</div>
           )}
@@ -174,9 +181,16 @@ export default function PublicIdeaCard({
                 <span className="text-[9px] font-black text-neutral-600 uppercase tracking-tighter">Founder</span>
                 <span className="text-xs font-bold text-neutral-200 truncate max-w-[80px]">@{founderUsername}</span>
               </div>
-              <div className="h-8 w-8 rounded-full bg-neutral-800 ring-2 ring-white/5 overflow-hidden flex-shrink-0">
+              <div className="h-8 w-8 rounded-full bg-neutral-800 ring-2 ring-white/5 overflow-hidden flex-shrink-0 relative">
                 {avatarUrl && !avatarError ? (
-                  <img src={avatarUrl} alt="founder" className="h-full w-full object-cover" onError={() => setAvatarError(true)} />
+                  <Image 
+                    src={avatarUrl} 
+                    alt="founder" 
+                    fill
+                    sizes="32px"
+                    className="object-cover" 
+                    onError={() => setAvatarError(true)} 
+                  />
                 ) : (
                   <div className="h-full w-full flex items-center justify-center text-[10px] font-bold text-neutral-500 uppercase bg-neutral-800">
                     {founderUsername?.[0]}
