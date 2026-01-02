@@ -25,8 +25,7 @@ export default function HeroSearchSection({
           </span>
         </h1>
         <p className="text-base sm:text-lg text-neutral-400 max-w-xl mx-auto leading-relaxed">
-          The launchpad for bootstrapped founders building in public. 
-          Find your next investment or inspiration.
+          The launchpad for founders raising pre-seed checks from early investors
         </p>
       </div>
 
@@ -38,7 +37,7 @@ export default function HeroSearchSection({
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search projects"
+            placeholder="Search startups"
             className="
               w-full h-14 pl-12 pr-12 rounded-xl 
               bg-neutral-900/20 backdrop-blur-xl border border-white/10 

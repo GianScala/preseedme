@@ -16,19 +16,10 @@ import {
     idea: IdeaWithLikes;
     rank: number;
   };
-  
-  /**
-   * Fetch weekly winners based on a manual Firestore collection:
-   *
-   * Collection: weekly_winners
-   *   - doc ID = ideaId (e.g. "FF30y8C5t6mgizJXpq2x")
-   *   - fields:
-   *       rank: number (1, 2, 3, 4, ...)
-   */
+
   export async function fetchWeeklyWinnersFromFirebase(): Promise<WeeklyWinner[]> {
     const db = getFirebaseDb();
   
-    // 1. Load weekly_winners docs (sorted by rank, max 4)
     const weeklyWinnersRef = collection(db, "weekly_winners");
     const winnersQuery = query(
       weeklyWinnersRef,
@@ -42,18 +33,17 @@ import {
     const ideaIdsWithRank = winnersSnap.docs.map((docSnap) => {
       const data = docSnap.data() as { rank?: number };
       return {
-        ideaId: docSnap.id, // doc ID = idea ID
+        ideaId: docSnap.id,
         rank: data.rank ?? 4,
       };
     });
   
     const ideaIds = ideaIdsWithRank.map((x) => x.ideaId);
   
-    // 2. Fetch all corresponding ideas in one go
     const ideasRef = collection(db, "ideas");
     const ideasQuery = query(
       ideasRef,
-      where(documentId(), "in", ideaIds) // we only ever have up to 4
+      where(documentId(), "in", ideaIds)
     );
     const ideasSnap = await getDocs(ideasQuery);
   
@@ -62,11 +52,10 @@ import {
       ideaById.set(docSnap.id, mapIdeaDoc(docSnap));
     });
   
-    // 3. Combine rank + idea, preserving rank order
     const weeklyWinners: WeeklyWinner[] = ideaIdsWithRank
       .map(({ ideaId, rank }) => {
         const idea = ideaById.get(ideaId);
-        if (!idea) return null; // idea might have been deleted
+        if (!idea) return null;
         return { idea, rank };
       })
       .filter((x): x is WeeklyWinner => x !== null)

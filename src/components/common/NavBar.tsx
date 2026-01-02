@@ -2,10 +2,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getFirebaseDb } from "@/lib/firebase";
-import { collection, query, where, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, query, where, orderBy, onSnapshot, Unsubscribe } from "firebase/firestore";
 
 export default function Navbar() {
   const { user, profile, loading } = useAuth();
@@ -13,42 +14,40 @@ export default function Navbar() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [scrolled, setScrolled] = useState(false);
   const [mounted, setMounted] = useState(false);
-  
-  // Dropdown state for Desktop
   const [aboutOpen, setAboutOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Mount effect - prevents hydration mismatch
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Scroll Effect
+  // Scroll effect
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Click Outside to close desktop dropdown
+  // Click outside to close dropdown
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+    if (!aboutOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setAboutOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [aboutOpen]);
 
-  // Unread Messages Logic - DEFERRED (only load after mount and if user exists)
+  // Unread messages - fixed cleanup
   useEffect(() => {
-    if (!mounted || !user) { 
-      setUnreadCount(0); 
-      return; 
+    if (!mounted || !user) {
+      setUnreadCount(0);
+      return;
     }
-    
-    // Add a small delay to defer this non-critical feature
+
+    let unsub: Unsubscribe | null = null;
     const timer = setTimeout(() => {
       const db = getFirebaseDb();
       const q = query(
@@ -56,11 +55,11 @@ export default function Navbar() {
         where("participants", "array-contains", user.uid),
         orderBy("lastMessageAt", "desc")
       );
-      
-      const unsub = onSnapshot(q, (snap) => {
+
+      unsub = onSnapshot(q, (snap) => {
         let count = 0;
-        snap.docs.forEach((docSnap) => {
-          const data = docSnap.data();
+        snap.docs.forEach((doc) => {
+          const data = doc.data();
           if (data.lastMessageSenderId && data.lastMessageSenderId !== user.uid) {
             const lastMsg = data.lastMessageAt?.toMillis?.() ?? 0;
             const lastRead = data.lastReadAt?.[user.uid]?.toMillis?.() ?? 0;
@@ -69,17 +68,28 @@ export default function Navbar() {
         });
         setUnreadCount(count);
       });
-      
-      return () => unsub();
-    }, 500); // Defer by 500ms
-    
-    return () => clearTimeout(timer);
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+      unsub?.();
+    };
   }, [user, mounted]);
 
-  // Don't render until mounted to avoid hydration issues
-  if (!mounted) {
-    return <NavbarSkeleton />;
-  }
+  // Close mobile menu on route change / escape
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileMenuOpen(false);
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [mobileMenuOpen]);
+
+  const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
+  const closeDropdown = useCallback(() => setAboutOpen(false), []);
+
+  if (!mounted) return <NavbarSkeleton />;
 
   return (
     <header
@@ -91,52 +101,46 @@ export default function Navbar() {
     >
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          
-          {/* LOGO */}
           <Link href="/" className="font-bold text-xl tracking-tight text-white hover:opacity-90">
             Preseed<span className="text-[var(--brand)]">Me</span>
           </Link>
 
-          {/* --- DESKTOP NAVIGATION --- */}
+          {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-8">
-            {/* 1. Find Projects */}
             <NavLink href="/ideas">Find Projects</NavLink>
-            
-            {/* 2. Create & Messages (If User) */}
+
             {user && (
               <>
                 <NavLink href="/ideas/new">Create Pitch</NavLink>
                 <Link href="/chat" className="relative text-sm font-medium text-neutral-400 hover:text-white transition-colors">
                   Messages
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-2 -right-3 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--brand)] text-black text-[10px] font-bold shadow-[0_0_10px_rgba(33,221,192,0.5)]">
-                      {unreadCount > 9 ? "9+" : unreadCount}
-                    </span>
-                  )}
+                  <UnreadBadge count={unreadCount} />
                 </Link>
               </>
             )}
 
-            {/* 3. About Section (Right before profile) */}
+            {/* About Dropdown */}
             <div className="relative" ref={dropdownRef}>
-              <button 
-                onClick={() => setAboutOpen(!aboutOpen)}
+              <button
+                onClick={() => setAboutOpen((o) => !o)}
+                aria-expanded={aboutOpen}
+                aria-haspopup="true"
                 className="text-sm font-medium text-neutral-400 hover:text-white flex items-center gap-1 transition-colors"
               >
                 About
-                <svg className={`w-3 h-3 transition-transform ${aboutOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                <ChevronIcon open={aboutOpen} />
               </button>
-              
+
               {aboutOpen && (
-                <div className="absolute top-full right-0 mt-2 w-48 bg-neutral-900/60 border border-white/10 rounded-lg shadow-xl overflow-hidden py-1">
-                  <Link href="/about" className="block px-4 py-2 text-sm text-neutral-300 hover:bg-white/10 hover:text-white" onClick={() => setAboutOpen(false)}>About Us</Link>
-                  <Link href="/mission" className="block px-4 py-2 text-sm text-neutral-300 hover:bg-white/10 hover:text-white" onClick={() => setAboutOpen(false)}>Our Mission</Link>
-                  <Link href="/how-it-works" className="block px-4 py-2 text-sm text-neutral-300 hover:bg-white/10 hover:text-white" onClick={() => setAboutOpen(false)}>How it Works</Link>
+                <div className="absolute top-full right-0 mt-2 w-48 bg-neutral-900/90 backdrop-blur border border-white/10 rounded-lg shadow-xl py-1">
+                  <DropdownLink href="/about" onClick={closeDropdown}>About Us</DropdownLink>
+                  <DropdownLink href="/mission" onClick={closeDropdown}>Our Mission</DropdownLink>
+                  <DropdownLink href="/how-it-works" onClick={closeDropdown}>How it Works</DropdownLink>
                 </div>
               )}
             </div>
 
-            {/* 4. Profile/Auth Section (Last) */}
+            {/* Auth Section */}
             <div className="pl-4 border-l border-white/10 ml-2">
               {loading ? (
                 <div className="w-8 h-8 rounded-full bg-white/10 animate-pulse" />
@@ -155,82 +159,69 @@ export default function Navbar() {
             </div>
           </div>
 
-          {/* MOBILE MENU TOGGLE */}
+          {/* Mobile Toggle */}
           <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            onClick={() => setMobileMenuOpen((o) => !o)}
+            aria-expanded={mobileMenuOpen}
+            aria-label="Toggle menu"
             className="md:hidden p-2 text-neutral-300 hover:bg-white/10 rounded-lg transition-colors"
           >
-            <div className="w-6 h-6 flex flex-col justify-center gap-1.5">
-              <span className={`block h-0.5 bg-current transition-all ${mobileMenuOpen ? "w-6 rotate-45 translate-y-2" : "w-6"}`} />
-              <span className={`block h-0.5 bg-current transition-all ${mobileMenuOpen ? "opacity-0" : "w-4"}`} />
-              <span className={`block h-0.5 bg-current transition-all ${mobileMenuOpen ? "w-6 -rotate-45 -translate-y-2" : "w-6"}`} />
-            </div>
+            <HamburgerIcon open={mobileMenuOpen} />
           </button>
         </div>
 
-        {/* --- MOBILE NAVIGATION DROPDOWN --- */}
+        {/* Mobile Nav */}
         <div
-          className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${
+          className={`md:hidden overflow-hidden transition-all duration-300 ${
             mobileMenuOpen ? "max-h-[85vh] opacity-100" : "max-h-0 opacity-0"
           }`}
         >
-          <div className="pt-2 pb-6 space-y-2 border-t border-white/10 mt-2 overflow-y-auto max-h-[80vh]">
-            
-            {/* 1. Find Projects */}
-            <MobileNavLink href="/ideas" onClick={() => setMobileMenuOpen(false)}>Find Projects</MobileNavLink>
-            
-            {/* 2. Create & Messages (If User) */}
+          <div className="pt-2 pb-6 space-y-2 border-t border-white/10 mt-2">
+            <MobileNavLink href="/ideas" onClick={closeMobileMenu}>Find Projects</MobileNavLink>
+
             {user && (
               <>
-                <MobileNavLink href="/ideas/new" onClick={() => setMobileMenuOpen(false)}>Create Pitch</MobileNavLink>
+                <MobileNavLink href="/ideas/new" onClick={closeMobileMenu}>Create Pitch</MobileNavLink>
                 <Link
                   href="/chat"
                   className="flex items-center justify-between px-4 py-3 text-base font-medium text-neutral-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
-                  onClick={() => setMobileMenuOpen(false)}
+                  onClick={closeMobileMenu}
                 >
                   <span>Messages</span>
-                  {unreadCount > 0 && (
-                    <span className="flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full bg-[var(--brand)] text-black text-xs font-bold">
-                      {unreadCount}
-                    </span>
-                  )}
+                  <UnreadBadge count={unreadCount} mobile />
                 </Link>
               </>
             )}
 
-            {/* Separator */}
-            <div className="w-full h-px bg-white/5 my-2" />
+            <Divider />
+            <MobileNavLink href="/about" onClick={closeMobileMenu}>About Us</MobileNavLink>
+            <MobileNavLink href="/mission" onClick={closeMobileMenu}>Our Mission</MobileNavLink>
+            <MobileNavLink href="/how-it-works" onClick={closeMobileMenu}>How it Works</MobileNavLink>
+            <Divider />
 
-            {/* 3. About Section (Grouped) */}
-            <MobileNavLink href="/about" onClick={() => setMobileMenuOpen(false)}>About Us</MobileNavLink>
-            <MobileNavLink href="/mission" onClick={() => setMobileMenuOpen(false)}>Our Mission</MobileNavLink>
-            <MobileNavLink href="/how-it-works" onClick={() => setMobileMenuOpen(false)}>How it Works</MobileNavLink>
-
-            {/* Separator */}
-            <div className="w-full h-px bg-white/5 my-2" />
-
-            {/* 4. Profile / Auth (Last) */}
             <div className="pt-2">
               {loading ? (
-                <div className="px-4 py-3"><div className="w-8 h-8 rounded-full bg-white/10 animate-pulse mx-auto" /></div>
+                <div className="px-4 py-3">
+                  <div className="w-8 h-8 rounded-full bg-white/10 animate-pulse mx-auto" />
+                </div>
               ) : user ? (
                 <Link
                   href="/profile"
                   className="flex items-center gap-3 px-4 py-3 mx-2 rounded-xl bg-white/5 border border-white/5 hover:border-white/20 transition-all group"
-                  onClick={() => setMobileMenuOpen(false)}
+                  onClick={closeMobileMenu}
                 >
                   <ProfileImage profile={profile} />
-                  <div className="flex-1">
-                    <p className="text-white font-medium">{profile?.username || "My Profile"}</p>
-                    <p className="text-neutral-400 text-xs">{user.email}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-medium truncate">{profile?.username || "My Profile"}</p>
+                    <p className="text-neutral-400 text-xs truncate">{user.email}</p>
                   </div>
-                  <svg className="w-5 h-5 text-neutral-500 group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                  <ChevronRightIcon />
                 </Link>
               ) : (
                 <Link
                   href="/auth"
-                  className="block w-full text-center px-4 py-3 text-sm font-bold rounded-lg bg-[var(--brand)] text-black hover:bg-[var(--brand-light)] transition-colors mx-2"
-                  onClick={() => setMobileMenuOpen(false)}
+                  className="block text-center px-4 py-3 mx-2 text-sm font-bold rounded-lg bg-[var(--brand)] text-black hover:brightness-110 transition-all"
+                  onClick={closeMobileMenu}
                 >
                   Sign In
                 </Link>
@@ -243,7 +234,8 @@ export default function Navbar() {
   );
 }
 
-// Inline skeleton for initial render
+// --- Sub-components ---
+
 function NavbarSkeleton() {
   return (
     <header className="fixed top-0 w-full z-50 bg-black/80 backdrop-blur-xl border-b border-white/10 shadow-lg">
@@ -266,11 +258,9 @@ function NavbarSkeleton() {
   );
 }
 
-// --- HELPERS ---
-
 function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
-    <Link href={href} className="text-sm font-medium text-neutral-400 hover:text-[var(--brand-light)] transition-colors duration-200">
+    <Link href={href} className="text-sm font-medium text-neutral-400 hover:text-[var(--brand-light)] transition-colors">
       {children}
     </Link>
   );
@@ -284,14 +274,73 @@ function MobileNavLink({ href, onClick, children }: { href: string; onClick: () 
   );
 }
 
-function ProfileImage({ profile, size = "md" }: { profile: any; size?: "sm" | "md" }) {
-  const sizeClasses = { sm: "w-8 h-8 text-xs", md: "w-10 h-10 text-sm" };
+function DropdownLink({ href, onClick, children }: { href: string; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <Link href={href} onClick={onClick} className="block px-4 py-2 text-sm text-neutral-300 hover:bg-white/10 hover:text-white">
+      {children}
+    </Link>
+  );
+}
+
+function ProfileImage({ profile }: { profile: any }) {
   if (profile?.photoURL) {
-    return <img src={profile.photoURL} alt="Profile" className={`rounded-full object-cover ring-2 ring-transparent hover:ring-[var(--brand)] transition-all ${sizeClasses[size]}`} />;
+    return (
+      <Image
+        src={profile.photoURL}
+        alt="Profile"
+        width={40}
+        height={40}
+        className="rounded-full object-cover ring-2 ring-transparent hover:ring-[var(--brand)] transition-all"
+      />
+    );
   }
   return (
-    <div className={`rounded-full bg-gradient-to-br from-[var(--brand)] to-[var(--brand-dark)] flex items-center justify-center font-bold text-black ${sizeClasses[size]}`}>
+    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--brand)] to-[var(--brand-dark)] flex items-center justify-center font-bold text-black text-sm">
       {profile?.username?.[0]?.toUpperCase() || "U"}
     </div>
   );
+}
+
+function UnreadBadge({ count, mobile }: { count: number; mobile?: boolean }) {
+  if (count <= 0) return null;
+  const display = count > 9 ? "9+" : count;
+  return mobile ? (
+    <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--brand)] text-black text-xs font-bold">
+      {display}
+    </span>
+  ) : (
+    <span className="absolute -top-2 -right-3 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--brand)] text-black text-[10px] font-bold shadow-[0_0_10px_rgba(33,221,192,0.5)]">
+      {display}
+    </span>
+  );
+}
+
+function HamburgerIcon({ open }: { open: boolean }) {
+  return (
+    <div className="w-6 h-5 flex flex-col justify-between">
+      <span className={`block h-0.5 bg-current transition-all origin-center ${open ? "rotate-45 translate-y-[9px]" : ""}`} />
+      <span className={`block h-0.5 bg-current transition-all ${open ? "opacity-0 scale-0" : ""}`} />
+      <span className={`block h-0.5 bg-current transition-all origin-center ${open ? "-rotate-45 -translate-y-[9px]" : ""}`} />
+    </div>
+  );
+}
+
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg className={`w-3 h-3 transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg className="w-5 h-5 text-neutral-500 group-hover:text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+    </svg>
+  );
+}
+
+function Divider() {
+  return <div className="w-full h-px bg-white/5 my-2" />;
 }

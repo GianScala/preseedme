@@ -1,4 +1,3 @@
-// src/app/.../firebase-admin.ts
 import * as admin from "firebase-admin";
 
 export const getFirebaseAdmin = () => {
@@ -12,7 +11,6 @@ export const getFirebaseAdmin = () => {
     
     const serviceAccount = JSON.parse(json);
     
-    // FIX: Convert escaped newlines to actual newlines
     if (serviceAccount.private_key) {
       serviceAccount.private_key = serviceAccount.private_key
         .replace(/\\n/g, '\n')
