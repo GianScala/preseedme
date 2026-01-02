@@ -24,7 +24,10 @@ type CommentsSectionProps = {
   onAuthTrigger: () => void;
 };
 
-// Helper function to send notification
+/* =========================================================
+   EMAIL NOTIFICATION HELPER
+   ========================================================= */
+
 async function sendCommentNotification({
   recipientId,
   senderName,
@@ -33,26 +36,26 @@ async function sendCommentNotification({
   ideaTitle,
   notificationType,
   parentCommentId,
-  senderId
+  senderId,
 }: {
   recipientId: string;
   senderName: string;
   commentText: string;
   ideaId: string;
   ideaTitle: string;
-  notificationType: 'new_comment' | 'reply';
+  notificationType: "new_comment" | "reply";
   parentCommentId?: string;
   senderId: string;
 }) {
   if (recipientId === senderId) {
-    console.log('[NOTIF] Skipping self-notification');
+    // no self notifications
     return;
   }
 
   try {
-    const response = await fetch('/api/emails/send-comment-notification', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const response = await fetch("/api/emails/send-comment-notification", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         recipientId,
         senderName,
@@ -60,334 +63,367 @@ async function sendCommentNotification({
         ideaId,
         ideaTitle,
         notificationType,
-        parentCommentId
-      })
+        parentCommentId,
+      }),
     });
 
     const data = await response.json();
-    if (data.skipped) {
-      console.log('[NOTIF] Skipped:', data.reason);
-    } else if (data.success) {
-      console.log('[NOTIF] ✅ Notification sent');
-    } else {
-      console.error('[NOTIF] Failed:', data.error);
+    if (!data.success && !data.skipped) {
+      console.error("[NOTIF] Failed:", data.error);
     }
   } catch (error) {
-    console.error('[NOTIF] Error sending notification:', error);
+    console.error("[NOTIF] Error sending notification:", error);
   }
 }
 
-// ISOLATED REPLY BOX
-const ReplyBox = memo(({ 
-  commentId, 
-  username, 
-  onSubmit, 
-  onCancel,
-  submitting 
-}: { 
-  commentId: string;
-  username: string;
-  onSubmit: (commentId: string, text: string) => void;
-  onCancel: () => void;
-  submitting: boolean;
-}) => {
-  const [text, setText] = useState("");
+/* =========================================================
+   REPLY BOX
+   ========================================================= */
 
-  const handleSubmit = useCallback(() => {
-    if (text.trim()) {
-      onSubmit(commentId, text);
+const ReplyBox = memo(
+  ({
+    commentId,
+    username,
+    onSubmit,
+    onCancel,
+    submitting,
+  }: {
+    commentId: string;
+    username: string;
+    onSubmit: (commentId: string, text: string) => void;
+    onCancel: () => void;
+    submitting: boolean;
+  }) => {
+    const [text, setText] = useState("");
+
+    const handleSubmit = useCallback(() => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      onSubmit(commentId, trimmed);
       setText("");
-    }
-  }, [text, commentId, onSubmit]);
+    }, [text, commentId, onSubmit]);
 
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setText(e.target.value);
-  }, []);
+    const handleChange = useCallback(
+      (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        setText(e.target.value);
+      },
+      []
+    );
 
-  return (
-    <div className="mt-3 bg-neutral-950/50 border border-neutral-800 rounded-xl p-3">
-      <textarea
-        autoFocus
-        value={text}
-        onChange={handleChange}
-        placeholder={`Reply to ${username}...`}
-        style={{ fontSize: "16px" }}
-        className="w-full bg-transparent text-white placeholder:text-neutral-600 focus:outline-none resize-none min-h-[60px]"
-      />
-      <div className="flex items-center justify-end gap-2 mt-2">
-        <button
-          onClick={onCancel}
-          className="text-[10px] font-black text-neutral-500 uppercase hover:text-neutral-400 transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleSubmit}
-          disabled={!text.trim() || submitting}
-          className="flex items-center gap-2 px-3 py-1.5 bg-brand text-white text-[10px] font-black uppercase rounded-lg hover:bg-brand/90 transition-all disabled:opacity-30"
-        >
-          <Send size={10} /> Reply
-        </button>
+    return (
+      <div className="mt-3 bg-neutral-950/50 border border-neutral-800 rounded-xl p-3">
+        <textarea
+          autoFocus
+          value={text}
+          onChange={handleChange}
+          placeholder={`Reply to ${username}...`}
+          style={{ fontSize: "16px" }}
+          className="w-full bg-transparent text-white placeholder:text-neutral-600 focus:outline-none resize-none min-h-[60px]"
+        />
+        <div className="flex items-center justify-end gap-2 mt-2">
+          <button
+            onClick={onCancel}
+            className="text-[10px] font-black text-neutral-500 uppercase hover:text-neutral-400 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!text.trim() || submitting}
+            className="flex items-center gap-2 px-3 py-1.5 bg-brand text-white text-[10px] font-black uppercase rounded-lg hover:bg-brand/90 transition-all disabled:opacity-30"
+          >
+            <Send size={10} /> Reply
+          </button>
+        </div>
       </div>
-    </div>
-  );
-});
+    );
+  }
+);
 
 ReplyBox.displayName = "ReplyBox";
 
-// ISOLATED EDIT BOX
-const EditBox = memo(({
-  commentId,
-  initialText,
-  onSave,
-  onCancel
-}: {
-  commentId: string;
-  initialText: string;
-  onSave: (commentId: string, text: string) => void;
-  onCancel: () => void;
-}) => {
-  const [text, setText] = useState(initialText);
+/* =========================================================
+   EDIT BOX
+   ========================================================= */
 
-  const handleSave = useCallback(() => {
-    onSave(commentId, text);
-  }, [commentId, text, onSave]);
+const EditBox = memo(
+  ({
+    commentId,
+    initialText,
+    onSave,
+    onCancel,
+  }: {
+    commentId: string;
+    initialText: string;
+    onSave: (commentId: string, text: string) => void;
+    onCancel: () => void;
+  }) => {
+    const [text, setText] = useState(initialText);
 
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setText(e.target.value);
-  }, []);
+    const handleSave = useCallback(() => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      onSave(commentId, trimmed);
+    }, [commentId, text, onSave]);
 
-  return (
-    <div className="space-y-2 mt-1">
-      <textarea
-        autoFocus
-        value={text}
-        onChange={handleChange}
-        style={{ fontSize: "16px" }}
-        className="w-full bg-transparent p-2 border border-neutral-800 text-white rounded-xl focus:outline-none resize-none min-h-[60px]"
-      />
-      <div className="flex gap-3">
-        <button
-          onClick={handleSave}
-          className="text-[10px] font-black text-brand uppercase hover:text-brand/80 transition-colors"
-        >
-          Save
-        </button>
-        <button
-          onClick={onCancel}
-          className="text-[10px] font-black text-neutral-500 uppercase hover:text-neutral-400 transition-colors"
-        >
-          Cancel
-        </button>
+    const handleChange = useCallback(
+      (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        setText(e.target.value);
+      },
+      []
+    );
+
+    return (
+      <div className="space-y-2 mt-1">
+        <textarea
+          autoFocus
+          value={text}
+          onChange={handleChange}
+          style={{ fontSize: "16px" }}
+          className="w-full bg-transparent p-2 border border-neutral-800 text-white rounded-xl focus:outline-none resize-none min-h-[60px]"
+        />
+        <div className="flex gap-3">
+          <button
+            onClick={handleSave}
+            className="text-[10px] font-black text-brand uppercase hover:text-brand/80 transition-colors"
+          >
+            Save
+          </button>
+          <button
+            onClick={onCancel}
+            className="text-[10px] font-black text-neutral-500 uppercase hover:text-neutral-400 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
       </div>
-    </div>
-  );
-});
+    );
+  }
+);
 
 EditBox.displayName = "EditBox";
 
-// SINGLE COMMENT ITEM - Fixed memoization
-const CommentItem = memo(({ 
-  comment,
-  depth = 0,
-  currentUserId,
-  isIdeaOwner,
-  editingId,
-  replyingTo,
-  submitting,
-  onReply,
-  onEdit,
-  onDelete,
-  onCancelReply,
-  onCancelEdit,
-  onSaveEdit,
-  onSubmitReply,
-  onAuthTrigger,
-  replies,
-  allComments
-}: { 
-  comment: Comment;
-  depth?: number;
-  currentUserId: string | null;
-  isIdeaOwner: boolean;
-  editingId: string | null;
-  replyingTo: string | null;
-  submitting: boolean;
-  onReply: (id: string) => void;
-  onEdit: (id: string) => void;
-  onDelete: (id: string, isOwnerDeleting: boolean, hasReplies: boolean) => void;
-  onCancelReply: () => void;
-  onCancelEdit: () => void;
-  onSaveEdit: (id: string, text: string) => void;
-  onSubmitReply: (parentId: string, text: string) => void;
-  onAuthTrigger: () => void;
-  replies: Comment[];
-  allComments: Comment[];
-}) => {
-  const maxDepth = 3;
-  
-  // Check if comment has any replies
-  const hasReplies = allComments.some(c => c.parentId === comment.id);
-  
-  // 🔒 PERMISSION CHECKS - recalculated on every render
-  const isCommentAuthor = currentUserId && comment.userId === currentUserId;
-  const canEdit = isCommentAuthor;
-  const canDelete = currentUserId && (isCommentAuthor || isIdeaOwner);
-  const isOwnerDeleting = isIdeaOwner;
+/* =========================================================
+   COMMENT ITEM  (NO AVATAR)
+   ========================================================= */
 
-  return (
-    <div className={`${depth > 0 ? "ml-4 sm:ml-8 mt-4" : ""}`}>
-      <div className="group flex gap-2 sm:gap-3">
-        <div className="w-8 h-8 rounded-lg bg-neutral-800 border border-white/5 overflow-hidden shrink-0 mt-1">
-          {comment.userPhotoURL ? (
-            <img src={comment.userPhotoURL} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-[10px] font-black text-neutral-500">
-              {comment.username?.[0]?.toUpperCase()}
-            </div>
-          )}
-        </div>
+const CommentItem = memo(
+  ({
+    comment,
+    depth = 0,
+    currentUserId,
+    isIdeaOwner,
+    editingId,
+    replyingTo,
+    submitting,
+    onReply,
+    onEdit,
+    onDelete,
+    onCancelReply,
+    onCancelEdit,
+    onSaveEdit,
+    onSubmitReply,
+    onAuthTrigger,
+    replies,
+    allComments,
+  }: {
+    comment: Comment;
+    depth?: number;
+    currentUserId: string | null;
+    isIdeaOwner: boolean;
+    editingId: string | null;
+    replyingTo: string | null;
+    submitting: boolean;
+    onReply: (id: string) => void;
+    onEdit: (id: string) => void;
+    onDelete: (id: string, isOwnerDeleting: boolean, hasReplies: boolean) => void;
+    onCancelReply: () => void;
+    onCancelEdit: () => void;
+    onSaveEdit: (id: string, text: string) => void;
+    onSubmitReply: (parentId: string, text: string) => void;
+    onAuthTrigger: () => void;
+    replies: Comment[];
+    allComments: Comment[];
+  }) => {
+    const maxDepth = 3;
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-1 gap-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Link 
-                href={`/profile/${comment.userId}`} 
-                className="text-[11px] font-black text-white hover:text-brand transition-colors uppercase"
-              >
-                {comment.username}
-              </Link>
-              {isIdeaOwner && isCommentAuthor && (
-                <span className="text-[8px] font-black bg-brand/10 text-brand px-1.5 py-0.5 rounded border border-brand/20 uppercase tracking-tighter">
-                  Founder
-                </span>
-              )}
-              {comment.isEdited && (
-                <span className="text-[8px] text-neutral-600 italic">(edited)</span>
-              )}
-            </div>
-            <span className="text-[9px] text-neutral-600 font-bold whitespace-nowrap">
-              {new Date(typeof comment.createdAt === "number" ? comment.createdAt : (comment.createdAt as any).toMillis?.() || Date.now()).toLocaleDateString()}
-            </span>
+    const createdAtMillis =
+      typeof comment.createdAt === "number"
+        ? comment.createdAt
+        : (comment.createdAt as any)?.toMillis?.() ?? Date.now();
+
+    const hasReplies = allComments.some((c) => c.parentId === comment.id);
+    const isCommentAuthor = !!currentUserId && comment.userId === currentUserId;
+    const canEdit = isCommentAuthor;
+    const canDelete = !!currentUserId && (isCommentAuthor || isIdeaOwner);
+    const isOwnerDeleting = isIdeaOwner;
+
+    return (
+      <div className={depth > 0 ? "ml-4 sm:ml-8 mt-4" : ""}>
+        <div className="group flex gap-2 sm:gap-3">
+          {/* Simple compact badge instead of avatar */}
+          <div className="w-7 h-7 rounded-lg bg-neutral-900 border border-neutral-700 flex items-center justify-center text-[9px] font-black text-neutral-300 shrink-0 mt-1">
+            {comment.username?.[0]?.toUpperCase() ?? "?"}
           </div>
 
-          {editingId === comment.id ? (
-            <EditBox
-              commentId={comment.id}
-              initialText={comment.text}
-              onSave={onSaveEdit}
-              onCancel={onCancelEdit}
-            />
-          ) : (
-            <>
-              <p className="text-sm text-neutral-400 leading-snug break-words mb-2">
-                {comment.text}
-              </p>
-
-              {/* Action buttons - always visible, conditionally rendered */}
-              <div className="flex flex-wrap gap-3 sm:gap-4 mt-2">
-                {depth < maxDepth && (
-                  <button
-                    onClick={() => {
-                      if (!currentUserId) return onAuthTrigger();
-                      onReply(comment.id);
-                    }}
-                    className="text-[9px] font-black text-neutral-500 hover:text-brand uppercase flex items-center gap-1 transition-colors"
-                  >
-                    <CornerDownRight size={10} /> Reply
-                  </button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between mb-1 gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Link
+                  href={`/profile/${comment.userId}`}
+                  className="text-[11px] font-black text-white hover:text-brand transition-colors uppercase"
+                >
+                  {comment.username}
+                </Link>
+                {isIdeaOwner && isCommentAuthor && (
+                  <span className="text-[8px] font-black bg-brand/10 text-brand px-1.5 py-0.5 rounded border border-brand/20 uppercase tracking-tighter">
+                    Founder
+                  </span>
                 )}
-
-                {canEdit && (
-                  <button
-                    onClick={() => onEdit(comment.id)}
-                    className="text-[9px] font-black text-neutral-500 hover:text-brand uppercase flex items-center gap-1 transition-colors"
-                  >
-                    <Edit3 size={10} /> Edit
-                  </button>
-                )}
-
-                {canDelete && (
-                  <button 
-                    onClick={() => onDelete(comment.id, isOwnerDeleting, hasReplies)} 
-                    className="text-[9px] font-black text-neutral-500 hover:text-rose-500 uppercase flex items-center gap-1 transition-colors"
-                  >
-                    <Trash2 size={10} /> 
-                    {isOwnerDeleting && hasReplies ? "Delete Thread" : "Delete"}
-                  </button>
+                {comment.isEdited && (
+                  <span className="text-[8px] text-neutral-600 italic">
+                    (edited)
+                  </span>
                 )}
               </div>
-            </>
-          )}
+              <span className="text-[9px] text-neutral-600 font-bold whitespace-nowrap">
+                {new Date(createdAtMillis).toLocaleDateString()}
+              </span>
+            </div>
 
-          {replyingTo === comment.id && (
-            <ReplyBox
-              commentId={comment.id}
-              username={comment.username}
-              onSubmit={onSubmitReply}
-              onCancel={onCancelReply}
-              submitting={submitting}
-            />
-          )}
-        </div>
-      </div>
-
-      {hasReplies && replies.length > 0 && (
-        <div className="space-y-4 mt-4 border-l-2 border-neutral-800/50 pl-2 sm:pl-4">
-          {replies.map((reply) => {
-            const nestedReplies = allComments
-              .filter(c => c.parentId === reply.id)
-              .sort((a, b) => {
-                const timeA = typeof a.createdAt === "number" ? a.createdAt : (a.createdAt as any).toMillis?.() || 0;
-                const timeB = typeof b.createdAt === "number" ? b.createdAt : (b.createdAt as any).toMillis?.() || 0;
-                return timeA - timeB;
-              });
-
-            return (
-              <CommentItem 
-                key={reply.id} 
-                comment={reply} 
-                depth={depth + 1}
-                currentUserId={currentUserId}
-                isIdeaOwner={isIdeaOwner}
-                editingId={editingId}
-                replyingTo={replyingTo}
-                submitting={submitting}
-                onReply={onReply}
-                onEdit={onEdit}
-                onDelete={onDelete}
-                onCancelReply={onCancelReply}
-                onCancelEdit={onCancelEdit}
-                onSaveEdit={onSaveEdit}
-                onSubmitReply={onSubmitReply}
-                onAuthTrigger={onAuthTrigger}
-                replies={nestedReplies}
-                allComments={allComments}
+            {editingId === comment.id ? (
+              <EditBox
+                commentId={comment.id}
+                initialText={comment.text}
+                onSave={onSaveEdit}
+                onCancel={onCancelEdit}
               />
-            );
-          })}
+            ) : (
+              <>
+                <p className="text-sm text-neutral-400 leading-snug break-words mb-2">
+                  {comment.text}
+                </p>
+
+                <div className="flex flex-wrap gap-3 sm:gap-4 mt-2">
+                  {depth < maxDepth && (
+                    <button
+                      onClick={() => {
+                        if (!currentUserId) return onAuthTrigger();
+                        onReply(comment.id);
+                      }}
+                      className="text-[9px] font-black text-neutral-500 hover:text-brand uppercase flex items-center gap-1 transition-colors"
+                    >
+                      <CornerDownRight size={10} /> Reply
+                    </button>
+                  )}
+
+                  {canEdit && (
+                    <button
+                      onClick={() => onEdit(comment.id)}
+                      className="text-[9px] font-black text-neutral-500 hover:text-brand uppercase flex items-center gap-1 transition-colors"
+                    >
+                      <Edit3 size={10} /> Edit
+                    </button>
+                  )}
+
+                  {canDelete && (
+                    <button
+                      onClick={() =>
+                        onDelete(comment.id, isOwnerDeleting, hasReplies)
+                      }
+                      className="text-[9px] font-black text-neutral-500 hover:text-rose-500 uppercase flex items-center gap-1 transition-colors"
+                    >
+                      <Trash2 size={10} />
+                      {isOwnerDeleting && hasReplies
+                        ? "Delete Thread"
+                        : "Delete"}
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+
+            {replyingTo === comment.id && (
+              <ReplyBox
+                commentId={comment.id}
+                username={comment.username}
+                onSubmit={onSubmitReply}
+                onCancel={onCancelReply}
+                submitting={submitting}
+              />
+            )}
+          </div>
         </div>
-      )}
-    </div>
-  );
-}, (prevProps, nextProps) => {
-  // 🎯 FIXED MEMO COMPARISON - now includes all critical props
-  return (
-    prevProps.comment.id === nextProps.comment.id &&
-    prevProps.comment.text === nextProps.comment.text &&
-    prevProps.comment.isEdited === nextProps.comment.isEdited &&
-    prevProps.comment.userId === nextProps.comment.userId && // Added: detect comment author changes
-    prevProps.currentUserId === nextProps.currentUserId && // Added: detect user login/logout
-    prevProps.isIdeaOwner === nextProps.isIdeaOwner && // Added: detect ownership changes
-    prevProps.editingId === nextProps.editingId &&
-    prevProps.replyingTo === nextProps.replyingTo &&
-    prevProps.replies.length === nextProps.replies.length &&
-    prevProps.submitting === nextProps.submitting &&
-    prevProps.allComments.length === nextProps.allComments.length
-  );
-});
+
+        {hasReplies && replies.length > 0 && (
+          <div className="space-y-4 mt-4 border-l-2 border-neutral-800/50 pl-2 sm:pl-4">
+            {replies.map((reply) => {
+              const nestedReplies = allComments
+                .filter((c) => c.parentId === reply.id)
+                .sort((a, b) => {
+                  const timeA =
+                    typeof a.createdAt === "number"
+                      ? a.createdAt
+                      : (a.createdAt as any)?.toMillis?.() ?? 0;
+                  const timeB =
+                    typeof b.createdAt === "number"
+                      ? b.createdAt
+                      : (b.createdAt as any)?.toMillis?.() ?? 0;
+                  return timeA - timeB;
+                });
+
+              return (
+                <CommentItem
+                  key={reply.id}
+                  comment={reply}
+                  depth={depth + 1}
+                  currentUserId={currentUserId}
+                  isIdeaOwner={isIdeaOwner}
+                  editingId={editingId}
+                  replyingTo={replyingTo}
+                  submitting={submitting}
+                  onReply={onReply}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                  onCancelReply={onCancelReply}
+                  onCancelEdit={onCancelEdit}
+                  onSaveEdit={onSaveEdit}
+                  onSubmitReply={onSubmitReply}
+                  onAuthTrigger={onAuthTrigger}
+                  replies={nestedReplies}
+                  allComments={allComments}
+                />
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  },
+  (prev, next) => {
+    // Optimized custom comparison: only re-render when relevant bits change
+    return (
+      prev.comment.id === next.comment.id &&
+      prev.comment.text === next.comment.text &&
+      prev.comment.isEdited === next.comment.isEdited &&
+      prev.comment.userId === next.comment.userId &&
+      prev.comment.username === next.comment.username &&
+      prev.currentUserId === next.currentUserId &&
+      prev.isIdeaOwner === next.isIdeaOwner &&
+      prev.editingId === next.editingId &&
+      prev.replyingTo === next.replyingTo &&
+      prev.replies.length === next.replies.length &&
+      prev.submitting === next.submitting &&
+      prev.allComments.length === next.allComments.length
+    );
+  }
+);
 
 CommentItem.displayName = "CommentItem";
+
+/* =========================================================
+   MAIN COMMENTS SECTION
+   ========================================================= */
 
 export default function CommentsSection({
   ideaId,
@@ -405,96 +441,130 @@ export default function CommentsSection({
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    loadComments();
-  }, [ideaId]);
+    let mounted = true;
 
-  const loadComments = async () => {
-    try {
-      const data = await getComments(ideaId);
-      setComments(
-        data.sort((a, b) => {
-          const timeA = typeof a.createdAt === "number" ? a.createdAt : (a.createdAt as any).toMillis?.() || 0;
-          const timeB = typeof b.createdAt === "number" ? b.createdAt : (b.createdAt as any).toMillis?.() || 0;
-          return timeB - timeA;
-        })
-      );
-    } catch (error) {
-      console.error("Error loading comments:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    (async () => {
+      try {
+        const data = await getComments(ideaId);
+        if (!mounted) return;
+
+        setComments(
+          data.sort((a, b) => {
+            const timeA =
+              typeof a.createdAt === "number"
+                ? a.createdAt
+                : (a.createdAt as any)?.toMillis?.() ?? 0;
+            const timeB =
+              typeof b.createdAt === "number"
+                ? b.createdAt
+                : (b.createdAt as any)?.toMillis?.() ?? 0;
+            return timeB - timeA;
+          })
+        );
+      } catch (error) {
+        console.error("Error loading comments:", error);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [ideaId]);
 
   const fetchUserData = useCallback(async () => {
     if (!user) return null;
+
     const db = getFirebaseDb();
     const userDocRef = doc(db, "users", user.uid);
     const userSnap = await getDoc(userDocRef);
 
     if (userSnap.exists()) {
-      const userData = userSnap.data();
+      const userData = userSnap.data() as any;
       return {
-        name: userData.username || userData.displayName || user.displayName || "Anonymous",
-        handle: userData.userHandle || userData.username?.toLowerCase().replace(/\s/g, "") || "user",
-        photo: userData.photoURL || userData.avatarUrl || user.photoURL || null,
+        name:
+          userData.username ||
+          userData.displayName ||
+          user.displayName ||
+          "Anonymous",
+        handle:
+          userData.userHandle ||
+          userData.username?.toLowerCase().replace(/\s/g, "") ||
+          "user",
+        photoURL:
+          userData.photoURL ||
+          userData.userPhotoURL ||
+          userData.userPhotoUrl ||
+          userData.avatarUrl ||
+          user.photoURL ||
+          null,
       };
     }
+
     return {
       name: user.displayName || user.email?.split("@")[0] || "New User",
       handle: user.email?.split("@")[0]?.toLowerCase() || "user",
-      photo: user.photoURL || null,
+      photoURL: user.photoURL || null,
     };
   }, [user]);
 
-  const handleReplySubmit = useCallback(async (parentId: string, text: string) => {
-    if (!user) return;
-    setSubmitting(true);
-    try {
-      const userData = await fetchUserData();
-      if (!userData) return;
+  const handleReplySubmit = useCallback(
+    async (parentId: string, text: string) => {
+      if (!user) return;
+      const trimmed = text.trim();
+      if (!trimmed) return;
 
-      let threadOwnerId = user.uid;
-      const parentComment = comments.find(c => c.id === parentId);
-      if (parentComment) {
-        threadOwnerId = (parentComment as any).threadOwnerId || parentComment.userId;
-      }
+      setSubmitting(true);
+      try {
+        const userData = await fetchUserData();
+        if (!userData) return;
 
-      const comment = await addComment(
-        ideaId,
-        user.uid,
-        userData.name,
-        userData.handle,
-        userData.photo,
-        text,
-        parentId,
-        threadOwnerId
-      );
+        let threadOwnerId = user.uid;
+        const parentComment = comments.find((c) => c.id === parentId);
+        if (parentComment) {
+          threadOwnerId =
+            (parentComment as any).threadOwnerId || parentComment.userId;
+        }
 
-      setComments((prev) => [...prev, comment]);
-      setReplyingTo(null);
-
-      if (parentComment && parentComment.userId) {
-        sendCommentNotification({
-          recipientId: parentComment.userId,
-          senderName: userData.name,
-          commentText: text,
+        const comment = await addComment(
           ideaId,
-          ideaTitle,
-          notificationType: 'reply',
-          parentCommentId: parentId,
-          senderId: user.uid
-        });
-      }
+          user.uid,
+          userData.name,
+          userData.handle,
+          userData.photoURL,
+          trimmed,
+          parentId,
+          threadOwnerId
+        );
 
-    } catch (error) {
-      console.error("Error submitting reply:", error);
-    } finally {
-      setSubmitting(false);
-    }
-  }, [user, ideaId, ideaTitle, fetchUserData, comments]);
+        setComments((prev) => [...prev, comment]);
+        setReplyingTo(null);
+
+        if (parentComment && parentComment.userId) {
+          sendCommentNotification({
+            recipientId: parentComment.userId,
+            senderName: userData.name,
+            commentText: trimmed,
+            ideaId,
+            ideaTitle,
+            notificationType: "reply",
+            parentCommentId: parentId,
+            senderId: user.uid,
+          });
+        }
+      } catch (error) {
+        console.error("Error submitting reply:", error);
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [user, ideaId, ideaTitle, fetchUserData, comments]
+  );
 
   const handleCommentSubmit = useCallback(async () => {
     if (!user) return onAuthTrigger();
+
     const trimmed = newComment.trim();
     if (!trimmed || submitting) return;
 
@@ -508,7 +578,7 @@ export default function CommentsSection({
         user.uid,
         userData.name,
         userData.handle,
-        userData.photo,
+        userData.photoURL,
         trimmed,
         null,
         user.uid
@@ -517,30 +587,41 @@ export default function CommentsSection({
       setComments((prev) => [comment, ...prev]);
       setNewComment("");
 
-      sendCommentNotification({
+      await sendCommentNotification({
         recipientId: ideaOwnerId,
         senderName: userData.name,
         commentText: trimmed,
         ideaId,
         ideaTitle,
-        notificationType: 'new_comment',
-        senderId: user.uid
+        notificationType: "new_comment",
+        senderId: user.uid,
       });
-
     } catch (error) {
       console.error("Error submitting comment:", error);
     } finally {
       setSubmitting(false);
     }
-  }, [user, newComment, submitting, ideaId, ideaTitle, ideaOwnerId, fetchUserData, onAuthTrigger]);
+  }, [
+    user,
+    newComment,
+    submitting,
+    ideaId,
+    ideaTitle,
+    ideaOwnerId,
+    fetchUserData,
+    onAuthTrigger,
+  ]);
 
   const handleEditSave = useCallback(async (commentId: string, text: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
+
     try {
       await updateComment(commentId, trimmed);
       setComments((prev) =>
-        prev.map((c) => (c.id === commentId ? { ...c, text: trimmed, isEdited: true } : c))
+        prev.map((c) =>
+          c.id === commentId ? { ...c, text: trimmed, isEdited: true } : c
+        )
       );
       setEditingId(null);
     } catch (error) {
@@ -548,36 +629,44 @@ export default function CommentsSection({
     }
   }, []);
 
-  const handleDelete = useCallback(async (commentId: string, isOwnerDeleting: boolean, hasReplies: boolean) => {
-    let message = "Delete this comment?";
-    let shouldDeleteThread = false;
+  const handleDelete = useCallback(
+    async (
+      commentId: string,
+      isOwnerDeleting: boolean,
+      hasReplies: boolean
+    ) => {
+      let message = "Delete this comment?";
+      let shouldDeleteThread = false;
 
-    if (hasReplies && isOwnerDeleting) {
-      message = "Delete this comment and all its replies?";
-      shouldDeleteThread = true;
-    } else if (hasReplies && !isOwnerDeleting) {
-      message = "This comment has replies. Delete anyway? (Replies will remain)";
-      shouldDeleteThread = false;
-    }
-
-    if (!window.confirm(message)) return;
-
-    try {
-      if (shouldDeleteThread) {
-        const deletedIds = await deleteCommentWithReplies(commentId, comments);
-        setComments((prev) => prev.filter((c) => !deletedIds.includes(c.id)));
-      } else {
-        await deleteComment(commentId);
-        setComments((prev) => prev.filter((c) => c.id !== commentId));
+      if (hasReplies && isOwnerDeleting) {
+        message = "Delete this comment and all its replies?";
+        shouldDeleteThread = true;
+      } else if (hasReplies && !isOwnerDeleting) {
+        message =
+          "This comment has replies. Delete anyway? (Replies will remain)";
+        shouldDeleteThread = false;
       }
-    } catch (error) {
-      console.error("Delete failed", error);
-    }
-  }, [comments]);
+
+      if (!window.confirm(message)) return;
+
+      try {
+        if (shouldDeleteThread) {
+          const deletedIds = await deleteCommentWithReplies(commentId, comments);
+          setComments((prev) => prev.filter((c) => !deletedIds.includes(c.id)));
+        } else {
+          await deleteComment(commentId);
+          setComments((prev) => prev.filter((c) => c.id !== commentId));
+        }
+      } catch (error) {
+        console.error("Delete failed", error);
+      }
+    },
+    [comments]
+  );
 
   const handleReply = useCallback((id: string) => {
-    setReplyingTo(replyingTo === id ? null : id);
-  }, [replyingTo]);
+    setReplyingTo((prev) => (prev === id ? null : id));
+  }, []);
 
   const handleEdit = useCallback((id: string) => {
     setEditingId(id);
@@ -594,20 +683,23 @@ export default function CommentsSection({
   const { threadedComments, repliesMap } = useMemo(() => {
     const topLevel = comments.filter((c) => !c.parentId);
     const replyMap = new Map<string, Comment[]>();
-    
+
     comments.forEach((c) => {
-      if (c.parentId) {
-        if (!replyMap.has(c.parentId)) {
-          replyMap.set(c.parentId, []);
-        }
-        replyMap.get(c.parentId)!.push(c);
-      }
+      if (!c.parentId) return;
+      if (!replyMap.has(c.parentId)) replyMap.set(c.parentId, []);
+      replyMap.get(c.parentId)!.push(c);
     });
 
     replyMap.forEach((replies) => {
       replies.sort((a, b) => {
-        const timeA = typeof a.createdAt === "number" ? a.createdAt : (a.createdAt as any).toMillis?.() || 0;
-        const timeB = typeof b.createdAt === "number" ? b.createdAt : (b.createdAt as any).toMillis?.() || 0;
+        const timeA =
+          typeof a.createdAt === "number"
+            ? a.createdAt
+            : (a.createdAt as any)?.toMillis?.() ?? 0;
+        const timeB =
+          typeof b.createdAt === "number"
+            ? b.createdAt
+            : (b.createdAt as any)?.toMillis?.() ?? 0;
         return timeA - timeB;
       });
     });
@@ -615,50 +707,31 @@ export default function CommentsSection({
     return { threadedComments: topLevel, repliesMap: replyMap };
   }, [comments]);
 
-  const handleNewCommentChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setNewComment(e.target.value);
-  }, []);
+  const handleNewCommentChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setNewComment(e.target.value);
+    },
+    []
+  );
 
   return (
     <div className="space-y-6">
-      <div className="bg-gradient-to-br from-neutral-950/20 via-neutral-900/20 to-neutral-900 border border-neutral-800 rounded-2xl p-1 focus-within:border-brand/40 transition-all">
-        <textarea
-          value={newComment}
-          onChange={handleNewCommentChange}
-          onFocus={() => !user && onAuthTrigger()}
-          placeholder={user ? "Write a comment..." : "Sign in to join discussion"}
-          style={{ fontSize: "16px" }}
-          className="w-full bg-transparent p-3 text-white placeholder:text-neutral-600 focus:outline-none resize-none min-h-[70px]"
-        />
-        <div className="flex items-center justify-between px-3 pb-2">
-          <span className="text-[10px] text-neutral-600 font-bold uppercase tracking-widest">
-            {submitting ? "Posting..." : "Discussion"}
-          </span>
-          <button
-            onClick={handleCommentSubmit}
-            disabled={!newComment.trim() || submitting}
-            className="flex items-center gap-2 px-3 py-1.5 bg-brand text-white text-[11px] font-black uppercase tracking-tighter rounded-xl hover:bg-brand/90 transition-all disabled:opacity-20"
-          >
-            <Send size={10} /> Post
-          </button>
-        </div>
-      </div>
-
+      {/* COMMENTS LIST */}
       <div className="space-y-6">
         {loading ? (
           <div className="animate-pulse flex gap-3">
-            <div className="w-8 h-8 bg-neutral-800 rounded-lg" />
+            <div className="w-7 h-7 bg-neutral-800 rounded-lg" />
             <div className="h-10 bg-neutral-800 rounded-xl flex-1" />
           </div>
         ) : threadedComments.length === 0 ? (
           <div className="py-8 text-center border border-dashed border-neutral-800 rounded-2xl">
             <p className="text-[10px] text-neutral-600 font-black uppercase tracking-widest">
-              No comments yet
+              No comments yet — be the first!
             </p>
           </div>
         ) : (
           threadedComments.map((comment) => (
-            <CommentItem 
+            <CommentItem
               key={comment.id}
               comment={comment}
               depth={0}
@@ -680,6 +753,30 @@ export default function CommentsSection({
             />
           ))
         )}
+      </div>
+
+      {/* ADD COMMENT INPUT */}
+      <div className="bg-gradient-to-br from-neutral-950/20 via-neutral-900/20 to-neutral-900 border border-neutral-800 rounded-2xl p-1 focus-within:border-brand/40 transition-all">
+        <textarea
+          value={newComment}
+          onChange={handleNewCommentChange}
+          onFocus={() => !user && onAuthTrigger()}
+          placeholder={user ? "Add a comment..." : "Sign in to join discussion"}
+          style={{ fontSize: "16px" }}
+          className="w-full bg-transparent p-3 text-white placeholder:text-neutral-600 focus:outline-none resize-none min-h-[70px]"
+        />
+        <div className="flex items-center justify-between px-3 pb-2">
+          <span className="text-[10px] text-neutral-600 font-bold uppercase tracking-widest">
+            {submitting ? "Posting..." : "Add Comment"}
+          </span>
+          <button
+            onClick={handleCommentSubmit}
+            disabled={!newComment.trim() || submitting}
+            className="flex items-center gap-2 px-3 py-1.5 bg-brand text-white text-[11px] font-black uppercase tracking-tighter rounded-xl hover:bg-brand/90 transition-all disabled:opacity-20"
+          >
+            <Send size={10} /> Post
+          </button>
+        </div>
       </div>
     </div>
   );
