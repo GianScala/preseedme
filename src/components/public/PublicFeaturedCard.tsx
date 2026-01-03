@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, type MouseEvent } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Clock, TrendingUp, Users } from "lucide-react";
+import { Clock, TrendingUp, Users, Target } from "lucide-react";
 import { formatCurrencyShort, formatNumberShort } from "@/lib/formatters";
 import type { IdeaWithLikes } from "@/lib/ideas";
 import HeartIcon from "@/components/icons/HeartIcon";
@@ -32,6 +32,12 @@ const avatarCache = new Map<string, string | null>();
 const TagPill = ({ text }: { text: string }) => (
   <span className="text-[9px] md:text-[10px] font-black text-emerald-400 uppercase tracking-widest px-2 md:px-3 py-0.5 md:py-1 rounded bg-emerald-500/10 border border-emerald-500/20">
     {text}
+  </span>
+);
+
+const FundraisingBadge = () => (
+  <span className="text-[9px] md:text-[10px] font-black text-amber-400 uppercase tracking-widest px-2 md:px-3 py-0.5 md:py-1 rounded bg-amber-500/10 border border-amber-500/20 animate-pulse">
+    🚀 Raising
   </span>
 );
 
@@ -69,10 +75,11 @@ export default function PublicFeaturedCard({
     id, title, oneLiner, thumbnailUrl, monthlyRecurringRevenue, userCount,
     likeCount: rawLikeCount, likedByUserIds = [], founderUsername,
     sector, targetAudience, founderId, createdAt, updatedAt,
+    // Fundraising fields
+    isFundraising, fundraisingGoal, fundraisingRaisedSoFar,
   } = idea;
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(() => {
-    // Initialize from cache if available
     return founderId ? avatarCache.get(founderId) ?? null : null;
   });
   const [avatarError, setAvatarError] = useState(false);
@@ -80,6 +87,10 @@ export default function PublicFeaturedCard({
   const isLiked = !!currentUserId && (likedByUserIds || []).includes(currentUserId);
   const mrrLabel = monthlyRecurringRevenue ? formatCurrencyShort(monthlyRecurringRevenue) : null;
   const usersLabel = userCount ? formatNumberShort(userCount) : null;
+  
+  // Fundraising labels
+  const fundraisingGoalLabel = fundraisingGoal ? formatCurrencyShort(fundraisingGoal) : null;
+  const fundraisingRaisedLabel = fundraisingRaisedSoFar ? formatCurrencyShort(fundraisingRaisedSoFar) : null;
 
   const dateInfo = useMemo(() => {
     const createdMs = getMillis(createdAt);
@@ -94,7 +105,6 @@ export default function PublicFeaturedCard({
   // Reset avatar error when idea changes
   useEffect(() => {
     setAvatarError(false);
-    // Check cache first for new founder
     if (founderId && avatarCache.has(founderId)) {
       setAvatarUrl(avatarCache.get(founderId) ?? null);
     } else {
@@ -106,7 +116,6 @@ export default function PublicFeaturedCard({
   useEffect(() => {
     if (!founderId) return;
     
-    // Already have cached value
     if (avatarCache.has(founderId)) {
       setAvatarUrl(avatarCache.get(founderId) ?? null);
       return;
@@ -217,6 +226,8 @@ export default function PublicFeaturedCard({
                   {targetAudience}
                 </span>
               )}
+              {/* Fundraising Badge */}
+              {isFundraising && <FundraisingBadge />}
             </div>
 
             <div>
@@ -229,9 +240,19 @@ export default function PublicFeaturedCard({
             </div>
 
             <div className="flex flex-col gap-4 md:gap-0 md:flex-row md:items-center md:justify-between mt-5 md:mt-10 pt-4 md:pt-8 border-t border-white/10">
-              <div className="flex items-center gap-4 md:gap-10">
+              <div className="flex items-center gap-4 md:gap-10 flex-wrap">
                 {mrrLabel && <MetricItem icon={TrendingUp} val={mrrLabel} label="Monthly Revenue" color="text-emerald-500" />}
                 {usersLabel && <MetricItem icon={Users} val={usersLabel} label="Active Users" color="text-blue-500" />}
+                
+                {/* Fundraising Goal Metric */}
+                {isFundraising && fundraisingGoalLabel && (
+                  <MetricItem 
+                    icon={Target} 
+                    val={fundraisingGoalLabel} 
+                    label={fundraisingRaisedLabel ? `Raised ${fundraisingRaisedLabel}` : "Raising"} 
+                    color="text-amber-500" 
+                  />
+                )}
               </div>
 
               <div className="flex items-center gap-2.5 md:gap-4 md:pl-8 md:border-l border-white/10">
