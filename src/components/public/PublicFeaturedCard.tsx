@@ -3,12 +3,13 @@
 import { useEffect, useState, useMemo, type MouseEvent } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Clock, TrendingUp, Users, Target } from "lucide-react";
+import { Clock, TrendingUp, Users } from "lucide-react";
 import { formatCurrencyShort, formatNumberShort } from "@/lib/formatters";
 import type { IdeaWithLikes } from "@/lib/ideas";
 import HeartIcon from "@/components/icons/HeartIcon";
 import { getFirebaseDb } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
+import DollariIcon from "@/components/icons/DollarIcon";
 
 /* ---------------- Date Helpers ---------------- */
 const getMillis = (timestamp: any): number | null => {
@@ -35,30 +36,34 @@ const TagPill = ({ text }: { text: string }) => (
   </span>
 );
 
-const FundraisingBadge = () => (
-  <span className="text-[9px] md:text-[10px] font-black text-amber-400 uppercase tracking-widest px-2 md:px-3 py-0.5 md:py-1 rounded bg-amber-500/10 border border-amber-500/20 animate-pulse">
-    🚀 Raising
-  </span>
-);
-
 const MetricItem = ({ icon: Icon, val, label, color }: any) => (
   <div className="flex items-center gap-2">
     <div className={`p-1 md:p-1.5 rounded bg-white/5 border border-white/5 ${color}`}>
       <Icon className="w-3 h-3 md:w-4 md:h-4" />
     </div>
     <div className="flex flex-col">
-      <span className="text-xs md:text-sm font-black text-neutral-100 tabular-nums leading-none mb-0.5 md:mb-1">{val}</span>
-      <span className="text-[9px] md:text-[10px] font-bold text-neutral-500 uppercase tracking-tighter leading-none">{label}</span>
+      <span className="text-xs md:text-sm font-black text-neutral-100 tabular-nums leading-none mb-0.5 md:mb-1">
+        {val}
+      </span>
+      <span className="text-[9px] md:text-[10px] font-bold text-neutral-500 uppercase tracking-tighter leading-none">
+        {label}
+      </span>
     </div>
   </div>
 );
 
 const GlassBadge = ({ icon: Icon, label, value, variant = "neutral" }: any) => (
-  <div className={`flex items-center gap-1 md:gap-1.5 px-2 md:px-2.5 h-6 md:h-7 rounded-lg backdrop-blur-md border text-[9px] md:text-[10px] font-bold ${
-    variant === "success" ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400" : "bg-black/40 border-white/10 text-neutral-400"
-  }`}>
+  <div
+    className={`flex items-center gap-1 md:gap-1.5 px-2 md:px-2.5 h-6 md:h-7 rounded-lg backdrop-blur-md border text-[9px] md:text-[10px] font-bold ${
+      variant === "success"
+        ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400"
+        : "bg-black/40 border-white/10 text-neutral-400"
+    }`}
+  >
     <Icon className="w-2.5 h-2.5 md:w-3 md:h-3" />
-    <span className="uppercase opacity-60 tracking-tighter hidden sm:inline">{label}</span>
+    <span className="uppercase opacity-60 tracking-tighter hidden sm:inline">
+      {label}
+    </span>
     <span className="tabular-nums">{value}</span>
   </div>
 );
@@ -72,33 +77,49 @@ export default function PublicFeaturedCard({
   loadingLike,
 }: any) {
   const {
-    id, title, oneLiner, thumbnailUrl, monthlyRecurringRevenue, userCount,
-    likeCount: rawLikeCount, likedByUserIds = [], founderUsername,
-    sector, targetAudience, founderId, createdAt, updatedAt,
+    id,
+    title,
+    oneLiner,
+    thumbnailUrl,
+    monthlyRecurringRevenue,
+    userCount,
+    likeCount: rawLikeCount,
+    likedByUserIds = [],
+    founderUsername,
+    sector,
+    targetAudience,
+    founderId,
+    createdAt,
+    updatedAt,
     // Fundraising fields
-    isFundraising, fundraisingGoal, fundraisingRaisedSoFar,
-  } = idea;
+    isFundraising,
+    fundraisingGoal,
+  } = idea as IdeaWithLikes;
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(() => {
     return founderId ? avatarCache.get(founderId) ?? null : null;
   });
   const [avatarError, setAvatarError] = useState(false);
 
-  const isLiked = !!currentUserId && (likedByUserIds || []).includes(currentUserId);
-  const mrrLabel = monthlyRecurringRevenue ? formatCurrencyShort(monthlyRecurringRevenue) : null;
+  const isLiked =
+    !!currentUserId && (likedByUserIds || []).includes(currentUserId);
+  const mrrLabel = monthlyRecurringRevenue
+    ? formatCurrencyShort(monthlyRecurringRevenue)
+    : null;
   const usersLabel = userCount ? formatNumberShort(userCount) : null;
-  
-  // Fundraising labels
-  const fundraisingGoalLabel = fundraisingGoal ? formatCurrencyShort(fundraisingGoal) : null;
-  const fundraisingRaisedLabel = fundraisingRaisedSoFar ? formatCurrencyShort(fundraisingRaisedSoFar) : null;
+
+  // Fundraising
+  const fundraisingGoalLabel = fundraisingGoal
+    ? formatCurrencyShort(fundraisingGoal)
+    : null;
 
   const dateInfo = useMemo(() => {
     const createdMs = getMillis(createdAt);
     const updatedMs = getMillis(updatedAt);
-    return { 
-      createdMs, 
-      updatedMs, 
-      wasUpdated: !!(updatedMs && createdMs && updatedMs > createdMs) 
+    return {
+      createdMs,
+      updatedMs,
+      wasUpdated: !!(updatedMs && createdMs && updatedMs > createdMs),
     };
   }, [createdAt, updatedAt]);
 
@@ -115,34 +136,40 @@ export default function PublicFeaturedCard({
   // Fetch avatar with caching
   useEffect(() => {
     if (!founderId) return;
-    
+
     if (avatarCache.has(founderId)) {
       setAvatarUrl(avatarCache.get(founderId) ?? null);
       return;
     }
 
     let isMounted = true;
-    
+
     const loadAvatar = async () => {
       try {
         const snap = await getDoc(doc(getFirebaseDb(), "users", founderId));
         if (!isMounted) return;
-        
+
         if (snap.exists()) {
-          const url = snap.data().photoURL || snap.data().avatarUrl || null;
+          const data = snap.data() as {
+            photoURL?: string | null;
+            avatarUrl?: string | null;
+          };
+          const url = data.photoURL || data.avatarUrl || null;
           avatarCache.set(founderId, url);
           setAvatarUrl(url);
         } else {
           avatarCache.set(founderId, null);
         }
-      } catch (e) { 
-        console.error("Error loading avatar:", e); 
+      } catch (e) {
+        console.error("Error loading avatar:", e);
       }
     };
-    
+
     loadAvatar();
-    
-    return () => { isMounted = false; };
+
+    return () => {
+      isMounted = false;
+    };
   }, [founderId]);
 
   const handleLikeClick = (e: MouseEvent) => {
@@ -155,12 +182,11 @@ export default function PublicFeaturedCard({
     <Link href={`/ideas/${id}`} className="block">
       <div className="group relative w-full overflow-hidden rounded-2xl md:rounded-3xl border border-white/10 bg-neutral-900/40 backdrop-blur-2xl transition-all duration-500 hover:border-white/30 shadow-2xl cursor-pointer">
         <div className="flex flex-col md:flex-row md:min-h-[320px]">
-          
           {/* LEFT: IMAGE HERO */}
           <div className="relative w-full md:w-2/5 h-48 md:h-auto overflow-hidden border-b md:border-b-0 md:border-r border-white/10">
             {thumbnailUrl ? (
-              <Image 
-                src={thumbnailUrl} 
+              <Image
+                src={thumbnailUrl}
                 alt={title}
                 fill
                 priority
@@ -177,7 +203,7 @@ export default function PublicFeaturedCard({
             {/* Today's Pick Label */}
             <div className="absolute top-3 left-3 md:top-5 md:left-5 z-20">
               <span className="px-2 md:px-3 py-1 md:py-1.5 rounded-full bg-[var(--brand)] text-black text-[9px] md:text-[10px] font-black uppercase tracking-[0.15em] md:tracking-[0.2em]">
-                Today's Pick
+                Today&apos;s Pick
               </span>
             </div>
 
@@ -186,32 +212,38 @@ export default function PublicFeaturedCard({
               onClick={handleLikeClick}
               disabled={loadingLike}
               className={`absolute top-3 right-3 md:top-5 md:right-5 z-30 flex items-center gap-1.5 md:gap-2 px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl backdrop-blur-xl border transition-all duration-300 ${
-                isLiked 
-                  ? "bg-rose-500 text-white border-rose-400" 
+                isLiked
+                  ? "bg-rose-500 text-white border-rose-400"
                   : "bg-black/60 border-white/10 text-white hover:bg-black/80 hover:border-white/30"
               }`}
             >
               {loadingLike ? (
                 <div className="w-3 h-3 md:w-4 md:h-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
               ) : (
-                <HeartIcon className={`w-3 h-3 md:w-4 md:h-4 ${isLiked ? "fill-current" : ""}`} />
+                <HeartIcon
+                  className={`w-3 h-3 md:w-4 md:h-4 ${
+                    isLiked ? "fill-current" : ""
+                  }`}
+                />
               )}
-              <span className="text-xs md:text-sm font-black tabular-nums">{rawLikeCount || 0}</span>
+              <span className="text-xs md:text-sm font-black tabular-nums">
+                {rawLikeCount || 0}
+              </span>
             </button>
 
             {/* DATE BADGES */}
             <div className="absolute bottom-3 left-3 md:bottom-5 md:left-5 flex gap-2 md:gap-3">
-              <GlassBadge 
-                icon={Clock} 
-                label="Added" 
-                value={formatShortDate(dateInfo.createdMs) || "N/A"} 
+              <GlassBadge
+                icon={Clock}
+                label="Added"
+                value={formatShortDate(dateInfo.createdMs) || "N/A"}
               />
               {dateInfo.wasUpdated && (
-                <GlassBadge 
-                  icon={Clock} 
-                  label="Updated" 
-                  value={formatShortDate(dateInfo.updatedMs)} 
-                  variant="success" 
+                <GlassBadge
+                  icon={Clock}
+                  label="Updated"
+                  value={formatShortDate(dateInfo.updatedMs)}
+                  variant="success"
                 />
               )}
             </div>
@@ -226,8 +258,13 @@ export default function PublicFeaturedCard({
                   {targetAudience}
                 </span>
               )}
-              {/* Fundraising Badge */}
-              {isFundraising && <FundraisingBadge />}
+              {/* Fundraising Badge - MATCH WeeklyWinner style with Dollar icon */}
+              {isFundraising && fundraisingGoalLabel && (
+                <span className="inline-flex items-center gap-1 text-[9px] md:text-[10px] font-black text-emerald-400 uppercase tracking-widest px-2 md:px-3 py-0.5 md:py-1 rounded bg-emerald-500/10 border border-emerald-500/20">
+                  <DollariIcon className="w-3 h-3 md:w-3.5 md:h-3.5" />
+                  <span>Raising {fundraisingGoalLabel}</span>
+                </span>
+              )}
             </div>
 
             <div>
@@ -241,34 +278,42 @@ export default function PublicFeaturedCard({
 
             <div className="flex flex-col gap-4 md:gap-0 md:flex-row md:items-center md:justify-between mt-5 md:mt-10 pt-4 md:pt-8 border-t border-white/10">
               <div className="flex items-center gap-4 md:gap-10 flex-wrap">
-                {mrrLabel && <MetricItem icon={TrendingUp} val={mrrLabel} label="Monthly Revenue" color="text-emerald-500" />}
-                {usersLabel && <MetricItem icon={Users} val={usersLabel} label="Active Users" color="text-blue-500" />}
-                
-                {/* Fundraising Goal Metric */}
-                {isFundraising && fundraisingGoalLabel && (
-                  <MetricItem 
-                    icon={Target} 
-                    val={fundraisingGoalLabel} 
-                    label={fundraisingRaisedLabel ? `Raised ${fundraisingRaisedLabel}` : "Raising"} 
-                    color="text-amber-500" 
+                {mrrLabel && (
+                  <MetricItem
+                    icon={TrendingUp}
+                    val={mrrLabel}
+                    label="Monthly Revenue"
+                    color="text-emerald-500"
+                  />
+                )}
+                {usersLabel && (
+                  <MetricItem
+                    icon={Users}
+                    val={usersLabel}
+                    label="Active Users"
+                    color="text-blue-500"
                   />
                 )}
               </div>
 
               <div className="flex items-center gap-2.5 md:gap-4 md:pl-8 md:border-l border-white/10">
                 <div className="flex flex-col items-start md:items-end">
-                  <span className="text-[9px] md:text-[10px] font-black text-neutral-600 uppercase tracking-widest mb-0.5 md:mb-1">Built By</span>
-                  <span className="text-xs md:text-sm font-black text-white">@{founderUsername}</span>
+                  <span className="text-[9px] md:text-[10px] font-black text-neutral-600 uppercase tracking-widest mb-0.5 md:mb-1">
+                    Built By
+                  </span>
+                  <span className="text-xs md:text-sm font-black text-white">
+                    @{founderUsername}
+                  </span>
                 </div>
                 <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl bg-neutral-800 ring-2 ring-white/10 overflow-hidden flex-shrink-0 relative">
                   {avatarUrl && !avatarError ? (
-                    <Image 
-                      src={avatarUrl} 
+                    <Image
+                      src={avatarUrl}
                       alt={`${founderUsername}'s avatar`}
                       fill
                       sizes="48px"
-                      className="object-cover" 
-                      onError={() => setAvatarError(true)} 
+                      className="object-cover"
+                      onError={() => setAvatarError(true)}
                     />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center text-base md:text-lg font-black text-neutral-600 bg-neutral-800 uppercase">

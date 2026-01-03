@@ -1,7 +1,7 @@
 // components/IdeasPageClient.tsx
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 // Components
@@ -17,7 +17,7 @@ import { IdeaWithLikes, toggleLikeIdea } from "@/lib/ideas";
 import { sortIdeas } from "@/lib/sorting";
 
 // ============================================================================
-// Loading Skeleton Component
+// Loading Skeleton Component (kept for potential external use)
 // ============================================================================
 
 function IdeasLoadingSkeleton() {
@@ -114,9 +114,7 @@ function RefreshBanner({ onRefresh }: { onRefresh: () => void }) {
     <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-slide-down">
       <div className="bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl px-4 py-3 flex items-center gap-3">
         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-        <p className="text-sm text-neutral-300">
-          New ideas available
-        </p>
+        <p className="text-sm text-neutral-300">New ideas available</p>
         <button
           onClick={onRefresh}
           className="px-3 py-1 bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white text-sm font-medium rounded transition-colors"
@@ -132,18 +130,39 @@ function RefreshBanner({ onRefresh }: { onRefresh: () => void }) {
 // Error Banner Component
 // ============================================================================
 
-function ErrorBanner({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+function ErrorBanner({
+  message,
+  onDismiss,
+}: {
+  message: string;
+  onDismiss: () => void;
+}) {
   return (
     <div className="mb-4 p-4 bg-red-900/20 border border-red-800 rounded-lg flex items-start justify-between">
       <div className="flex items-start gap-3">
-        <svg className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+        <svg
+          className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0"
+          fill="currentColor"
+          viewBox="0 0 20 20"
+        >
+          <path
+            fillRule="evenodd"
+            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+            clipRule="evenodd"
+          />
         </svg>
         <p className="text-sm text-red-200">{message}</p>
       </div>
-      <button onClick={onDismiss} className="text-red-400 hover:text-red-300 transition-colors">
+      <button
+        onClick={onDismiss}
+        className="text-red-400 hover:text-red-300 transition-colors"
+      >
         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+          <path
+            fillRule="evenodd"
+            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+            clipRule="evenodd"
+          />
         </svg>
       </button>
     </div>
@@ -175,133 +194,104 @@ export default function IdeasPageClient({
   const [featuredId, setFeaturedId] = useState<string | null>(initialFeaturedId);
   const [loadingLikeId, setLoadingLikeId] = useState<string | null>(null);
   const [showSignInModal, setShowSignInModal] = useState(false);
-  const [clickedButtonRef, setClickedButtonRef] = useState<HTMLElement | null>(null);
   const [error, setError] = useState<string | null>(initialError || null);
-  
+
   // Refresh state
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showRefreshBanner, setShowRefreshBanner] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState(serverGeneratedAt);
-  
-  // Refs
-  const refreshTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
-  const visibilityCheckRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState<"smart" | "newest" | "mostLiked" | "recentlyUpdated">("smart");
+  const [sortBy, setSortBy] = useState<
+    "smart" | "newest" | "mostLiked" | "recentlyUpdated"
+  >("smart");
   const [minLikes, setMinLikes] = useState(0);
 
   // ============================================================================
-  // Refresh Handler
+  // Refresh Handler (manual, via banner)
   // ============================================================================
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     setShowRefreshBanner(false);
-    
+
     try {
-      // Force router to refetch server component
       router.refresh();
-      
-      // Small delay for UX
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Small delay to make the “refresh” feel responsive
+      await new Promise((resolve) => setTimeout(resolve, 300));
     } catch (err) {
-      console.error('Failed to refresh:', err);
-      setError('Failed to refresh ideas. Please try again.');
+      console.error("Failed to refresh:", err);
+      setError("Failed to refresh ideas. Please try again.");
     } finally {
       setIsRefreshing(false);
     }
   }, [router]);
 
   // ============================================================================
-  // Auto-refresh on Page Visibility
-  // ============================================================================
-
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        console.log('👀 [Client] Tab became visible, refreshing...');
-        
-        // Debounce to avoid multiple rapid refreshes
-        if (visibilityCheckRef.current) {
-          clearTimeout(visibilityCheckRef.current);
-        }
-        
-        visibilityCheckRef.current = setTimeout(() => {
-          handleRefresh();
-        }, 300);
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      if (visibilityCheckRef.current) {
-        clearTimeout(visibilityCheckRef.current);
-      }
-    };
-  }, [handleRefresh]);
-
-  // ============================================================================
   // Update State When Server Data Changes
   // ============================================================================
 
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout | null = null;
+
     // Only update if server generated new data
     if (serverGeneratedAt !== lastGeneratedAt) {
-      console.log('🔄 [Client] Server data changed, updating state');
+      console.log("🔄 [Client] Server data changed, updating state");
       setIdeas(initialIdeas);
       setFeaturedId(initialFeaturedId);
       setLastGeneratedAt(serverGeneratedAt);
-      
-      // Show banner if user is active and data updated
-      if (!document.hidden && ideas.length > 0 && initialIdeas.length !== ideas.length) {
+
+      // Show banner if:
+      // - user is on the page
+      // - there were already ideas rendered
+      // - the number of ideas changed
+      // - we didn't just trigger a manual refresh
+      if (
+        !document.hidden &&
+        ideas.length > 0 &&
+        initialIdeas.length !== ideas.length &&
+        !isRefreshing
+      ) {
         setShowRefreshBanner(true);
-        
+
         // Auto-hide banner after 10 seconds
-        if (refreshTimeoutRef.current) {
-          clearTimeout(refreshTimeoutRef.current);
-        }
-        refreshTimeoutRef.current = setTimeout(() => {
+        timeoutId = setTimeout(() => {
           setShowRefreshBanner(false);
         }, 10000);
       }
     }
-    
+
     return () => {
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-      }
+      if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [initialIdeas, initialFeaturedId, serverGeneratedAt, lastGeneratedAt, ideas.length]);
+  }, [
+    initialIdeas,
+    initialFeaturedId,
+    serverGeneratedAt,
+    lastGeneratedAt,
+    ideas.length,
+    isRefreshing,
+  ]);
 
-  // ============================================================================
-  // Optional: Periodic Polling for Real-time Updates
-  // ============================================================================
-
-  useEffect(() => {
-    // Poll every 30 seconds if tab is visible
-    const pollInterval = setInterval(() => {
-      if (!document.hidden) {
-        console.log('⏰ [Client] Periodic refresh check');
-        router.refresh();
-      }
-    }, 30000); // 30 seconds
-
-    return () => clearInterval(pollInterval);
-  }, [router]);
+  // NOTE:
+  // Previously there were:
+  // - auto-refresh on page visibility
+  // - a 30s polling refresh
+  //
+  // Both called router.refresh(), which can cause scroll jumps.
+  // They’ve been removed for stability. If you ever want them back,
+  // it’s better to only use them to SHOW the banner rather than
+  // calling router.refresh() directly.
 
   // ============================================================================
   // Like Toggle Handler
   // ============================================================================
 
   const handleToggleLike = useCallback(
-    async (ideaId: string, event?: React.MouseEvent) => {
+    async (ideaId: string) => {
       if (!user) {
-        if (event) setClickedButtonRef(event.currentTarget as HTMLElement);
         setShowSignInModal(true);
         return;
       }
@@ -334,7 +324,7 @@ export default function IdeasPageClient({
       } catch (err) {
         console.error("Failed to toggle like:", err);
         setError("Failed to update like. Please try again.");
-        
+
         // Revert optimistic update on error
         router.refresh();
       } finally {
@@ -421,14 +411,6 @@ export default function IdeasPageClient({
   const hasIdeas = ideas.length > 0;
 
   // ============================================================================
-  // Loading State
-  // ============================================================================
-
-  if (isRefreshing) {
-    return <IdeasLoadingSkeleton />;
-  }
-
-  // ============================================================================
   // Empty State
   // ============================================================================
 
@@ -458,8 +440,10 @@ export default function IdeasPageClient({
       />
 
       {showRefreshBanner && <RefreshBanner onRefresh={handleRefresh} />}
-      
-      {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
+
+      {error && (
+        <ErrorBanner message={error} onDismiss={() => setError(null)} />
+      )}
 
       <HeroSearchSection
         searchQuery={searchQuery}
@@ -550,7 +534,9 @@ export default function IdeasPageClient({
                       key={idea.id}
                       idea={idea}
                       currentUserId={currentUserId}
-                      onToggleLike={() => { void handleToggleLike(idea.id); }}
+                      onToggleLike={() => {
+                        void handleToggleLike(idea.id);
+                      }}
                       loadingLike={loadingLikeId === idea.id}
                     />
                   ))}
