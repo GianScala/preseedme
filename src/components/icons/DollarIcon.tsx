@@ -2,7 +2,7 @@ import * as React from "react";
 
 type Props = React.SVGProps<SVGSVGElement>;
 
-export default function DollariIcon(props: Props) {
+export default function DollarIcon(props: Props) {
   return (
     <svg
       viewBox="0 0 24 24"

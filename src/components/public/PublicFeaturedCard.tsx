@@ -9,7 +9,7 @@ import type { IdeaWithLikes } from "@/lib/ideas";
 import HeartIcon from "@/components/icons/HeartIcon";
 import { getFirebaseDb } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
-import DollariIcon from "@/components/icons/DollarIcon";
+import DollarIcon from "@/components/icons/DollarIcon";
 
 /* ---------------- Date Helpers ---------------- */
 const getMillis = (timestamp: any): number | null => {
@@ -260,8 +260,8 @@ export default function PublicFeaturedCard({
               )}
               {/* Fundraising Badge - MATCH WeeklyWinner style with Dollar icon */}
               {isFundraising && fundraisingGoalLabel && (
-                <span className="inline-flex items-center gap-1 text-[9px] md:text-[10px] font-black text-emerald-400 uppercase tracking-widest px-2 md:px-3 py-0.5 md:py-1 rounded bg-emerald-500/10 border border-emerald-500/20">
-                  <DollariIcon className="w-3 h-3 md:w-3.5 md:h-3.5" />
+                <span className="inline-flex items-center gap-1 text-[9px] md:text-[10px] font-black text-orange-300 uppercase tracking-widest px-2 md:px-3 py-0.5 md:py-1 rounded bg-orange-500/10 border border-orange-500/20">
+                  <DollarIcon className="w-3 h-3 md:w-3.5 md:h-3.5" />
                   <span>Raising {fundraisingGoalLabel}</span>
                 </span>
               )}

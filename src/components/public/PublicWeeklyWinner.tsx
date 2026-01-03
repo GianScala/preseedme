@@ -3,6 +3,7 @@
 import {
   useEffect,
   useState,
+  useMemo,
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import Link from "next/link";
@@ -11,8 +12,8 @@ import { formatCurrencyShort, formatNumberShort } from "@/lib/formatters";
 import HeartIcon from "@/components/icons/HeartIcon";
 import { getFirebaseDb } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
-import { TrendingUp, Users, type LucideIcon } from "lucide-react";
-import DollariIcon from "../icons/DollarIcon";
+import { Clock, TrendingUp, Users, type LucideIcon } from "lucide-react";
+import DollarIcon from "../icons/DollarIcon";
 
 /* ---------------- Types ---------------- */
 
@@ -32,6 +33,8 @@ type Idea = {
   userCount?: number | null;
   likeCount?: number | null;
   likedByUserIds?: string[];
+  createdAt?: string | Date | number | { toMillis: () => number } | null;
+  updatedAt?: string | Date | number | { toMillis: () => number } | null;
 };
 
 interface PublicWeeklyWinnerProps {
@@ -53,6 +56,23 @@ interface MetricProps {
 
 const avatarCache = new Map<string, string | null>();
 
+/* ---------------- Date Helpers ---------------- */
+
+const getMillis = (timestamp: any): number | null => {
+  if (!timestamp) return null;
+  if (typeof timestamp === "number") return timestamp;
+  if (timestamp instanceof Date) return timestamp.getTime();
+  if (typeof timestamp.toMillis === "function") return timestamp.toMillis();
+  if (typeof timestamp === "string") return new Date(timestamp).getTime();
+  return null;
+};
+
+const formatShortDate = (ms: number | null): string | null => {
+  if (!ms) return null;
+  const date = new Date(ms);
+  return `${date.getMonth() + 1}/${date.getDate()}`;
+};
+
 /* ---------------- Professional Rank Styling ---------------- */
 
 const getRankStyles = (rank: number): string => {
@@ -64,6 +84,29 @@ const getRankStyles = (rank: number): string => {
 
   return styles[rank] || "bg-neutral-800 text-neutral-400 ring-white/5";
 };
+
+/* ---------------- Glass Badge for Dates ---------------- */
+
+function GlassBadge({ 
+  icon: Icon, 
+  value, 
+  variant = "neutral" 
+}: { 
+  icon: LucideIcon; 
+  value: string; 
+  variant?: "neutral" | "success";
+}) {
+  return (
+    <div className={`flex items-center gap-1.5 px-2 h-6 rounded-md backdrop-blur-md border text-[10px] font-bold ${
+      variant === "success" 
+        ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400" 
+        : "bg-black/40 border-white/10 text-neutral-400"
+    }`}>
+      <Icon className="w-3 h-3" />
+      <span className="tabular-nums">{value}</span>
+    </div>
+  );
+}
 
 /* ---------------- Component ---------------- */
 
@@ -93,6 +136,14 @@ export default function PublicWeeklyWinner({
   const fundraisingGoalLabel = idea.fundraisingGoal
     ? formatCurrencyShort(idea.fundraisingGoal)
     : null;
+
+  // Calculate date info
+  const dateInfo = useMemo(() => {
+    const createdMs = getMillis(idea.createdAt);
+    const updatedMs = getMillis(idea.updatedAt);
+    const wasUpdated = updatedMs && createdMs && updatedMs > createdMs + 60000; // 1 min threshold
+    return { createdMs, updatedMs, wasUpdated };
+  }, [idea.createdAt, idea.updatedAt]);
 
   /* ---- Sync avatar state on idea changes ---- */
   useEffect(() => {
@@ -157,7 +208,7 @@ export default function PublicWeeklyWinner({
   return (
     <div className="group relative overflow-hidden rounded-2xl border border-white/5 bg-neutral-900/40 backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:bg-neutral-900/80 shadow-2xl">
       <div className="flex flex-col md:flex-row min-h-[160px]">
-        {/* LEFT: IMAGE SECTION (Overlayed with Rank & Like) */}
+        {/* LEFT: IMAGE SECTION (Overlayed with Rank, Like & Dates) */}
         <div className="relative w-full md:w-52 h-40 md:h-auto flex-shrink-0 overflow-hidden border-b md:border-b-0 md:border-r border-white/5">
           {idea.thumbnailUrl ? (
             <Image
@@ -207,6 +258,16 @@ export default function PublicWeeklyWinner({
               {idea.likeCount ?? 0}
             </span>
           </button>
+
+          {/* Date Badges - Bottom Left */}
+          <div className="absolute bottom-3 left-3 z-20 flex gap-2">
+            {dateInfo.createdMs && (
+              <GlassBadge icon={Clock} value={formatShortDate(dateInfo.createdMs) || "N/A"} />
+            )}
+            {dateInfo.wasUpdated && dateInfo.updatedMs && (
+              <GlassBadge icon={Clock} value={formatShortDate(dateInfo.updatedMs)!} variant="success" />
+            )}
+          </div>
         </div>
 
         {/* CENTER: Pitch & Tags */}
@@ -226,8 +287,8 @@ export default function PublicWeeklyWinner({
 
             {/* Fundraising Badge - with custom InvestorIcon */}
             {idea.isFundraising && fundraisingGoalLabel && (
-              <span className="inline-flex items-center gap-1 text-[9px] font-black text-emerald-400 uppercase tracking-widest px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
-                <DollariIcon className="w-3 h-3" />
+              <span className="inline-flex items-center gap-1 text-[9px] font-black text-orange-300 uppercase tracking-widest px-2 py-0.5 rounded bg-orange-500/10 border border-orange-500/20">
+                <DollarIcon className="w-3 h-3" />
                 <span>Raising {fundraisingGoalLabel}</span>
               </span>
             )}
