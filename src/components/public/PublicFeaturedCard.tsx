@@ -24,14 +24,8 @@ const formatShortDate = (ms: number | null) => {
   return `${date.getMonth() + 1}/${date.getDate()}`;
 };
 
-/* ---------------- Cache Busting Helper ---------------- */
-const addCacheBuster = (url: string | null | undefined): string | null => {
-  if (!url) return null;
-  const separator = url.includes('?') ? '&' : '?';
-  // Use current hour for cache busting (updates every hour)
-  const cacheBuster = Math.floor(Date.now() / (1000 * 60 * 60));
-  return `${url}${separator}cb=${cacheBuster}`;
-};
+/* ---------------- Avatar Cache ---------------- */
+const avatarCache = new Map<string, string | null>();
 
 /* ---------------- Micro Components ---------------- */
 
@@ -77,10 +71,11 @@ export default function PublicFeaturedCard({
     sector, targetAudience, founderId, createdAt, updatedAt,
   } = idea;
 
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(() => {
+    // Initialize from cache if available
+    return founderId ? avatarCache.get(founderId) ?? null : null;
+  });
   const [avatarError, setAvatarError] = useState(false);
-  // ✅ Add key to force re-render when idea changes
-  const [imageKey, setImageKey] = useState(0);
 
   const isLiked = !!currentUserId && (likedByUserIds || []).includes(currentUserId);
   const mrrLabel = monthlyRecurringRevenue ? formatCurrencyShort(monthlyRecurringRevenue) : null;
@@ -96,21 +91,49 @@ export default function PublicFeaturedCard({
     };
   }, [createdAt, updatedAt]);
 
-  // ✅ Reset image key when idea ID changes
+  // Reset avatar error when idea changes
   useEffect(() => {
-    setImageKey(prev => prev + 1);
     setAvatarError(false);
-  }, [id]);
+    // Check cache first for new founder
+    if (founderId && avatarCache.has(founderId)) {
+      setAvatarUrl(avatarCache.get(founderId) ?? null);
+    } else {
+      setAvatarUrl(null);
+    }
+  }, [id, founderId]);
 
+  // Fetch avatar with caching
   useEffect(() => {
     if (!founderId) return;
+    
+    // Already have cached value
+    if (avatarCache.has(founderId)) {
+      setAvatarUrl(avatarCache.get(founderId) ?? null);
+      return;
+    }
+
+    let isMounted = true;
+    
     const loadAvatar = async () => {
       try {
         const snap = await getDoc(doc(getFirebaseDb(), "users", founderId));
-        if (snap.exists()) setAvatarUrl(snap.data().photoURL || snap.data().avatarUrl || null);
-      } catch (e) { console.error(e); }
+        if (!isMounted) return;
+        
+        if (snap.exists()) {
+          const url = snap.data().photoURL || snap.data().avatarUrl || null;
+          avatarCache.set(founderId, url);
+          setAvatarUrl(url);
+        } else {
+          avatarCache.set(founderId, null);
+        }
+      } catch (e) { 
+        console.error("Error loading avatar:", e); 
+      }
     };
+    
     loadAvatar();
+    
+    return () => { isMounted = false; };
   }, [founderId]);
 
   const handleLikeClick = (e: MouseEvent) => {
@@ -119,17 +142,6 @@ export default function PublicFeaturedCard({
     onToggleLike();
   };
 
-  // ✅ Add cache-busting to thumbnail URL
-  const thumbnailUrlWithCacheBuster = useMemo(() => 
-    addCacheBuster(thumbnailUrl), 
-    [thumbnailUrl]
-  );
-
-  const avatarUrlWithCacheBuster = useMemo(() => 
-    addCacheBuster(avatarUrl), 
-    [avatarUrl]
-  );
-
   return (
     <Link href={`/ideas/${id}`} className="block">
       <div className="group relative w-full overflow-hidden rounded-2xl md:rounded-3xl border border-white/10 bg-neutral-900/40 backdrop-blur-2xl transition-all duration-500 hover:border-white/30 shadow-2xl cursor-pointer">
@@ -137,27 +149,26 @@ export default function PublicFeaturedCard({
           
           {/* LEFT: IMAGE HERO */}
           <div className="relative w-full md:w-2/5 h-48 md:h-auto overflow-hidden border-b md:border-b-0 md:border-r border-white/10">
-            {thumbnailUrlWithCacheBuster ? (
+            {thumbnailUrl ? (
               <Image 
-                key={`thumbnail-${imageKey}`} // ✅ Force re-mount when changed
-                src={thumbnailUrlWithCacheBuster} 
+                src={thumbnailUrl} 
                 alt={title}
                 fill
                 priority
-                quality={80}
-                unoptimized={false} // Keep optimization but with cache busting
                 sizes="(max-width: 768px) 100vw, 40vw"
                 className="object-cover opacity-60 transition-transform duration-1000 group-hover:scale-110"
               />
             ) : (
-              <div className="absolute inset-0 bg-neutral-800 flex items-center justify-center text-4xl md:text-6xl font-black text-neutral-700">{title[0]}</div>
+              <div className="absolute inset-0 bg-neutral-800 flex items-center justify-center text-4xl md:text-6xl font-black text-neutral-700">
+                {title?.[0] || "?"}
+              </div>
             )}
             <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/90 via-black/20 to-transparent" />
 
             {/* Today's Pick Label */}
             <div className="absolute top-3 left-3 md:top-5 md:left-5 z-20">
               <span className="px-2 md:px-3 py-1 md:py-1.5 rounded-full bg-[var(--brand)] text-black text-[9px] md:text-[10px] font-black uppercase tracking-[0.15em] md:tracking-[0.2em]">
-                Daily Pick
+                Today's Pick
               </span>
             </div>
 
@@ -201,7 +212,11 @@ export default function PublicFeaturedCard({
           <div className="flex-1 flex flex-col p-4 sm:p-6 md:p-8 lg:p-10 justify-center">
             <div className="flex flex-wrap gap-2 md:gap-3 mb-3 md:mb-6">
               {sector && <TagPill text={sector} />}
-              {targetAudience && <span className="text-[9px] md:text-[10px] font-black text-neutral-600 uppercase tracking-widest px-2 md:px-3 py-0.5 md:py-1 border border-white/5 rounded">{targetAudience}</span>}
+              {targetAudience && (
+                <span className="text-[9px] md:text-[10px] font-black text-neutral-600 uppercase tracking-widest px-2 md:px-3 py-0.5 md:py-1 border border-white/5 rounded">
+                  {targetAudience}
+                </span>
+              )}
             </div>
 
             <div>
@@ -225,20 +240,18 @@ export default function PublicFeaturedCard({
                   <span className="text-xs md:text-sm font-black text-white">@{founderUsername}</span>
                 </div>
                 <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl bg-neutral-800 ring-2 ring-white/10 overflow-hidden flex-shrink-0 relative">
-                  {avatarUrlWithCacheBuster && !avatarError ? (
+                  {avatarUrl && !avatarError ? (
                     <Image 
-                      key={`avatar-${imageKey}`} // ✅ Force re-mount when changed
-                      src={avatarUrlWithCacheBuster} 
-                      alt="founder" 
+                      src={avatarUrl} 
+                      alt={`${founderUsername}'s avatar`}
                       fill
-                      quality={75}
                       sizes="48px"
                       className="object-cover" 
                       onError={() => setAvatarError(true)} 
                     />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center text-base md:text-lg font-black text-neutral-600 bg-neutral-800 uppercase">
-                      {founderUsername?.[0]}
+                      {founderUsername?.[0] || "?"}
                     </div>
                   )}
                 </div>

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import PublicFeaturedCard from "@/components/public/PublicFeaturedCard";
 import PublicWeeklyWinner from "@/components/public/PublicWeeklyWinner";
 import type { IdeaWithLikes } from "@/lib/ideas";
 import type { WeeklyWinner } from "@/lib/weeklyWinners";
 
 /* -------------------------------------------------------------------------- */
-/* FEATURED IDEA SECTION                           */
+/* FEATURED IDEA SECTION                                                      */
 /* -------------------------------------------------------------------------- */
 
 type FeaturedIdeaSectionProps = {
@@ -25,6 +25,12 @@ export function FeaturedIdeaSection({
   onToggleLike,
   loadingLikeId,
 }: FeaturedIdeaSectionProps) {
+  const handleToggleLike = useCallback(() => {
+    if (featuredIdea) {
+      onToggleLike(featuredIdea.id);
+    }
+  }, [featuredIdea, onToggleLike]);
+
   return (
     <section className="mb-16 animate-fade-in">
       <div className="flex items-center gap-3 mb-8">
@@ -46,7 +52,7 @@ export function FeaturedIdeaSection({
         <PublicFeaturedCard
           idea={featuredIdea}
           currentUserId={currentUserId}
-          onToggleLike={() => onToggleLike(featuredIdea.id)}
+          onToggleLike={handleToggleLike}
           loadingLike={loadingLikeId === featuredIdea.id}
         />
       )}
@@ -55,7 +61,7 @@ export function FeaturedIdeaSection({
 }
 
 /* -------------------------------------------------------------------------- */
-/* WEEKLY WINNERS SECTION                           */
+/* WEEKLY WINNERS SECTION                                                     */
 /* -------------------------------------------------------------------------- */
 
 type WeeklyWinnersSectionProps = {
@@ -73,14 +79,16 @@ export function WeeklyWinnersSection({
 }: WeeklyWinnersSectionProps) {
   const [winners, setWinners] = useState<WeeklyWinner[]>(initialWinners);
 
-  const handleToggleLike = (ideaId: string) => {
+  const handleToggleLike = useCallback((ideaId: string) => {
     if (currentUserId) {
       setWinners((prev) =>
         prev.map((winner) => {
           if (winner.idea.id !== ideaId) return winner;
+          
           const idea = winner.idea;
           const likedBy = idea.likedByUserIds ?? [];
           const alreadyLiked = likedBy.includes(currentUserId);
+          
           return {
             ...winner,
             idea: {
@@ -89,7 +97,7 @@ export function WeeklyWinnersSection({
                 ? likedBy.filter((id) => id !== currentUserId)
                 : [...likedBy, currentUserId],
               likeCount: alreadyLiked
-                ? (idea.likeCount ?? 0) - 1
+                ? Math.max((idea.likeCount ?? 0) - 1, 0)
                 : (idea.likeCount ?? 0) + 1,
             },
           };
@@ -97,7 +105,7 @@ export function WeeklyWinnersSection({
       );
     }
     onToggleLike(ideaId);
-  };
+  }, [currentUserId, onToggleLike]);
 
   const hasWinners = winners.length > 0;
   const topFour = winners.slice(0, 4);
