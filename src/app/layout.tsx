@@ -1,3 +1,4 @@
+// src/app/layout.tsx
 import "./globals.css";
 import type { Metadata } from "next";
 import { Titillium_Web } from "next/font/google";
@@ -19,33 +20,50 @@ const titillium = Titillium_Web({
 
 export const metadata: Metadata = {
   title: {
-    default: "PreseedMe | Connect with founders and micro-investors",
+    default: "PreseedMe | Find your next micro-investors",
     template: "%s | PreseedME",
   },
-  description: "Connect with founders and micro-investors.",
+  description: "Find your next micro-investors",
+  themeColor: "#000000",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={titillium.variable}>
+    <html
+      lang="en"
+      className={titillium.variable}
+      style={{
+        backgroundColor: "#000", // ✅ instant black (prevents white flash)
+        colorScheme: "dark",
+      }}
+    >
+      <head>
+        {/* ✅ extra safety: forces first paint to black even before globals.css loads */}
+        <style>{`
+          html { background: #000 !important; }
+          body { background: transparent !important; }
+        `}</style>
+      </head>
+
       <body className="min-h-screen flex flex-col antialiased relative selection:bg-[var(--brand)]/30 selection:text-[var(--brand-light)]">
         <AuthProvider>
           <Suspense fallback={null}>
             <ScrollToTop />
           </Suspense>
+
           <InteractiveBackground />
-          
-          {/* Navbar with Suspense boundary */}
+
           <Suspense fallback={<NavbarSkeleton />}>
             <Navbar />
           </Suspense>
-          
+
           <main className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 pt-24 pb-4">
             {children}
           </main>
-          
+
           <Footer />
         </AuthProvider>
+
         <Analytics />
       </body>
     </html>

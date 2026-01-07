@@ -221,18 +221,27 @@ export default function AboutPage() {
           builders and backers.
         </p>
 
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2 px-4">
+        <div className="flex flex-col items-center justify-center gap-3 px-4 pt-2 sm:flex-row">
+          {/* Primary Glass Button: Discover Projects */}
           <Link
             href="/ideas"
-            className="w-full sm:w-auto px-6 py-3 rounded-xl bg-[var(--brand)] text-black text-sm sm:text-base font-bold hover:opacity-90 active:scale-95 transition-all shadow-[0_0_15px_rgba(33,221,192,0.3)]"
+            className="group relative inline-flex w-full items-center justify-center overflow-hidden rounded-xl border border-brand/30 bg-brand/10 px-6 py-3 text-sm font-bold text-brand backdrop-blur-md transition-all duration-300 hover:bg-brand/20 hover:shadow-[0_0_20px_rgba(var(--brand-rgb),0.2)] active:scale-95 sm:w-auto sm:text-base"
           >
-            Discover Projects
+            {/* Subtle Inner Glow Overlay */}
+            <span className="absolute inset-0 bg-gradient-to-tr from-white/10 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+            
+            <span className="relative">Discover Projects</span>
           </Link>
+
+          {/* Secondary Glass Button: Start Now */}
           <Link
             href="/ideas/new"
-            className="w-full sm:w-auto px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm sm:text-base font-bold hover:bg-white/10 active:scale-95 transition-all"
+            className="group relative inline-flex w-full items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/5 px-6 py-3 text-sm font-bold text-white backdrop-blur-sm transition-all duration-300 hover:bg-white/10 hover:border-white/20 active:scale-95 sm:w-auto sm:text-base"
           >
-            Start Now
+            {/* Subtle Shine for the secondary button */}
+            <span className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+            
+            <span className="relative">Start Now</span>
           </Link>
         </div>
       </section>

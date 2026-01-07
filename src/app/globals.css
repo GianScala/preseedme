@@ -8,13 +8,12 @@
   --foreground: #e5e5e5;
 
   /* Brand Colors - Your "preseedme" Identity */
-  /* Main Teal/Green */
-  --brand: #21ddc0;        /* Colore principale brillante */
-  --brand-light: #7fffd4;  /* Versione chiara per accenti/glow */
-  --brand-dark: #126356;   /* Versione scura per profondità */
-  
-  /* Secondary Accent (Purple/Blue) - Per contrasto nel gradiente */
-  --accent-blob: #4c1d95;  
+  --brand: #21ddc0;
+  --brand-light: #7fffd4;
+  --brand-dark: #126356;
+
+  /* Secondary Accent */
+  --accent-blob: #4c1d95;
 }
 
 /* Tailwind v4 Configuration */
@@ -25,7 +24,7 @@
   --color-brand: var(--brand);
   --color-brand-light: var(--brand-light);
   --color-brand-dark: var(--brand-dark);
-  
+
   --font-sans: var(--font-titillium), sans-serif;
 }
 
@@ -33,18 +32,23 @@
    GLOBAL RESET & STRUCTURE
    ============================================ */
 
-/* HTML Black Background (Previene le barre bianche su scroll elastico) */
-html {
+/* Make FIRST PAINT black (avoid white flash) */
+html,
+body {
   background-color: var(--background);
+  color: var(--foreground);
+  min-height: 100%;
+}
+
+/* Keep your existing html options */
+html {
   height: 100%;
   overscroll-behavior-y: contain;
   touch-action: pan-y;
 }
 
-/* Body Transparent (Per mostrare l'InteractiveBackground sottostante) */
+/* Body should NOT be transparent if you want no white flash */
 body {
-  background-color: transparent; 
-  color: var(--foreground);
   font-family: var(--font-sans);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
@@ -57,11 +61,9 @@ body {
    UTILITIES & EFFECTS
    ============================================ */
 
-/* Brand Utilities */
 .text-brand { color: var(--brand); }
 .bg-brand { background-color: var(--brand); }
 
-/* Scrollbar Hide */
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -74,7 +76,6 @@ body {
    ANIMATIONS
    ============================================ */
 
-/* Blob Breathing Animation */
 @keyframes blob {
   0% { transform: translate(0px, 0px) scale(1); }
   33% { transform: translate(30px, -50px) scale(1.1); }
@@ -83,10 +84,9 @@ body {
 }
 
 .animate-blob {
-  animation: blob 20s infinite; /* Rallentato per renderlo più "premium" */
+  animation: blob 20s infinite;
 }
 
-/* Optional: Slight fade-in for page loads */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }

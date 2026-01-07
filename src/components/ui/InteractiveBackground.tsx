@@ -107,12 +107,6 @@ export default function InteractiveBackground() {
         />
       </div>
 
-      {/* 3. The Smart Christmas Grid 
-          - Placed BEHIND the mouse blob so the mouse illuminates it
-          - The icons are gray/dim by default due to opacity in Grid component
-      */}
-      <GridDesign />
-
       {/* 4. Interactive Mouse Blob */}
       <div 
         ref={interactiveRef} 
