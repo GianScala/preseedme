@@ -82,9 +82,7 @@ export default function HomePageClient({ initialIdeas }: HomePageClientProps) {
       {/* BEFORE Latest Ideas */}
       <HeroSection />
       <ProcessSteps />
-      <AudienceSection />
 
-      {/* Latest Ideas - Original Section */}
       <LatestIdeas
         ideas={sortedIdeas}
         totalCount={ideas.length}
@@ -92,6 +90,9 @@ export default function HomePageClient({ initialIdeas }: HomePageClientProps) {
         onToggleLike={handleToggleLike}
         loadingLikeId={loadingLikeId}
       />
+      
+      <AudienceSection />
+
 
       <FAQSection />
     </>

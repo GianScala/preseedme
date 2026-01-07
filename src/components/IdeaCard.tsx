@@ -38,30 +38,72 @@ interface IdeaCardProps {
 const avatarCache = new Map<string, string | null>();
 
 // Reusable sub-components
-const Avatar = ({ src, fallback, size = 28 }: { src?: string | null; fallback: string; size?: number }) => (
-  <div className="rounded-full bg-neutral-800 border border-white/10 overflow-hidden relative shrink-0" style={{ width: size, height: size }}>
+const Avatar = ({
+  src,
+  fallback,
+  size = 28,
+}: {
+  src?: string | null;
+  fallback: string;
+  size?: number;
+}) => (
+  <div
+    className="rounded-full bg-neutral-800 border border-white/10 overflow-hidden relative shrink-0"
+    style={{ width: size, height: size }}
+  >
     {src ? (
       <Image src={src} alt="" fill className="object-cover" sizes={`${size}px`} />
     ) : (
-      <span className="absolute inset-0 flex items-center justify-center text-neutral-600 font-bold" style={{ fontSize: size * 0.4 }}>
+      <span
+        className="absolute inset-0 flex items-center justify-center text-neutral-600 font-bold"
+        style={{ fontSize: size * 0.4 }}
+      >
         {fallback}
       </span>
     )}
   </div>
 );
 
-const Badge = ({ color, children }: { color: "orange" | "emerald"; children: React.ReactNode }) => {
-  const styles = color === "orange"
-    ? "text-orange-400 bg-orange-500/10 border-orange-500/20"
-    : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
-  return <div className={`flex items-center gap-1 text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border ${styles}`}>{children}</div>;
+const Badge = ({
+  color,
+  children,
+}: {
+  color: "orange" | "emerald";
+  children: React.ReactNode;
+}) => {
+  const styles =
+    color === "orange"
+      ? "text-orange-400 bg-orange-500/10 border-orange-500/20"
+      : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
+  return (
+    <div
+      className={`flex items-center gap-1 text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border ${styles}`}
+    >
+      {children}
+    </div>
+  );
 };
 
-const Metric = ({ icon: Icon, value, label, color }: { icon: typeof Users; value: string; label: string; color: "blue" | "emerald" }) => {
-  const styles = color === "blue" ? "bg-blue-500/10 border-blue-500/20 text-blue-500" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-500";
+const Metric = ({
+  icon: Icon,
+  value,
+  label,
+  color,
+}: {
+  icon: typeof Users;
+  value: string;
+  label: string;
+  color: "blue" | "emerald";
+}) => {
+  const styles =
+    color === "blue"
+      ? "bg-blue-500/10 border-blue-500/20 text-blue-500"
+      : "bg-emerald-500/10 border-emerald-500/20 text-emerald-500";
   return (
     <div className="flex items-center gap-2">
-      <div className={`p-1 rounded border ${styles}`}><Icon className="w-3 h-3" /></div>
+      <div className={`p-1 rounded border ${styles}`}>
+        <Icon className="w-3 h-3" />
+      </div>
       <div className="flex flex-col">
         <span className="text-[10px] font-black text-white leading-none">{value}</span>
         <span className="text-[8px] font-bold text-neutral-600 uppercase">{label}</span>
@@ -70,31 +112,50 @@ const Metric = ({ icon: Icon, value, label, color }: { icon: typeof Users; value
   );
 };
 
-export default function IdeaCard({ idea, currentUserId, onToggleLike, loadingLikeId }: IdeaCardProps) {
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(() => avatarCache.get(idea.founderId!) ?? idea.founderAvatarUrl ?? null);
+export default function IdeaCard({
+  idea,
+  currentUserId,
+  onToggleLike,
+  loadingLikeId,
+}: IdeaCardProps) {
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(() =>
+    avatarCache.get(idea.founderId!) ?? idea.founderAvatarUrl ?? null
+  );
 
   const isLiked = !!currentUserId && idea.likedByUserIds?.includes(currentUserId);
   const isLoading = loadingLikeId === idea.id;
 
-  const { mrr, users, raise, date } = useMemo(() => ({
-    mrr: idea.monthlyRecurringRevenue ? formatCurrencyShort(idea.monthlyRecurringRevenue) : null,
-    users: idea.userCount ? formatNumberShort(idea.userCount) : null,
-    raise: idea.fundraisingGoal ? formatCurrencyShort(idea.fundraisingGoal) : null,
-    date: idea.createdAt
-      ? new Date(idea.createdAt.toMillis?.() ?? idea.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-      : null,
-  }), [idea.monthlyRecurringRevenue, idea.userCount, idea.fundraisingGoal, idea.createdAt]);
+  const { mrr, users, raise, date } = useMemo(
+    () => ({
+      mrr: idea.monthlyRecurringRevenue ? formatCurrencyShort(idea.monthlyRecurringRevenue) : null,
+      users: idea.userCount ? formatNumberShort(idea.userCount) : null,
+      raise: idea.fundraisingGoal ? formatCurrencyShort(idea.fundraisingGoal) : null,
+      date: idea.createdAt
+        ? new Date(idea.createdAt.toMillis?.() ?? idea.createdAt).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          })
+        : null,
+    }),
+    [idea.monthlyRecurringRevenue, idea.userCount, idea.fundraisingGoal, idea.createdAt]
+  );
 
   useEffect(() => {
     if (!idea.founderId || avatarCache.has(idea.founderId)) return;
     let active = true;
-    getDoc(doc(getFirebaseDb(), "users", idea.founderId)).then((snap) => {
-      if (!active || !snap.exists()) return;
-      const url = snap.data().photoURL || snap.data().avatarUrl || null;
-      avatarCache.set(idea.founderId!, url);
-      setAvatarUrl(url);
-    }).catch(console.error);
-    return () => { active = false; };
+
+    getDoc(doc(getFirebaseDb(), "users", idea.founderId))
+      .then((snap) => {
+        if (!active || !snap.exists()) return;
+        const url = snap.data().photoURL || snap.data().avatarUrl || null;
+        avatarCache.set(idea.founderId!, url);
+        setAvatarUrl(url);
+      })
+      .catch(console.error);
+
+    return () => {
+      active = false;
+    };
   }, [idea.founderId]);
 
   return (
@@ -105,24 +166,49 @@ export default function IdeaCard({ idea, currentUserId, onToggleLike, loadingLik
           <Avatar src={idea.thumbnailUrl} fallback={idea.title?.[0] ?? "?"} size={44} />
           <div className="min-w-0">
             <Link href={`/ideas/${idea.id}`}>
-              <h3 className="text-sm sm:text-base font-bold text-white group-hover:text-emerald-400 transition-colors truncate">{idea.title}</h3>
+              <h3 className="text-sm sm:text-base font-bold text-white group-hover:text-emerald-400 transition-colors truncate">
+                {idea.title}
+              </h3>
             </Link>
-            {date && <div className="flex items-center gap-1 text-[10px] font-bold text-neutral-500 uppercase mt-0.5"><Clock className="w-3 h-3" />{date}</div>}
+            {date && (
+              <div className="flex items-center gap-1 text-[10px] font-bold text-neutral-500 uppercase mt-0.5">
+                <Clock className="w-3 h-3" />
+                {date}
+              </div>
+            )}
           </div>
         </div>
+
+        {/* ✅ FIXED LIKE BUTTON */}
         <button
-          onClick={(e) => { e.preventDefault(); onToggleLike(idea.id); }}
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            onToggleLike(idea.id);
+          }}
           disabled={isLoading}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg backdrop-blur-md transition-all active:scale-95 ${isLiked ? "bg-rose-500 border-rose-500/10 text-rose-500" : "bg-white/5 border-white/10 text-neutral-400 hover:text-white"}`}
+          aria-pressed={isLiked}
+          className={[
+            "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg backdrop-blur-md transition-all active:scale-95",
+            "border",
+            isLiked
+              ? "bg-rose-500 border-rose-500/10 text-white"
+              : "bg-white/5 border-white/10 text-neutral-400 hover:text-white",
+            isLoading ? "opacity-70 cursor-not-allowed" : "",
+          ].join(" ")}
         >
-          {isLoading ? <div className="w-3.5 h-3.5 animate-spin rounded-full border-t-transparent" /> : 
+          {isLoading ? (
+            <div className="w-3.5 h-3.5 animate-spin rounded-full border-2 border-white/40 border-t-transparent" />
+          ) : (
             <HeartIcon
-                  className={`w-3 h-3 md:w-4 md:h-4 ${
-                    isLiked ? "fill-current" : ""
-                  }`}
-                />
-            
-            }
+              className={[
+                "w-3 h-3 md:w-4 md:h-4",
+                // ✅ on liked: fill heart & keep it visible (white)
+                isLiked ? "fill-current text-white" : "text-current",
+              ].join(" ")}
+            />
+          )}
+
           <span className="text-xs font-black tabular-nums">{idea.likeCount ?? 0}</span>
         </button>
       </div>
@@ -130,13 +216,20 @@ export default function IdeaCard({ idea, currentUserId, onToggleLike, loadingLik
       {/* Badges */}
       {(idea.isFundraising || idea.sector) && (
         <div className="flex flex-wrap gap-2 mb-4">
-          {idea.isFundraising && raise && <Badge color="orange"><DollarIcon className="w-2.5 h-2.5" />Raising {raise}</Badge>}
+          {idea.isFundraising && raise && (
+            <Badge color="orange">
+              <DollarIcon className="w-2.5 h-2.5" />
+              Raising {raise}
+            </Badge>
+          )}
           {idea.sector && <Badge color="emerald">{idea.sector}</Badge>}
         </div>
       )}
 
       {/* Description */}
-      <p className="text-sm text-neutral-400 line-clamp-2 leading-relaxed mb-6 flex-1">{idea.oneLiner}</p>
+      <p className="text-sm text-neutral-400 line-clamp-2 leading-relaxed mb-6 flex-1">
+        {idea.oneLiner}
+      </p>
 
       {/* Metrics */}
       {(users || mrr) && (
@@ -150,8 +243,12 @@ export default function IdeaCard({ idea, currentUserId, onToggleLike, loadingLik
       <div className="flex items-center gap-3 pt-4 border-t border-white/5">
         <Avatar src={avatarUrl} fallback={idea.founderUsername?.[0] || "?"} />
         <div className="min-w-0">
-          <span className="block text-[9px] font-black text-neutral-600 uppercase mb-0.5">Founder</span>
-          <span className="block text-xs font-bold text-neutral-200 truncate">@{idea.founderUsername || "unknown"}</span>
+          <span className="block text-[9px] font-black text-neutral-600 uppercase mb-0.5">
+            Founder
+          </span>
+          <span className="block text-xs font-bold text-neutral-200 truncate">
+            @{idea.founderUsername || "unknown"}
+          </span>
         </div>
       </div>
     </div>
