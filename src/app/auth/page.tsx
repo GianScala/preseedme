@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState, useRef } from "react";
+import { FormEvent, useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   emailSignIn,
@@ -8,6 +8,9 @@ import {
   getGoogleRedirectResult,
   getFirebaseAuth,
   getFirebaseDb,
+  isRedirectPending,
+  getStoredRedirectResult,
+  clearRedirectPending,
 } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
@@ -44,13 +47,22 @@ export default function AuthPage() {
   const [submitting, setSubmitting] = useState(false);
   const [mounted, setMounted] = useState(false);
   
-  // Track redirect check - separate from auth loading
+  // Track redirect states
   const [redirectChecked, setRedirectChecked] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   const redirectCheckStarted = useRef(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Navigation helper to prevent double navigation
+  const navigateTo = useCallback((path: string) => {
+    if (isNavigating) return;
+    setIsNavigating(true);
+    console.log(`🚀 Navigating to: ${path}`);
+    router.replace(path);
+  }, [router, isNavigating]);
 
   // Check for Google redirect result on mount (for mobile)
   useEffect(() => {
@@ -59,11 +71,23 @@ export default function AuthPage() {
     redirectCheckStarted.current = true;
 
     const checkRedirect = async () => {
+      // Check if we're returning from a redirect
+      const wasPending = isRedirectPending();
+      console.log("🔍 Redirect pending flag:", wasPending);
+
+      // If no redirect was pending, skip the check quickly
+      if (!wasPending) {
+        console.log("ℹ️ No redirect was pending, skipping redirect check");
+        setRedirectChecked(true);
+        return;
+      }
+
       // Add timeout so we don't hang forever
       const timeout = setTimeout(() => {
         console.log("⏰ Redirect check timed out");
+        clearRedirectPending();
         setRedirectChecked(true);
-      }, 5000);
+      }, 10000); // Increased timeout for slower connections
 
       try {
         console.log("🔍 Checking for redirect result...");
@@ -72,19 +96,28 @@ export default function AuthPage() {
         clearTimeout(timeout);
         
         if (result) {
-          console.log("✅ Redirect sign-in complete!");
-          const { isNewUser, hasHandle } = result;
-          router.replace(isNewUser || !hasHandle ? "/onboarding/handle" : "/");
+          console.log("✅ Redirect sign-in complete!", {
+            isNewUser: result.isNewUser,
+            hasHandle: result.hasHandle
+          });
+          
+          const destination = result.isNewUser || !result.hasHandle 
+            ? "/onboarding/handle" 
+            : "/";
+          
+          navigateTo(destination);
           return; // Don't set redirectChecked - we're navigating away
         }
         
-        console.log("ℹ️ No redirect result");
+        console.log("ℹ️ No redirect result (user may have cancelled)");
       } catch (err: any) {
         clearTimeout(timeout);
         console.error("Redirect error:", err);
-        // Show error but continue to render page
+        
         if (err?.code === "auth/account-exists-with-different-credential") {
           setError("An account already exists with this email using a different sign-in method.");
+        } else if (err?.code !== "auth/popup-closed-by-user") {
+          setError("Sign in was interrupted. Please try again.");
         }
       }
       
@@ -92,17 +125,38 @@ export default function AuthPage() {
     };
 
     checkRedirect();
-  }, [router]);
+  }, [navigateTo]);
 
-  // Redirect if already logged in (after redirect check is done)
+  // Handle already logged-in users (but NOT if we're processing a redirect)
   useEffect(() => {
-    if (redirectChecked && !authLoading && user) {
-      router.replace("/");
+    // Don't redirect if:
+    // 1. Redirect hasn't been checked yet
+    // 2. Auth is still loading
+    // 3. No user is logged in
+    // 4. We're already navigating somewhere
+    if (!redirectChecked || authLoading || !user || isNavigating) {
+      return;
     }
-  }, [user, authLoading, redirectChecked, router]);
+
+    // Check if there's a stored redirect result from processGoogleCredential
+    const storedResult = getStoredRedirectResult();
+    if (storedResult) {
+      console.log("📦 Found stored redirect result:", storedResult);
+      const destination = storedResult.isNewUser || !storedResult.hasHandle 
+        ? "/onboarding/handle" 
+        : "/";
+      navigateTo(destination);
+      return;
+    }
+
+    // User was already logged in before visiting this page
+    console.log("👤 User already logged in, redirecting to home");
+    navigateTo("/");
+  }, [user, authLoading, redirectChecked, isNavigating, navigateTo]);
 
   const handleGoogle = async () => {
-    if (submitting) return;
+    if (submitting || isNavigating) return;
+    
     try {
       setSubmitting(true);
       setError(null);
@@ -111,13 +165,21 @@ export default function AuthPage() {
       
       // On mobile, result is null (page redirects to Google)
       if (!result) {
-        // Keep loading state - we're redirecting
+        // Keep loading state - we're redirecting to Google
+        console.log("📱 Redirecting to Google...");
         return;
       }
       
       // Desktop popup flow
-      const { isNewUser, hasHandle } = result;
-      router.replace(isNewUser || !hasHandle ? "/onboarding/handle" : "/");
+      console.log("🖥️ Desktop sign-in complete:", {
+        isNewUser: result.isNewUser,
+        hasHandle: result.hasHandle
+      });
+      
+      const destination = result.isNewUser || !result.hasHandle 
+        ? "/onboarding/handle" 
+        : "/";
+      navigateTo(destination);
     } catch (err: any) {
       const code = err?.code;
       
@@ -127,9 +189,11 @@ export default function AuthPage() {
       }
       
       if (code === "auth/popup-blocked") {
-        setError("Pop-up was blocked. Please enable pop-ups for this site.");
+        setError("Pop-up was blocked. Please enable pop-ups or try on mobile.");
       } else if (code === "auth/account-exists-with-different-credential") {
         setError("An account already exists with this email using a different sign-in method.");
+      } else if (code === "auth/network-request-failed") {
+        setError("Network error. Please check your connection and try again.");
       } else {
         setError(err?.message ?? "Failed to sign in with Google.");
       }
@@ -139,7 +203,7 @@ export default function AuthPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (submitting) return;
+    if (submitting || isNavigating) return;
   
     setError(null);
   
@@ -166,6 +230,14 @@ export default function AuthPage() {
           setSubmitting(false);
           return;
         }
+
+        // Check if user has a handle
+        const hasHandle = !!userData.handle;
+        const destination = !hasHandle ? "/onboarding/handle" : "/";
+        navigateTo(destination);
+      } else {
+        // No user doc, send to onboarding
+        navigateTo("/onboarding/handle");
       }
   
       setEmail("");
@@ -187,24 +259,30 @@ export default function AuthPage() {
     }
   };
 
-  // Show loading while:
-  // 1. Redirect check hasn't completed yet, OR
-  // 2. Auth is still loading, OR  
-  // 3. User is logged in (we're about to redirect)
-  const isLoading = !redirectChecked || authLoading || user;
+  // Determine loading state
+  const showLoadingScreen = !redirectChecked || authLoading || (user && !isNavigating);
+  
+  // Determine loading message
+  const getLoadingMessage = () => {
+    if (!redirectChecked) {
+      if (isRedirectPending()) {
+        return "Completing sign in…";
+      }
+      return "Loading…";
+    }
+    if (authLoading) return "Checking your session…";
+    if (user) return "Redirecting…";
+    return "Loading…";
+  };
 
-  if (isLoading) {
+  if (showLoadingScreen) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
-        <div className="flex items-center gap-2 text-sm text-neutral-400">
-          <span className="h-2 w-2 rounded-full bg-[var(--brand)] animate-pulse" />
-          <span>
-            {!redirectChecked 
-              ? "Completing sign in…" 
-              : authLoading 
-                ? "Checking your session…" 
-                : "Redirecting…"}
-          </span>
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex items-center gap-2 text-sm text-neutral-400">
+            <span className="h-2 w-2 rounded-full bg-[var(--brand)] animate-pulse" />
+            <span>{getLoadingMessage()}</span>
+          </div>
         </div>
       </div>
     );

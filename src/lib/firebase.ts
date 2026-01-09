@@ -13,6 +13,8 @@ import {
   User,
   getAdditionalUserInfo,
   UserCredential,
+  browserLocalPersistence,
+  setPersistence,
 } from "firebase/auth";
 import {
   getFirestore,
@@ -93,8 +95,48 @@ export function isMobile(): boolean {
   );
 }
 
+// ---- Session storage keys for redirect flow ----
+const REDIRECT_PENDING_KEY = "google_redirect_pending";
+const REDIRECT_RESULT_KEY = "google_redirect_result";
+
+export function setRedirectPending() {
+  if (typeof window !== "undefined") {
+    sessionStorage.setItem(REDIRECT_PENDING_KEY, "true");
+  }
+}
+
+export function isRedirectPending(): boolean {
+  if (typeof window === "undefined") return false;
+  return sessionStorage.getItem(REDIRECT_PENDING_KEY) === "true";
+}
+
+export function clearRedirectPending() {
+  if (typeof window !== "undefined") {
+    sessionStorage.removeItem(REDIRECT_PENDING_KEY);
+  }
+}
+
+export function setRedirectResult(result: { isNewUser: boolean; hasHandle: boolean }) {
+  if (typeof window !== "undefined") {
+    sessionStorage.setItem(REDIRECT_RESULT_KEY, JSON.stringify(result));
+  }
+}
+
+export function getStoredRedirectResult(): { isNewUser: boolean; hasHandle: boolean } | null {
+  if (typeof window === "undefined") return null;
+  const stored = sessionStorage.getItem(REDIRECT_RESULT_KEY);
+  if (stored) {
+    sessionStorage.removeItem(REDIRECT_RESULT_KEY);
+    return JSON.parse(stored);
+  }
+  return null;
+}
+
 // ---- helpers ----
 const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({
+  prompt: "select_account"
+});
 
 async function deleteAllUserPhotos(uid: string): Promise<void> {
   try {
@@ -217,8 +259,6 @@ export async function ensureUserProfile(user: User) {
     typeof firestorePhotoURL === "string" &&
     firestorePhotoURL.includes("googleusercontent.com");
 
-  const hasNoPhoto = !firestorePhotoURL;
-
   if (!hasFirebasePhoto && !photoMigrationFailed) {
     const sourceGoogleUrl =
       (hasGooglePhoto ? firestorePhotoURL : null) ?? user.photoURL;
@@ -306,8 +346,6 @@ async function processGoogleCredential(result: UserCredential): Promise<{
       typeof firestorePhotoURL === "string" &&
       firestorePhotoURL.includes("googleusercontent.com");
 
-    const hasNoPhoto = !firestorePhotoURL;
-
     if (!hasFirebasePhoto && !photoMigrationFailed) {
       const sourceGoogleUrl =
         (hasGooglePhoto ? firestorePhotoURL : null) ?? user.photoURL;
@@ -363,6 +401,10 @@ export async function signInWithGoogleAndCreateProfile(): Promise<{
 
   if (isMobile()) {
     console.log("📱 Mobile detected - using redirect");
+    // Mark that we're starting a redirect flow
+    setRedirectPending();
+    // Set persistence to LOCAL to survive the redirect
+    await setPersistence(auth, browserLocalPersistence);
     await signInWithRedirect(auth, googleProvider);
     return null; // Page redirects, this never executes
   }
@@ -384,15 +426,24 @@ export async function getGoogleRedirectResult(): Promise<{
   const auth = getFirebaseAuth();
   
   try {
+    console.log("🔍 Checking for redirect result...");
     const result = await getRedirectResult(auth);
     
+    // Clear the pending flag regardless of result
+    clearRedirectPending();
+    
     if (result && result.user) {
-      console.log("✅ Got redirect result");
-      return processGoogleCredential(result);
+      console.log("✅ Got redirect result, processing...");
+      const processed = await processGoogleCredential(result);
+      // Store the result so AuthContext can use it for navigation
+      setRedirectResult({ isNewUser: processed.isNewUser, hasHandle: processed.hasHandle });
+      return processed;
     }
     
+    console.log("ℹ️ No redirect result found");
     return null;
-  } catch (error) {
+  } catch (error: any) {
+    clearRedirectPending();
     console.error("Redirect result error:", error);
     throw error;
   }
