@@ -1,26 +1,16 @@
 "use client";
 
-import { FormEvent, useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
+import { getRedirectResult } from "firebase/auth";
+import { 
+  getFirebaseAuth, 
+  signInWithGoogle, 
+  handleUserSetup, 
   emailSignIn,
-  signInWithGoogleAndCreateProfile,
-  checkGoogleRedirectResult,
-  getFirebaseAuth,
-  getFirebaseDb,
+  isMobile 
 } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
-import { signOut } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-
-const GoogleIcon = () => (
-  <svg className="h-5 w-5" viewBox="0 0 48 48" aria-hidden="true">
-    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.2C12.31 13.02 17.7 9.5 24 9.5z" />
-    <path fill="#4285F4" d="M46.98 24.55c0-1.59-.14-3.12-.39-4.55H24v9.02h12.94c-.56 2.86-2.27 5.29-4.81 6.92l7.78 6.04C44.33 38.51 46.98 32.02 46.98 24.55z" />
-    <path fill="#FBBC05" d="M10.54 28.58A14.44 14.44 0 0 1 9.76 24c0-1.59.27-3.13.76-4.58l-7.98-6.2A23.88 23.88 0 0 0 0 24c0 3.87.93 7.52 2.56 10.78l7.98-6.2z" />
-    <path fill="#34A853" d="M24 48c6.48 0 11.92-2.13 15.89-5.8l-7.78-6.04C30.28 37.66 27.39 38.5 24 38.5c-6.3 0-11.69-3.52-14.46-8.72l-7.98 6.2C6.51 42.62 14.62 48 24 48z" />
-  </svg>
-);
 
 export default function AuthPage() {
   const router = useRouter();
@@ -28,155 +18,114 @@ export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [isRedirectChecking, setIsRedirectChecking] = useState(true);
-  const [mounted, setMounted] = useState(false);
-  const checkInit = useRef(false);
+  const [isProcessing, setIsProcessing] = useState(true);
 
-  useEffect(() => { setMounted(true); }, []);
-
-  // 1. MOBILE REDIRECT HANDLER: Runs first on page load
+  // CRITICAL: Catch the redirect result when the page loads
   useEffect(() => {
-    if (checkInit.current) return;
-    checkInit.current = true;
-
-    async function handleRedirect() {
+    const checkRedirect = async () => {
       try {
-        const result = await checkGoogleRedirectResult();
+        const auth = getFirebaseAuth();
+        const result = await getRedirectResult(auth);
+        
         if (result) {
-          router.replace(result.isNewUser || !result.hasHandle ? "/onboarding/handle" : "/");
+          // We just returned from Google successfully
+          const { isNewUser, hasHandle } = await handleUserSetup(result);
+          router.replace(isNewUser || !hasHandle ? "/onboarding/handle" : "/");
+        } else {
+          // No redirect found, check if user is already logged in normally
+          if (!authLoading && user) {
+            router.replace("/");
+          } else {
+            setIsProcessing(false);
+          }
         }
       } catch (err: any) {
         console.error("Redirect Error:", err);
-        setError("Sign-in failed. Please try again.");
-      } finally {
-        setIsRedirectChecking(false);
+        setError("Mobile sign-in failed. Please try again.");
+        setIsProcessing(false);
       }
-    }
-    handleRedirect();
-  }, [router]);
+    };
 
-  // 2. Standard session check
-  useEffect(() => {
-    if (!authLoading && !isRedirectChecking && user) {
-      router.replace("/");
-    }
-  }, [user, authLoading, isRedirectChecking, router]);
+    checkRedirect();
+  }, [user, authLoading, router]);
 
-  const handleGoogle = async () => {
-    if (submitting) return;
-    setSubmitting(true);
+  const handleGoogleLogin = async () => {
     setError(null);
     try {
-      const result = await signInWithGoogleAndCreateProfile();
-      // On desktop (popup), result exists immediately. On mobile (redirect), page reloads.
-      if (result) {
-        router.replace(result.isNewUser || !result.hasHandle ? "/onboarding/handle" : "/");
+      // If mobile, this will trigger a page redirect away from your site
+      await signInWithGoogle();
+      // On Desktop, it continues here:
+      if (!isMobile()) {
+        router.replace("/");
       }
     } catch (err: any) {
-      setError(err?.message || "Google sign-in failed");
-      setSubmitting(false);
+      setError(err.message);
     }
   };
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (submitting) return;
-    setSubmitting(true);
-    setError(null);
+    setIsProcessing(true);
     try {
-      const cred = await emailSignIn(email, password);
-      const userDoc = await getDoc(doc(getFirebaseDb(), "users", cred.user.uid));
-      if (userDoc.exists() && !userDoc.data().emailVerified) {
-        setError("Please verify your email first.");
-        await signOut(getFirebaseAuth());
-        setSubmitting(false);
-        return;
-      }
+      await emailSignIn(email, password);
+      router.replace("/");
     } catch (err: any) {
-      setError("Incorrect email or password.");
-      setSubmitting(false);
+      setError("Invalid email or password.");
+      setIsProcessing(false);
     }
   };
 
-  if (authLoading || isRedirectChecking) {
+  if (isProcessing || authLoading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <span className="h-2 w-2 rounded-full bg-[var(--brand)] animate-ping" />
-          <span className="text-xs text-neutral-400 font-medium">Authenticating...</span>
+      <div className="flex min-h-screen items-center justify-center bg-black">
+        <div className="text-center">
+          <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-[var(--brand)] border-t-transparent mx-auto" />
+          <p className="text-neutral-400 text-sm animate-pulse">Connecting to Google...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`flex min-h-[calc(100vh-140px)] w-full flex-col items-center justify-center gap-12 lg:flex-row py-10 transition-all duration-700 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}>
-      
-      <section className="w-full max-w-md space-y-6 text-center lg:text-left px-6">
-        <h1 className="text-4xl sm:text-6xl font-bold tracking-tight text-white leading-[1.1]">
-          Where ideas get <br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--brand-light)] to-[var(--brand)]">funded first.</span>
-        </h1>
-        <p className="text-lg text-neutral-400">Join the community of builders and early backers.</p>
-      </section>
-
-      <section className="w-full max-w-[92%] sm:max-w-md">
-        <div className="rounded-3xl border border-white/10 bg-neutral-900/50 backdrop-blur-md p-6 sm:p-8 shadow-2xl">
-          <button
-            onClick={handleGoogle}
-            disabled={submitting}
-            className="flex w-full items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/5 py-4 text-sm font-semibold text-white transition-all active:scale-95 disabled:opacity-50"
-          >
-            <GoogleIcon />
-            {submitting ? "Connecting..." : "Continue with Google"}
-          </button>
-
-          <div className="my-6 flex items-center gap-3 text-[10px] font-bold text-neutral-600 uppercase tracking-[0.2em]">
-            <div className="h-px flex-1 bg-white/5" />
-            <span>OR EMAIL</span>
-            <div className="h-px flex-1 bg-white/5" />
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-neutral-500 uppercase ml-1">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-4 text-base text-white focus:border-[var(--brand)] outline-none transition-colors" 
-                placeholder="founder@example.com"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-neutral-500 uppercase ml-1">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-4 text-base text-white focus:border-[var(--brand)] outline-none transition-colors"
-                placeholder="••••••••"
-              />
-            </div>
-
-            {error && <div className="text-xs font-medium text-red-400 bg-red-400/10 p-4 rounded-2xl border border-red-400/20">{error}</div>}
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full rounded-2xl bg-[var(--brand)] py-4 text-sm font-bold text-black shadow-lg shadow-[var(--brand)]/20 active:scale-95 transition-all"
-            >
-              Sign In
-            </button>
-          </form>
-
-          <p className="mt-8 text-center text-xs text-neutral-500">
-            No account? <button onClick={() => router.push("/auth/register")} className="text-white font-bold hover:text-[var(--brand)] transition-colors">Create one</button>
-          </p>
+    <div className="flex min-h-screen flex-col items-center justify-center p-6 bg-black">
+      <div className="w-full max-w-md space-y-8">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-white">Welcome Back</h1>
         </div>
-      </section>
+
+        <button
+          onClick={handleGoogleLogin}
+          className="flex w-full items-center justify-center gap-3 rounded-xl bg-white py-4 text-sm font-bold text-black transition-transform active:scale-95"
+        >
+          Continue with Google
+        </button>
+
+        <div className="relative my-8">
+          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10"></div></div>
+          <div className="relative flex justify-center text-xs uppercase"><span className="bg-black px-2 text-neutral-500">Or email</span></div>
+        </div>
+
+        <form onSubmit={handleEmailLogin} className="space-y-4">
+          <input
+            type="email"
+            placeholder="Email"
+            className="w-full rounded-xl border border-white/10 bg-neutral-900 px-4 py-4 text-base text-white focus:border-[var(--brand)] outline-none"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            className="w-full rounded-xl border border-white/10 bg-neutral-900 px-4 py-4 text-base text-white focus:border-[var(--brand)] outline-none"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          <button className="w-full rounded-xl bg-[var(--brand)] py-4 text-sm font-bold text-black">
+            Sign In
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
