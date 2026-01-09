@@ -4,8 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   emailSignIn,
-  signInWithGoogleRedirect,
-  handleGoogleRedirectResult,
+  signInWithGoogleAndCreateProfile,
   getFirebaseAuth,
   getFirebaseDb,
 } from "@/lib/firebase";
@@ -13,13 +12,24 @@ import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 
-// Replace with your actual Google icon SVG if different
 const GoogleIcon = () => (
   <svg className="h-5 w-5" viewBox="0 0 48 48" aria-hidden="true">
-    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.2C12.31 13.02 17.7 9.5 24 9.5z" />
-    <path fill="#4285F4" d="M46.98 24.55c0-1.59-.14-3.12-.39-4.55H24v9.02h12.94c-.56 2.86-2.27 5.29-4.81 6.92l7.78 6.04C44.33 38.51 46.98 32.02 46.98 24.55z" />
-    <path fill="#FBBC05" d="M10.54 28.58A14.44 14.44 0 0 1 9.76 24c0-1.59.27-3.13.76-4.58l-7.98-6.2A23.88 23.88 0 0 0 0 24c0 3.87.93 7.52 2.56 10.78l7.98-6.2z" />
-    <path fill="#34A853" d="M24 48c6.48 0 11.92-2.13 15.89-5.8l-7.78-6.04C30.28 37.66 27.39 38.5 24 38.5c-6.3 0-11.69-3.52-14.46-8.72l-7.98 6.2C6.51 42.62 14.62 48 24 48z" />
+    <path
+      fill="#EA4335"
+      d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.2C12.31 13.02 17.7 9.5 24 9.5z"
+    />
+    <path
+      fill="#4285F4"
+      d="M46.98 24.55c0-1.59-.14-3.12-.39-4.55H24v9.02h12.94c-.56 2.86-2.27 5.29-4.81 6.92l7.78 6.04C44.33 38.51 46.98 32.02 46.98 24.55z"
+    />
+    <path
+      fill="#FBBC05"
+      d="M10.54 28.58A14.44 14.44 0 0 1 9.76 24c0-1.59.27-3.13.76-4.58l-7.98-6.2A23.88 23.88 0 0 0 0 24c0 3.87.93 7.52 2.56 10.78l7.98-6.2z"
+    />
+    <path
+      fill="#34A853"
+      d="M24 48c6.48 0 11.92-2.13 15.89-5.8l-7.78-6.04C30.28 37.66 27.39 38.5 24 38.5c-6.3 0-11.69-3.52-14.46-8.72l-7.98 6.2C6.51 42.62 14.62 48 24 48z"
+    />
   </svg>
 );
 
@@ -37,29 +47,37 @@ export default function AuthPage() {
     setMounted(true);
   }, []);
 
-  // IMPORTANT: Handle Google redirect result
   useEffect(() => {
-    const checkRedirect = async () => {
-      const result = await handleGoogleRedirectResult();
-      if (result?.user) {
-        const destination = result.isNewUser || !result.hasHandle
-          ? "/onboarding/handle"
-          : "/";
-        router.replace(destination);
-      }
-    };
-    checkRedirect();
-  }, [router]);
+    if (!loading && user) {
+      router.replace("/");
+    }
+  }, [user, loading, router]);
 
   const handleGoogle = async () => {
     if (submitting) return;
     try {
       setSubmitting(true);
       setError(null);
-      await signInWithGoogleRedirect();
-      // ── Redirect flow starts here ── nothing else needed
+      const { isNewUser, hasHandle } = await signInWithGoogleAndCreateProfile();
+      router.replace(isNewUser || !hasHandle ? "/onboarding/handle" : "/");
     } catch (err: any) {
-      setError(err.message || "Impossibile avviare l'accesso Google");
+      const code = err?.code;
+      
+      // Don't show error for popup closed by user - it's intentional
+      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+        setSubmitting(false);
+        return;
+      }
+      
+      // Handle other Google sign-in errors
+      if (code === "auth/popup-blocked") {
+        setError("Pop-up was blocked. Please enable pop-ups for this site.");
+      } else if (code === "auth/account-exists-with-different-credential") {
+        setError("An account already exists with this email using a different sign-in method.");
+      } else {
+        setError(err?.message ?? "Failed to sign in with Google.");
+      }
+    } finally {
       setSubmitting(false);
     }
   };
@@ -67,42 +85,59 @@ export default function AuthPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (submitting) return;
-
+  
     setError(null);
-    if (!email.trim()) return setError("Inserisci la tua email.");
-    if (password.length < 6) return setError("La password deve avere almeno 6 caratteri.");
-
+  
+    if (!email.trim()) return setError("Please enter your email.");
+    if (password.length < 6)
+      return setError("Password must be at least 6 characters.");
+  
     try {
       setSubmitting(true);
+  
+      console.log('🔐 Attempting sign in...');
+  
       const cred = await emailSignIn(email.trim(), password);
       const signedInUser = cred.user;
-
+  
+      console.log('✅ Firebase Auth sign in successful:', signedInUser.uid);
+  
       const db = getFirebaseDb();
-      const userDoc = await getDoc(doc(db, "users", signedInUser.uid));
-
+      const userDoc = await getDoc(doc(db, 'users', signedInUser.uid));
+      
       if (userDoc.exists()) {
-        const data = userDoc.data();
-        if (!data?.emailVerified) {
-          setError("Verifica prima la tua email! Controlla la posta.");
-          await signOut(getFirebaseAuth());
+        const userData = userDoc.data();
+        
+        console.log('📧 Email verified status:', userData.emailVerified);
+        
+        if (!userData.emailVerified) {
+          console.log('❌ Email not verified - blocking sign in');
+          setError("Please verify your email before signing in. Check your inbox!");
+          const authInstance = getFirebaseAuth();
+          await signOut(authInstance);
           setSubmitting(false);
           return;
         }
       }
-
-      router.replace("/");
+  
+      console.log('✅ Email verified - proceeding to home');
+  
+      setEmail("");
+      setPassword("");
+      
     } catch (err: any) {
+      console.error('❌ Sign in error:', err);
       const code = err?.code;
+  
       if (code === "auth/user-not-found") {
-        setError("Nessun account con questa email.");
+        setError("No account found with that email. Try creating one instead.");
       } else if (code === "auth/wrong-password" || code === "auth/invalid-credential") {
-        setError("Email o password errati.");
+        setError("Incorrect email or password. Please try again.");
       } else if (code === "auth/too-many-requests") {
-        setError("Troppi tentativi. Aspetta un po'.");
+        setError("Too many attempts. Please wait and try again.");
       } else {
-        setError(err.message || "Errore durante l'accesso");
+        setError(err?.message ?? "Authentication failed.");
       }
-    } finally {
       setSubmitting(false);
     }
   };
@@ -112,7 +147,7 @@ export default function AuthPage() {
       <div className="flex min-h-[50vh] items-center justify-center">
         <div className="flex items-center gap-2 text-sm text-neutral-400">
           <span className="h-2 w-2 rounded-full bg-[var(--brand)] animate-pulse" />
-          <span>{loading ? "Controllo sessione…" : "Reindirizzamento…"}</span>
+          <span>{loading ? "Checking your session…" : "Redirecting…"}</span>
         </div>
       </div>
     );
@@ -120,33 +155,39 @@ export default function AuthPage() {
 
   return (
     <div
-      className={`flex min-h-[calc(100vh-140px)] w-full flex-col items-center justify-center 
-        gap-12 lg:flex-row lg:items-center lg:gap-20 py-10 sm:py-16 
-        transition-all duration-700 ease-out 
-        ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+      className={[
+        "flex min-h-[calc(100vh-140px)] w-full flex-col items-center justify-center",
+        "gap-12 lg:flex-row lg:items-center lg:gap-20",
+        "py-10 sm:py-16",
+        "transition-all duration-700 ease-out",
+        mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4",
+      ].join(" ")}
     >
-      {/* LEFT SIDE – MARKETING */}
       <section className="w-full max-w-md space-y-6 text-center lg:text-left">
         <div className="inline-flex items-center gap-2 rounded-full border border-[var(--brand)]/20 bg-[var(--brand)]/5 px-3 py-1 text-[10px] sm:text-xs font-bold text-[var(--brand)] uppercase tracking-wider">
-          <span className="relative flex h-2 w-2">
+           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--brand)] opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--brand)]"></span>
           </span>
-          Unisciti alla community
+          Join the community
         </div>
 
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.1]">
-          Dove le idee <br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--brand-light)] to-[var(--brand)]">vengono finanziate per prime</span>.
+          Where ideas get <br />
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--brand-light)] to-[var(--brand)]">funded first.</span>
         </h1>
 
         <p className="text-base sm:text-lg text-neutral-400 leading-relaxed max-w-sm mx-auto lg:mx-0">
-          Condividi la tua visione. Trova i primi sostenitori. <br className="hidden sm:block" />
-          Niente pitch deck, solo progressi reali.
+          Share your vision. Find early backers. <br className="hidden sm:block" />
+          No pitch decks, just progress.
         </p>
 
         <ul className="hidden sm:block space-y-3 pt-2">
-          {["Pubblica idee in secondi", "Connettiti con micro-investitori", "Fatti scoprire nella leaderboard"].map((item, i) => (
+          {[
+            "Post ideas in seconds",
+            "Connect with micro-investors",
+            "Get discovered on the leaderboard"
+          ].map((item, i) => (
             <li key={i} className="flex items-center gap-3 text-sm text-neutral-300 justify-center lg:justify-start">
               <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--brand)]/10 text-[var(--brand)]">
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -159,12 +200,14 @@ export default function AuthPage() {
         </ul>
       </section>
 
-      {/* RIGHT SIDE – FORM */}
       <section className="w-full max-w-sm sm:max-w-md">
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-xl p-6 sm:p-8 shadow-2xl shadow-black/50">
+          
           <div className="mb-8 text-center">
-            <h2 className="text-2xl font-bold text-white">Bentornato</h2>
-            <p className="mt-2 text-sm text-neutral-400">Accedi per continuare il tuo percorso</p>
+            <h2 className="text-2xl font-bold text-white">Welcome Back</h2>
+            <p className="mt-2 text-sm text-neutral-400">
+              Sign in to continue your journey
+            </p>
           </div>
 
           <button
@@ -176,21 +219,23 @@ export default function AuthPage() {
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/10 p-0.5 transition-transform group-hover:scale-110">
               <GoogleIcon />
             </span>
-            {submitting ? "Connessione..." : "Continua con Google"}
+            {submitting ? "Connecting..." : "Continue with Google"}
           </button>
 
           <div className="my-6 flex items-center gap-3 text-[10px] sm:text-xs font-medium text-neutral-500 uppercase tracking-widest">
             <div className="h-px flex-1 bg-white/5" />
-            <span>o con email</span>
+            <span>Or using email</span>
             <div className="h-px flex-1 bg-white/5" />
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-neutral-300 ml-1">Email</label>
+              <label className="text-xs font-semibold text-neutral-300 ml-1">
+                Email
+              </label>
               <input
                 type="email"
-                placeholder="fondatore@esempio.com"
+                placeholder="founder@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
@@ -200,13 +245,15 @@ export default function AuthPage() {
 
             <div className="space-y-1.5">
               <div className="flex justify-between items-center ml-1">
-                <label className="text-xs font-semibold text-neutral-300">Password</label>
+                 <label className="text-xs font-semibold text-neutral-300">
+                  Password
+                </label>
                 <button
                   type="button"
-                  onClick={() => router.push("/auth/forgot-password")}
+                  onClick={() => router.push('/auth/forgot-password')}
                   className="text-xs text-[var(--brand)] hover:underline"
                 >
-                  Password dimenticata?
+                  Forgot password?
                 </button>
               </div>
               <input
@@ -222,9 +269,7 @@ export default function AuthPage() {
 
             {error && (
               <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-300 flex items-start gap-2">
-                <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 <span>{error}</span>
               </div>
             )}
@@ -234,18 +279,18 @@ export default function AuthPage() {
               disabled={submitting}
               className="mt-2 w-full rounded-xl bg-[var(--brand)] py-3 text-sm font-bold text-black shadow-[0_0_20px_rgba(33,221,192,0.15)] hover:shadow-[0_0_25px_rgba(33,221,192,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {submitting ? "Accesso in corso..." : "Accedi"}
+              {submitting ? "Signing in..." : "Sign in"}
             </button>
           </form>
 
           <p className="mt-6 text-center text-xs text-neutral-400">
-            Non hai un account?{" "}
+            Don't have an account?{" "}
             <button
               type="button"
               onClick={() => router.push("/auth/register")}
               className="font-bold text-white hover:text-[var(--brand)] transition-colors underline underline-offset-4"
             >
-              Crea account gratuito
+              Create free account
             </button>
           </p>
         </div>
