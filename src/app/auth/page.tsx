@@ -1,12 +1,11 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   emailSignIn,
-  startGoogleSignIn,
-  waitForAuth,
-  createOrUpdateGoogleProfile,
+  signInWithGoogleAndCreateProfile,
+  getGoogleRedirectResult,
   getFirebaseAuth,
   getFirebaseDb,
 } from "@/lib/firebase";
@@ -37,61 +36,103 @@ const GoogleIcon = () => (
 
 export default function AuthPage() {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [mounted, setMounted] = useState(false);
+  
+  // Track redirect check - separate from auth loading
+  const [redirectChecked, setRedirectChecked] = useState(false);
+  const redirectCheckStarted = useRef(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Redirect when user is logged in
+  // Check for Google redirect result on mount (for mobile)
   useEffect(() => {
-    if (!loading && user) {
+    // Only run once
+    if (redirectCheckStarted.current) return;
+    redirectCheckStarted.current = true;
+
+    const checkRedirect = async () => {
+      // Add timeout so we don't hang forever
+      const timeout = setTimeout(() => {
+        console.log("⏰ Redirect check timed out");
+        setRedirectChecked(true);
+      }, 5000);
+
+      try {
+        console.log("🔍 Checking for redirect result...");
+        const result = await getGoogleRedirectResult();
+        
+        clearTimeout(timeout);
+        
+        if (result) {
+          console.log("✅ Redirect sign-in complete!");
+          const { isNewUser, hasHandle } = result;
+          router.replace(isNewUser || !hasHandle ? "/onboarding/handle" : "/");
+          return; // Don't set redirectChecked - we're navigating away
+        }
+        
+        console.log("ℹ️ No redirect result");
+      } catch (err: any) {
+        clearTimeout(timeout);
+        console.error("Redirect error:", err);
+        // Show error but continue to render page
+        if (err?.code === "auth/account-exists-with-different-credential") {
+          setError("An account already exists with this email using a different sign-in method.");
+        }
+      }
+      
+      setRedirectChecked(true);
+    };
+
+    checkRedirect();
+  }, [router]);
+
+  // Redirect if already logged in (after redirect check is done)
+  useEffect(() => {
+    if (redirectChecked && !authLoading && user) {
       router.replace("/");
     }
-  }, [user, loading, router]);
+  }, [user, authLoading, redirectChecked, router]);
 
   const handleGoogle = async () => {
     if (submitting) return;
-    
-    setSubmitting(true);
-    setError(null);
-
     try {
-      // 1. Open the Google popup (fire and forget)
-      startGoogleSignIn();
+      setSubmitting(true);
+      setError(null);
       
-      // 2. Wait for auth state to change (this catches the sign-in on ALL devices)
-      console.log("⏳ Waiting for auth...");
-      const user = await waitForAuth(120000); // 2 minute timeout
-      console.log("✅ Auth detected:", user.uid);
+      const result = await signInWithGoogleAndCreateProfile();
       
-      // 3. Create/update the user profile
-      const { isNewUser, hasHandle } = await createOrUpdateGoogleProfile(user);
-      console.log("✅ Profile ready, isNew:", isNewUser, "hasHandle:", hasHandle);
+      // On mobile, result is null (page redirects to Google)
+      if (!result) {
+        // Keep loading state - we're redirecting
+        return;
+      }
       
-      // 4. Navigate
+      // Desktop popup flow
+      const { isNewUser, hasHandle } = result;
       router.replace(isNewUser || !hasHandle ? "/onboarding/handle" : "/");
-      
     } catch (err: any) {
-      console.error("Google sign-in error:", err);
+      const code = err?.code;
       
-      if (err?.message === "Auth timeout") {
-        // User probably closed the popup
-        setError(null);
-      } else if (err?.code === "auth/popup-blocked") {
+      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+        setSubmitting(false);
+        return;
+      }
+      
+      if (code === "auth/popup-blocked") {
         setError("Pop-up was blocked. Please enable pop-ups for this site.");
-      } else if (err?.code === "auth/account-exists-with-different-credential") {
+      } else if (code === "auth/account-exists-with-different-credential") {
         setError("An account already exists with this email using a different sign-in method.");
       } else {
         setError(err?.message ?? "Failed to sign in with Google.");
       }
-      
       setSubmitting(false);
     }
   };
@@ -146,12 +187,24 @@ export default function AuthPage() {
     }
   };
 
-  if (loading || user) {
+  // Show loading while:
+  // 1. Redirect check hasn't completed yet, OR
+  // 2. Auth is still loading, OR  
+  // 3. User is logged in (we're about to redirect)
+  const isLoading = !redirectChecked || authLoading || user;
+
+  if (isLoading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <div className="flex items-center gap-2 text-sm text-neutral-400">
           <span className="h-2 w-2 rounded-full bg-[var(--brand)] animate-pulse" />
-          <span>{loading ? "Checking your session…" : "Redirecting…"}</span>
+          <span>
+            {!redirectChecked 
+              ? "Completing sign in…" 
+              : authLoading 
+                ? "Checking your session…" 
+                : "Redirecting…"}
+          </span>
         </div>
       </div>
     );
@@ -205,6 +258,7 @@ export default function AuthPage() {
       </section>
 
       <section className="w-full max-w-sm sm:max-w-md">
+        {/* Solid bg on mobile for performance, blur on desktop */}
         <div className="rounded-2xl border border-white/10 bg-neutral-900 sm:bg-white/[0.02] sm:backdrop-blur-xl p-6 sm:p-8 shadow-2xl shadow-black/50">
           
           <div className="mb-8 text-center">
@@ -223,7 +277,7 @@ export default function AuthPage() {
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/10 p-0.5">
               <GoogleIcon />
             </span>
-            {submitting ? "Waiting for Google..." : "Continue with Google"}
+            {submitting ? "Connecting..." : "Continue with Google"}
           </button>
 
           <div className="my-6 flex items-center gap-3 text-[10px] sm:text-xs font-medium text-neutral-500 uppercase tracking-widest">
