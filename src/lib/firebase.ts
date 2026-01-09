@@ -1,15 +1,17 @@
-// src/lib/firebase.ts
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import {
   getAuth,
   GoogleAuthProvider,
   Auth,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
   User,
-  onAuthStateChanged,
+  getAdditionalUserInfo,
+  UserCredential,
 } from "firebase/auth";
 import {
   getFirestore,
@@ -37,6 +39,15 @@ let auth: Auth;
 let db: Firestore;
 let storage: FirebaseStorage;
 
+// ---- MOBILE DETECTION ----
+export function isMobileDevice(): boolean {
+  if (typeof window === "undefined") return false;
+  return /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent
+  );
+}
+
+// ---- CORE INSTANCE EXPORTS (Fixed: getFirebaseStorage included) ----
 export function getFirebaseApp() {
   if (!getApps().length) {
     app = initializeApp({
@@ -47,27 +58,23 @@ export function getFirebaseApp() {
       messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
       appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
     });
+  } else {
+    app = getApps()[0];
   }
   return app;
 }
 
 export function getFirebaseAuth() {
-  if (!auth) {
-    const app = getFirebaseApp();
-    auth = getAuth(app);
-  }
+  if (!auth) auth = getAuth(getFirebaseApp());
   return auth;
 }
 
 export function getFirebaseDb() {
   if (!db) {
     const app = getFirebaseApp();
-    
     try {
-      db = initializeFirestore(app, {
-        localCache: memoryLocalCache()
-      });
-    } catch (error) {
+      db = initializeFirestore(app, { localCache: memoryLocalCache() });
+    } catch (e) {
       db = getFirestore(app);
     }
   }
@@ -75,235 +82,108 @@ export function getFirebaseDb() {
 }
 
 export function getFirebaseStorage() {
-  if (!storage) {
-    const app = getFirebaseApp();
-    storage = getStorage(app);
-  }
+  if (!storage) storage = getStorage(getFirebaseApp());
   return storage;
 }
 
-// ---- helpers ----
 const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: "select_account" });
 
-async function deleteAllUserPhotos(uid: string): Promise<void> {
+// ---- PHOTO MIGRATION HELPERS ----
+async function migratePhotoToFirebaseStorage(uid: string, googlePhotoURL: string | null): Promise<string | null> {
+  if (!googlePhotoURL || googlePhotoURL.includes("firebasestorage.googleapis.com")) return googlePhotoURL;
   try {
-    const storage = getFirebaseStorage();
-    const userPhotoDir = ref(storage, `profile-photos/${uid}`);
-    const listResult = await listAll(userPhotoDir);
-
-    if (listResult.items.length > 0) {
-      const deletePromises = listResult.items.map((itemRef) => deleteObject(itemRef));
-      await Promise.all(deletePromises);
-    }
-  } catch (err) {
-    // Non-critical
-  }
-}
-
-function buildHighResGoogleUrl(googlePhotoURL: string): string {
-  let url = googlePhotoURL;
-  if (/=s\d+-c(?:$|\?)/.test(url)) {
-    return url.replace(/=s\d+-c/, "=s400-c");
-  }
-  if (/(\?|&)sz=\d+/.test(url)) {
-    return url.replace(/(\?|&)sz=\d+/, "$1sz=400");
-  }
-  return url;
-}
-
-async function migratePhotoToFirebaseStorage(
-  uid: string,
-  googlePhotoURL: string | null
-): Promise<string | null> {
-  if (!googlePhotoURL) return null;
-  if (googlePhotoURL.includes("firebasestorage.googleapis.com")) return googlePhotoURL;
-  if (!googlePhotoURL.includes("googleusercontent.com")) return null;
-
-  try {
-    const storage = getFirebaseStorage();
-    const storagePath = `profile-photos/${uid}/profile.jpg`;
-    const storageRef = ref(storage, storagePath);
-    const highResUrl = buildHighResGoogleUrl(googlePhotoURL);
+    const storageRef = ref(getFirebaseStorage(), `profile-photos/${uid}/profile.jpg`);
+    const highResUrl = googlePhotoURL.replace(/=s\d+-c/, "=s400-c").replace(/(\?|&)sz=\d+/, "$1sz=400");
     const response = await fetch(highResUrl);
     if (!response.ok) return null;
     const blob = await response.blob();
-    await deleteAllUserPhotos(uid);
-    await uploadBytes(storageRef, blob, {
-      contentType: "image/jpeg",
-      cacheControl: "public, max-age=31536000",
-    });
+    await uploadBytes(storageRef, blob, { contentType: "image/jpeg" });
     return await getDownloadURL(storageRef);
-  } catch (error) {
-    return null;
-  }
+  } catch { return null; }
 }
 
-/**
- * Create or update user profile for Google sign-in
- * Returns { isNewUser, hasHandle }
- */
-export async function createOrUpdateGoogleProfile(user: User): Promise<{
-  isNewUser: boolean;
-  hasHandle: boolean;
-}> {
+// ---- SHARED PROFILE LOGIC ----
+async function processAuthResult(result: UserCredential) {
+  const { user } = result;
   const db = getFirebaseDb();
   const userRef = doc(db, "users", user.uid);
   const snap = await getDoc(userRef);
+  
+  let hasHandle = false;
+  let isNewUser = false;
 
   if (!snap.exists()) {
-    // New user
-    const firebasePhotoURL = await migratePhotoToFirebaseStorage(user.uid, user.photoURL);
-    
+    isNewUser = true;
+    const photo = await migratePhotoToFirebaseStorage(user.uid, user.photoURL);
     await setDoc(userRef, {
       email: user.email ?? "",
       username: user.displayName ?? "",
       handle: null,
-      photoURL: firebasePhotoURL ?? null,
-      photoMigrationFailed: firebasePhotoURL === null,
+      photoURL: photo,
       emailVerified: true,
       publishedIdeaIds: [],
       createdAt: serverTimestamp(),
     });
-    
-    return { isNewUser: true, hasHandle: false };
+  } else {
+    hasHandle = !!snap.data()?.handle;
+    await updateDoc(userRef, { emailVerified: true });
   }
 
-  // Existing user
-  const data = snap.data() as any;
-  const hasHandle = !!data.handle;
-  
-  const updates: Record<string, any> = {};
-  if (!data.email && user.email) updates.email = user.email;
-  if (!data.username && user.displayName) updates.username = user.displayName;
-  if (!data.emailVerified) updates.emailVerified = true;
-
-  // Photo migration logic
-  const firestorePhotoURL: string | null = data.photoURL ?? null;
-  const photoMigrationFailed: boolean = !!data.photoMigrationFailed;
-  const hasFirebasePhoto = firestorePhotoURL?.includes("firebasestorage.googleapis.com");
-  const hasGooglePhoto = firestorePhotoURL?.includes("googleusercontent.com");
-
-  if (!hasFirebasePhoto && !photoMigrationFailed) {
-    const sourceUrl = (hasGooglePhoto ? firestorePhotoURL : null) ?? user.photoURL;
-    if (sourceUrl?.includes("googleusercontent.com")) {
-      const newPhotoURL = await migratePhotoToFirebaseStorage(user.uid, sourceUrl);
-      if (newPhotoURL) {
-        updates.photoURL = newPhotoURL;
-        updates.photoMigrationFailed = false;
-      } else {
-        updates.photoURL = null;
-        updates.photoMigrationFailed = true;
-      }
-    }
-  }
-
-  if (hasGooglePhoto && !updates.photoURL) {
-    updates.photoURL = null;
-  }
-
-  if (Object.keys(updates).length > 0) {
-    await updateDoc(userRef, updates);
-  }
-
-  return { isNewUser: false, hasHandle };
+  return { user, isNewUser, hasHandle };
 }
 
-/**
- * Start Google sign-in popup
- * This ONLY opens the popup - doesn't wait for result
- * Use onAuthStateChanged or the returned promise to detect completion
- */
-export function startGoogleSignIn(): void {
-  const auth = getFirebaseAuth();
-  
-  // Fire and forget - we'll detect auth via onAuthStateChanged
-  signInWithPopup(auth, googleProvider).catch((err) => {
-    // Only log actual errors, not user cancellations
-    if (err?.code !== "auth/popup-closed-by-user" && 
-        err?.code !== "auth/cancelled-popup-request") {
-      console.error("Google sign-in error:", err);
-    }
-  });
-}
-
-/**
- * Wait for a user to be authenticated
- * Resolves when a user signs in, rejects on timeout
- */
-export function waitForAuth(timeoutMs: number = 60000): Promise<User> {
-  return new Promise((resolve, reject) => {
-    const auth = getFirebaseAuth();
-    
-    const timeout = setTimeout(() => {
-      unsubscribe();
-      reject(new Error("Auth timeout"));
-    }, timeoutMs);
-    
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        clearTimeout(timeout);
-        unsubscribe();
-        resolve(user);
-      }
-    });
-  });
-}
-
-/**
- * Email sign-up
- */
-export async function emailSignUpAndCreateProfile(
-  email: string,
-  password: string,
-  username: string
-) {
-  const auth = getFirebaseAuth();
+// ---- EXPORT: ensureUserProfile ----
+export async function ensureUserProfile(user: User) {
   const db = getFirebaseDb();
-
-  const cred = await createUserWithEmailAndPassword(auth, email, password);
-  const user = cred.user;
-
-  await updateProfile(user, { displayName: username });
-
   const userRef = doc(db, "users", user.uid);
-  await setDoc(userRef, {
-    email,
-    username,
-    handle: null,
-    photoURL: null,
-    photoMigrationFailed: false,
-    emailVerified: false,
-    publishedIdeaIds: [],
-    createdAt: serverTimestamp(),
-  });
-
-  return cred;
-}
-
-/**
- * Email sign-in
- */
-export async function emailSignIn(email: string, password: string) {
-  const auth = getFirebaseAuth();
-  const cred = await signInWithEmailAndPassword(auth, email, password);
-  
-  // Ensure profile exists
-  const db = getFirebaseDb();
-  const userRef = doc(db, "users", cred.user.uid);
   const snap = await getDoc(userRef);
-  
   if (!snap.exists()) {
+    const photo = await migratePhotoToFirebaseStorage(user.uid, user.photoURL);
     await setDoc(userRef, {
-      email: cred.user.email ?? "",
-      username: cred.user.displayName ?? "",
+      email: user.email ?? "",
+      username: user.displayName ?? "",
       handle: null,
-      photoURL: null,
-      photoMigrationFailed: false,
+      photoURL: photo,
       emailVerified: false,
       publishedIdeaIds: [],
       createdAt: serverTimestamp(),
     });
   }
-  
+}
+
+// ---- EXPORT: Google Auth Flow (Popup + Redirect) ----
+export async function signInWithGoogleAndCreateProfile() {
+  const auth = getFirebaseAuth();
+  if (isMobileDevice()) {
+    // Radical change: Redirect on mobile prevents the "stuck" popup window
+    await signInWithRedirect(auth, googleProvider);
+    return null; 
+  }
+  const result = await signInWithPopup(auth, googleProvider);
+  return processAuthResult(result);
+}
+
+export async function checkGoogleRedirectResult() {
+  const auth = getFirebaseAuth();
+  const result = await getRedirectResult(auth);
+  if (result) return processAuthResult(result);
+  return null;
+}
+
+// ---- EXPORT: Email Auth ----
+export async function emailSignUpAndCreateProfile(email: string, password: string, username: string) {
+  const auth = getFirebaseAuth();
+  const cred = await createUserWithEmailAndPassword(auth, email, password);
+  await updateProfile(cred.user, { displayName: username });
+  await setDoc(doc(getFirebaseDb(), "users", cred.user.uid), {
+    email, username, handle: null, photoURL: null, emailVerified: false, publishedIdeaIds: [], createdAt: serverTimestamp()
+  });
+  return cred;
+}
+
+export async function emailSignIn(email: string, password: string) {
+  const cred = await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
+  await ensureUserProfile(cred.user);
   return cred;
 }
