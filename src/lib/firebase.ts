@@ -5,11 +5,14 @@ import {
   GoogleAuthProvider,
   Auth,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
   User,
   getAdditionalUserInfo,
+  UserCredential,
 } from "firebase/auth";
 import {
   getFirestore,
@@ -37,6 +40,14 @@ let auth: Auth;
 let db: Firestore;
 let storage: FirebaseStorage;
 
+// ---- Mobile Detection ----
+export function isMobileDevice(): boolean {
+  if (typeof window === "undefined") return false;
+  return /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent
+  );
+}
+
 export function getFirebaseApp() {
   if (!getApps().length) {
     app = initializeApp({
@@ -62,14 +73,16 @@ export function getFirebaseAuth() {
 export function getFirebaseDb() {
   if (!db) {
     const app = getFirebaseApp();
-    
+
     // ✅ CRITICAL FIX: Use memory-only cache to prevent stale data
     // This disables IndexedDB persistence and forces fresh server fetches
     try {
       db = initializeFirestore(app, {
-        localCache: memoryLocalCache()
+        localCache: memoryLocalCache(),
       });
-      console.log("✓ Firestore initialized with memory-only cache (no persistence)");
+      console.log(
+        "✓ Firestore initialized with memory-only cache (no persistence)"
+      );
     } catch (error) {
       // Firestore already initialized, use the existing instance
       db = getFirestore(app);
@@ -89,6 +102,10 @@ export function getFirebaseStorage() {
 
 // ---- helpers ----
 const googleProvider = new GoogleAuthProvider();
+// Request additional scopes for better profile info
+googleProvider.setCustomParameters({
+  prompt: "select_account",
+});
 
 /**
  * Delete all existing profile photos for a user
@@ -101,8 +118,12 @@ async function deleteAllUserPhotos(uid: string): Promise<void> {
     const listResult = await listAll(userPhotoDir);
 
     if (listResult.items.length > 0) {
-      console.log(`Deleting ${listResult.items.length} old photo(s) for user ${uid}`);
-      const deletePromises = listResult.items.map((itemRef) => deleteObject(itemRef));
+      console.log(
+        `Deleting ${listResult.items.length} old photo(s) for user ${uid}`
+      );
+      const deletePromises = listResult.items.map((itemRef) =>
+        deleteObject(itemRef)
+      );
       await Promise.all(deletePromises);
       console.log("Old photos deleted successfully");
     }
@@ -316,17 +337,11 @@ export async function ensureUserProfile(user: User) {
 }
 
 /**
- * Google sign-in.
- * - Ensures a user doc exists.
- * - Tries to migrate profile photo to Firebase Storage (once).
- * - Google users are automatically verified (no email verification needed)
- * - Returns metadata so we know if user is NEW and whether they already have a handle.
+ * Process Google sign-in result (shared logic for popup and redirect)
  */
-export async function signInWithGoogleAndCreateProfile() {
-  const auth = getFirebaseAuth();
-  const db = getFirebaseDb();
-  const result = await signInWithPopup(auth, googleProvider);
+async function processGoogleSignInResult(result: UserCredential) {
   const user = result.user;
+  const db = getFirebaseDb();
 
   console.log("=== Google Sign-In ===");
   console.log("User ID:", user.uid);
@@ -387,7 +402,10 @@ export async function signInWithGoogleAndCreateProfile() {
       const sourceGoogleUrl =
         (hasGooglePhoto ? firestorePhotoURL : null) ?? user.photoURL;
 
-      if (sourceGoogleUrl && sourceGoogleUrl.includes("googleusercontent.com")) {
+      if (
+        sourceGoogleUrl &&
+        sourceGoogleUrl.includes("googleusercontent.com")
+      ) {
         console.log(
           "Attempting photo migration on sign-in. Reason:",
           hasNoPhoto ? "no photo" : "google URL stored"
@@ -429,12 +447,91 @@ export async function signInWithGoogleAndCreateProfile() {
 }
 
 /**
+ * Google sign-in - MOBILE FRIENDLY VERSION
+ * - Uses redirect flow on mobile (popups are unreliable on mobile browsers)
+ * - Uses popup flow on desktop (better UX)
+ * - Ensures a user doc exists.
+ * - Tries to migrate profile photo to Firebase Storage (once).
+ * - Google users are automatically verified (no email verification needed)
+ * - Returns metadata so we know if user is NEW and whether they already have a handle.
+ *
+ * ⚠️ On mobile, this function initiates a redirect and will NOT return.
+ * Use handleGoogleRedirectResult() on page load to get the result.
+ */
+export async function signInWithGoogleAndCreateProfile() {
+  const auth = getFirebaseAuth();
+
+  // Mobile: Use redirect (popups don't work reliably)
+  if (isMobileDevice()) {
+    console.log("📱 Mobile detected - using redirect flow");
+    // Store a flag so we know to check for redirect result
+    sessionStorage.setItem("googleSignInPending", "true");
+    await signInWithRedirect(auth, googleProvider);
+    // This will redirect away - execution stops here on mobile
+    // The function below will handle the result when the user comes back
+    return { user: null, isNewUser: false, hasHandle: false, redirecting: true };
+  }
+
+  // Desktop: Use popup (better UX)
+  console.log("🖥️ Desktop detected - using popup flow");
+  const result = await signInWithPopup(auth, googleProvider);
+  return processGoogleSignInResult(result);
+}
+
+/**
+ * Handle Google redirect result on page load
+ * Call this in useEffect on your auth page to handle mobile sign-in
+ *
+ * Returns null if no redirect result, otherwise returns the processed result
+ */
+export async function handleGoogleRedirectResult(): Promise<{
+  user: User;
+  isNewUser: boolean;
+  hasHandle: boolean;
+} | null> {
+  const auth = getFirebaseAuth();
+
+  try {
+    const result = await getRedirectResult(auth);
+
+    if (result) {
+      console.log("✓ Google redirect result received");
+      // Clear the pending flag
+      sessionStorage.removeItem("googleSignInPending");
+      return processGoogleSignInResult(result);
+    }
+
+    // Check if we were expecting a result but didn't get one
+    const wasPending = sessionStorage.getItem("googleSignInPending");
+    if (wasPending) {
+      console.log("⚠️ Expected redirect result but got none - user may have cancelled");
+      sessionStorage.removeItem("googleSignInPending");
+    }
+
+    return null;
+  } catch (error: any) {
+    console.error("Google redirect error:", error);
+    sessionStorage.removeItem("googleSignInPending");
+    throw error;
+  }
+}
+
+/**
+ * Check if a Google sign-in redirect is pending
+ * Useful for showing loading state while waiting for redirect result
+ */
+export function isGoogleSignInPending(): boolean {
+  if (typeof window === "undefined") return false;
+  return sessionStorage.getItem("googleSignInPending") === "true";
+}
+
+/**
  * Email sign-up:
  * - Creates Firebase Auth user
  * - Creates a Firestore user doc with emailVerified: false
  * - Username is set from the form
  * - Handle will be chosen in /onboarding/handle
- * 
+ *
  * 🚨 IMPORTANT: This does NOT send verification emails!
  * The calling code (register page) should send verification + welcome emails via Resend API routes.
  */
@@ -464,7 +561,9 @@ export async function emailSignUpAndCreateProfile(
   });
 
   console.log("✓ User created in Firebase Auth and Firestore");
-  console.log("⚠️ Verification emails should be sent by calling code via Resend API");
+  console.log(
+    "⚠️ Verification emails should be sent by calling code via Resend API"
+  );
 
   return cred;
 }

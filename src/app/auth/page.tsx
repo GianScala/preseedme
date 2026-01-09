@@ -5,8 +5,11 @@ import { useRouter } from "next/navigation";
 import {
   emailSignIn,
   signInWithGoogleAndCreateProfile,
+  handleGoogleRedirectResult,
+  isGoogleSignInPending,
   getFirebaseAuth,
   getFirebaseDb,
+  isMobileDevice,
 } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
@@ -42,42 +45,98 @@ export default function AuthPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [checkingRedirect, setCheckingRedirect] = useState(true);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  // Handle Google redirect result on page load (for mobile)
   useEffect(() => {
-    if (!loading && user) {
+    const checkRedirectResult = async () => {
+      // Check if we're returning from a Google redirect
+      const pending = isGoogleSignInPending();
+
+      if (pending) {
+        console.log("📱 Checking for Google redirect result...");
+        setSubmitting(true);
+
+        try {
+          const result = await handleGoogleRedirectResult();
+
+          if (result) {
+            console.log("✅ Google redirect sign-in successful");
+            const { isNewUser, hasHandle } = result;
+            router.replace(isNewUser || !hasHandle ? "/onboarding/handle" : "/");
+            return;
+          }
+        } catch (err: any) {
+          console.error("Google redirect error:", err);
+          const code = err?.code;
+
+          if (code === "auth/account-exists-with-different-credential") {
+            setError(
+              "An account already exists with this email using a different sign-in method."
+            );
+          } else {
+            setError(err?.message ?? "Failed to sign in with Google.");
+          }
+        } finally {
+          setSubmitting(false);
+        }
+      }
+
+      setCheckingRedirect(false);
+    };
+
+    checkRedirectResult();
+  }, [router]);
+
+  useEffect(() => {
+    if (!loading && user && !checkingRedirect) {
       router.replace("/");
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, checkingRedirect]);
 
   const handleGoogle = async () => {
     if (submitting) return;
     try {
       setSubmitting(true);
       setError(null);
-      const { isNewUser, hasHandle } = await signInWithGoogleAndCreateProfile();
+
+      const result = await signInWithGoogleAndCreateProfile();
+
+      // On mobile, this redirects away - result.redirecting will be true
+      if ("redirecting" in result && result.redirecting) {
+        // Keep submitting state true, user is being redirected
+        return;
+      }
+
+      // Desktop popup flow - we get the result immediately
+      const { isNewUser, hasHandle } = result;
       router.replace(isNewUser || !hasHandle ? "/onboarding/handle" : "/");
     } catch (err: any) {
       const code = err?.code;
-      
+
       // Don't show error for popup closed by user - it's intentional
-      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+      if (
+        code === "auth/popup-closed-by-user" ||
+        code === "auth/cancelled-popup-request"
+      ) {
         setSubmitting(false);
         return;
       }
-      
+
       // Handle other Google sign-in errors
       if (code === "auth/popup-blocked") {
         setError("Pop-up was blocked. Please enable pop-ups for this site.");
       } else if (code === "auth/account-exists-with-different-credential") {
-        setError("An account already exists with this email using a different sign-in method.");
+        setError(
+          "An account already exists with this email using a different sign-in method."
+        );
       } else {
         setError(err?.message ?? "Failed to sign in with Google.");
       }
-    } finally {
       setSubmitting(false);
     }
   };
@@ -85,53 +144,57 @@ export default function AuthPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (submitting) return;
-  
+
     setError(null);
-  
+
     if (!email.trim()) return setError("Please enter your email.");
     if (password.length < 6)
       return setError("Password must be at least 6 characters.");
-  
+
     try {
       setSubmitting(true);
-  
-      console.log('🔐 Attempting sign in...');
-  
+
+      console.log("🔐 Attempting sign in...");
+
       const cred = await emailSignIn(email.trim(), password);
       const signedInUser = cred.user;
-  
-      console.log('✅ Firebase Auth sign in successful:', signedInUser.uid);
-  
+
+      console.log("✅ Firebase Auth sign in successful:", signedInUser.uid);
+
       const db = getFirebaseDb();
-      const userDoc = await getDoc(doc(db, 'users', signedInUser.uid));
-      
+      const userDoc = await getDoc(doc(db, "users", signedInUser.uid));
+
       if (userDoc.exists()) {
         const userData = userDoc.data();
-        
-        console.log('📧 Email verified status:', userData.emailVerified);
-        
+
+        console.log("📧 Email verified status:", userData.emailVerified);
+
         if (!userData.emailVerified) {
-          console.log('❌ Email not verified - blocking sign in');
-          setError("Please verify your email before signing in. Check your inbox!");
+          console.log("❌ Email not verified - blocking sign in");
+          setError(
+            "Please verify your email before signing in. Check your inbox!"
+          );
           const authInstance = getFirebaseAuth();
           await signOut(authInstance);
           setSubmitting(false);
           return;
         }
       }
-  
-      console.log('✅ Email verified - proceeding to home');
-  
+
+      console.log("✅ Email verified - proceeding to home");
+
       setEmail("");
       setPassword("");
-      
     } catch (err: any) {
-      console.error('❌ Sign in error:', err);
+      console.error("❌ Sign in error:", err);
       const code = err?.code;
-  
+
       if (code === "auth/user-not-found") {
         setError("No account found with that email. Try creating one instead.");
-      } else if (code === "auth/wrong-password" || code === "auth/invalid-credential") {
+      } else if (
+        code === "auth/wrong-password" ||
+        code === "auth/invalid-credential"
+      ) {
         setError("Incorrect email or password. Please try again.");
       } else if (code === "auth/too-many-requests") {
         setError("Too many attempts. Please wait and try again.");
@@ -142,12 +205,19 @@ export default function AuthPage() {
     }
   };
 
-  if (loading || user) {
+  // Show loading while checking redirect result or auth state
+  if (loading || user || checkingRedirect) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <div className="flex items-center gap-2 text-sm text-neutral-400">
           <span className="h-2 w-2 rounded-full bg-[var(--brand)] animate-pulse" />
-          <span>{loading ? "Checking your session…" : "Redirecting…"}</span>
+          <span>
+            {checkingRedirect
+              ? "Completing sign in…"
+              : loading
+                ? "Checking your session…"
+                : "Redirecting…"}
+          </span>
         </div>
       </div>
     );
@@ -165,7 +235,7 @@ export default function AuthPage() {
     >
       <section className="w-full max-w-md space-y-6 text-center lg:text-left">
         <div className="inline-flex items-center gap-2 rounded-full border border-[var(--brand)]/20 bg-[var(--brand)]/5 px-3 py-1 text-[10px] sm:text-xs font-bold text-[var(--brand)] uppercase tracking-wider">
-           <span className="relative flex h-2 w-2">
+          <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--brand)] opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--brand)]"></span>
           </span>
@@ -174,11 +244,14 @@ export default function AuthPage() {
 
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.1]">
           Where ideas get <br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--brand-light)] to-[var(--brand)]">funded first.</span>
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--brand-light)] to-[var(--brand)]">
+            funded first.
+          </span>
         </h1>
 
         <p className="text-base sm:text-lg text-neutral-400 leading-relaxed max-w-sm mx-auto lg:mx-0">
-          Share your vision. Find early backers. <br className="hidden sm:block" />
+          Share your vision. Find early backers.{" "}
+          <br className="hidden sm:block" />
           No pitch decks, just progress.
         </p>
 
@@ -186,12 +259,25 @@ export default function AuthPage() {
           {[
             "Post ideas in seconds",
             "Connect with micro-investors",
-            "Get discovered on the leaderboard"
+            "Get discovered on the leaderboard",
           ].map((item, i) => (
-            <li key={i} className="flex items-center gap-3 text-sm text-neutral-300 justify-center lg:justify-start">
+            <li
+              key={i}
+              className="flex items-center gap-3 text-sm text-neutral-300 justify-center lg:justify-start"
+            >
               <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--brand)]/10 text-[var(--brand)]">
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                <svg
+                  className="w-3 h-3"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={3}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M5 13l4 4L19 7"
+                  />
                 </svg>
               </div>
               {item}
@@ -201,8 +287,11 @@ export default function AuthPage() {
       </section>
 
       <section className="w-full max-w-sm sm:max-w-md">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-xl p-6 sm:p-8 shadow-2xl shadow-black/50">
-          
+        {/* 
+          Performance fix: Use solid bg on mobile instead of backdrop-blur 
+          backdrop-blur-xl is GPU-intensive on mobile devices
+        */}
+        <div className="rounded-2xl border border-white/10 bg-neutral-900/95 sm:bg-white/[0.02] sm:backdrop-blur-xl p-6 sm:p-8 shadow-2xl shadow-black/50">
           <div className="mb-8 text-center">
             <h2 className="text-2xl font-bold text-white">Welcome Back</h2>
             <p className="mt-2 text-sm text-neutral-400">
@@ -214,7 +303,7 @@ export default function AuthPage() {
             type="button"
             onClick={handleGoogle}
             disabled={submitting}
-            className="group relative flex w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition-all hover:bg-white/10 hover:border-white/20 hover:scale-[1.02] disabled:opacity-60"
+            className="group relative flex w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition-all hover:bg-white/10 hover:border-white/20 active:scale-[0.98] disabled:opacity-60 sm:hover:scale-[1.02]"
           >
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/10 p-0.5 transition-transform group-hover:scale-110">
               <GoogleIcon />
@@ -239,18 +328,18 @@ export default function AuthPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
-                className="w-full rounded-xl border border-white/10 bg-neutral-900/50 px-4 py-3 text-sm text-white placeholder-neutral-600 focus:border-[var(--brand)] focus:outline-none focus:ring-1 focus:ring-[var(--brand)] transition-all"
+                className="w-full rounded-xl border border-white/10 bg-neutral-900/50 px-4 py-3 text-sm text-white placeholder-neutral-600 focus:border-[var(--brand)] focus:outline-none focus:ring-1 focus:ring-[var(--brand)] transition-colors"
               />
             </div>
 
             <div className="space-y-1.5">
               <div className="flex justify-between items-center ml-1">
-                 <label className="text-xs font-semibold text-neutral-300">
+                <label className="text-xs font-semibold text-neutral-300">
                   Password
                 </label>
                 <button
                   type="button"
-                  onClick={() => router.push('/auth/forgot-password')}
+                  onClick={() => router.push("/auth/forgot-password")}
                   className="text-xs text-[var(--brand)] hover:underline"
                 >
                   Forgot password?
@@ -263,13 +352,25 @@ export default function AuthPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
                 minLength={6}
-                className="w-full rounded-xl border border-white/10 bg-neutral-900/50 px-4 py-3 text-sm text-white placeholder-neutral-600 focus:border-[var(--brand)] focus:outline-none focus:ring-1 focus:ring-[var(--brand)] transition-all"
+                className="w-full rounded-xl border border-white/10 bg-neutral-900/50 px-4 py-3 text-sm text-white placeholder-neutral-600 focus:border-[var(--brand)] focus:outline-none focus:ring-1 focus:ring-[var(--brand)] transition-colors"
               />
             </div>
 
             {error && (
               <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-300 flex items-start gap-2">
-                <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <svg
+                  className="w-4 h-4 mt-0.5 shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
                 <span>{error}</span>
               </div>
             )}
@@ -277,7 +378,7 @@ export default function AuthPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="mt-2 w-full rounded-xl bg-[var(--brand)] py-3 text-sm font-bold text-black shadow-[0_0_20px_rgba(33,221,192,0.15)] hover:shadow-[0_0_25px_rgba(33,221,192,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              className="mt-2 w-full rounded-xl bg-[var(--brand)] py-3 text-sm font-bold text-black shadow-[0_0_20px_rgba(33,221,192,0.15)] active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed sm:hover:shadow-[0_0_25px_rgba(33,221,192,0.3)] sm:hover:scale-[1.02]"
             >
               {submitting ? "Signing in..." : "Sign in"}
             </button>
