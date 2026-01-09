@@ -11,7 +11,12 @@ import {
 } from "react";
 import { onAuthStateChanged, User, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import { getFirebaseAuth, getFirebaseDb, ensureUserProfile } from "@/lib/firebase";
+import { 
+  getFirebaseAuth, 
+  getFirebaseAuthSync,
+  getFirebaseDb, 
+  ensureUserProfile 
+} from "@/lib/firebase";
 import type { UserProfile } from "@/types";
 
 type AuthContextValue = {
@@ -28,7 +33,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [initialAuthCheckDone, setInitialAuthCheckDone] = useState(false);
 
   const loadUserProfile = useCallback(async (firebaseUser: User) => {
     try {
@@ -43,52 +47,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           id: firebaseUser.uid,
           ...(snap.data() as any),
         };
-        console.log("Profile loaded, photoURL:", profileData.photoURL);
+        console.log("✅ Profile loaded:", profileData.email);
         setProfile(profileData);
       } else {
+        console.log("⚠️ No profile document found");
         setProfile(null);
       }
     } catch (error) {
-      console.error("Error loading user profile:", error);
+      console.error("❌ Error loading user profile:", error);
       setProfile(null);
     }
   }, []);
 
   useEffect(() => {
-    const auth = getFirebaseAuth();
-
-    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.log("🔔 Auth state changed:", firebaseUser?.uid ?? "null");
-      
-      setUser(firebaseUser);
-      
-      if (firebaseUser) {
-        await loadUserProfile(firebaseUser);
-      } else {
-        setProfile(null);
-      }
-      
-      // Mark loading as complete after first auth check
-      if (!initialAuthCheckDone) {
-        setInitialAuthCheckDone(true);
-      }
-      setLoading(false);
-    });
-
-    // Timeout fallback in case onAuthStateChanged never fires
-    const timeout = setTimeout(() => {
-      if (!initialAuthCheckDone) {
-        console.log("⏰ Auth state timeout - marking as loaded");
-        setInitialAuthCheckDone(true);
+    let unsubscribe: (() => void) | null = null;
+    
+    const initAuth = async () => {
+      try {
+        // Initialize auth with persistence FIRST
+        const auth = await getFirebaseAuth();
+        
+        console.log("🔔 Setting up auth state listener...");
+        
+        unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+          console.log("🔔 Auth state changed:", firebaseUser ? firebaseUser.email : "signed out");
+          
+          setUser(firebaseUser);
+          
+          if (firebaseUser) {
+            await loadUserProfile(firebaseUser);
+          } else {
+            setProfile(null);
+          }
+          
+          setLoading(false);
+        });
+      } catch (error) {
+        console.error("❌ Error initializing auth:", error);
         setLoading(false);
       }
-    }, 5000);
+    };
+    
+    initAuth();
 
     return () => {
-      unsub();
-      clearTimeout(timeout);
+      if (unsubscribe) {
+        unsubscribe();
+      }
     };
-  }, [initialAuthCheckDone, loadUserProfile]);
+  }, [loadUserProfile]);
 
   const refreshProfile = useCallback(async () => {
     if (user) {
@@ -97,10 +104,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, loadUserProfile]);
 
   const signOutUser = useCallback(async () => {
-    const auth = getFirebaseAuth();
-    await signOut(auth);
-    setProfile(null);
-    setUser(null);
+    try {
+      const auth = await getFirebaseAuth();
+      await signOut(auth);
+      setProfile(null);
+      setUser(null);
+      console.log("✅ Signed out");
+    } catch (error) {
+      console.error("❌ Error signing out:", error);
+    }
   }, []);
 
   return (

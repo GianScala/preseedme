@@ -5,16 +5,16 @@ import {
   GoogleAuthProvider,
   Auth,
   signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
   User,
   getAdditionalUserInfo,
   UserCredential,
+  indexedDBLocalPersistence,
   browserLocalPersistence,
   setPersistence,
+  onAuthStateChanged,
 } from "firebase/auth";
 import {
   getFirestore,
@@ -41,6 +41,7 @@ let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
 let storage: FirebaseStorage;
+let authInitialized = false;
 
 export function getFirebaseApp() {
   if (!getApps().length) {
@@ -56,7 +57,34 @@ export function getFirebaseApp() {
   return app;
 }
 
-export function getFirebaseAuth() {
+export async function getFirebaseAuth(): Promise<Auth> {
+  if (!auth) {
+    const app = getFirebaseApp();
+    auth = getAuth(app);
+    
+    // Set persistence to indexedDB (works better on Safari/iOS)
+    if (!authInitialized) {
+      authInitialized = true;
+      try {
+        // Try indexedDB first (better for Safari ITP)
+        await setPersistence(auth, indexedDBLocalPersistence);
+        console.log("✅ Using indexedDB persistence");
+      } catch (e) {
+        // Fallback to localStorage
+        try {
+          await setPersistence(auth, browserLocalPersistence);
+          console.log("✅ Using localStorage persistence");
+        } catch (e2) {
+          console.warn("⚠️ Could not set persistence:", e2);
+        }
+      }
+    }
+  }
+  return auth;
+}
+
+// Synchronous version for contexts that can't await
+export function getFirebaseAuthSync(): Auth {
   if (!auth) {
     const app = getFirebaseApp();
     auth = getAuth(app);
@@ -87,49 +115,12 @@ export function getFirebaseStorage() {
   return storage;
 }
 
-// ---- Mobile detection ----
+// ---- Device detection ----
 export function isMobile(): boolean {
   if (typeof window === "undefined") return false;
   return /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(
     navigator.userAgent
   );
-}
-
-// ---- Session storage keys for redirect flow ----
-const REDIRECT_PENDING_KEY = "google_redirect_pending";
-const REDIRECT_RESULT_KEY = "google_redirect_result";
-
-export function setRedirectPending() {
-  if (typeof window !== "undefined") {
-    sessionStorage.setItem(REDIRECT_PENDING_KEY, "true");
-  }
-}
-
-export function isRedirectPending(): boolean {
-  if (typeof window === "undefined") return false;
-  return sessionStorage.getItem(REDIRECT_PENDING_KEY) === "true";
-}
-
-export function clearRedirectPending() {
-  if (typeof window !== "undefined") {
-    sessionStorage.removeItem(REDIRECT_PENDING_KEY);
-  }
-}
-
-export function setRedirectResult(result: { isNewUser: boolean; hasHandle: boolean }) {
-  if (typeof window !== "undefined") {
-    sessionStorage.setItem(REDIRECT_RESULT_KEY, JSON.stringify(result));
-  }
-}
-
-export function getStoredRedirectResult(): { isNewUser: boolean; hasHandle: boolean } | null {
-  if (typeof window === "undefined") return null;
-  const stored = sessionStorage.getItem(REDIRECT_RESULT_KEY);
-  if (stored) {
-    sessionStorage.removeItem(REDIRECT_RESULT_KEY);
-    return JSON.parse(stored);
-  }
-  return null;
 }
 
 // ---- helpers ----
@@ -291,7 +282,7 @@ export async function ensureUserProfile(user: User) {
 /**
  * Process Google credential and create/update user profile
  */
-async function processGoogleCredential(result: UserCredential): Promise<{
+export async function processGoogleCredential(result: UserCredential): Promise<{
   user: User;
   isNewUser: boolean;
   hasHandle: boolean;
@@ -299,8 +290,9 @@ async function processGoogleCredential(result: UserCredential): Promise<{
   const user = result.user;
   const db = getFirebaseDb();
 
-  console.log("=== Google Sign-In ===");
+  console.log("=== Processing Google Sign-In ===");
   console.log("User ID:", user.uid);
+  console.log("Email:", user.email);
 
   const userRef = doc(db, "users", user.uid);
   const snap = await getDoc(userRef);
@@ -309,6 +301,7 @@ async function processGoogleCredential(result: UserCredential): Promise<{
   let createdDoc = false;
 
   if (!snap.exists()) {
+    console.log("Creating new user document...");
     const firebasePhotoURL = await migratePhotoToFirebaseStorage(
       user.uid,
       user.photoURL
@@ -329,6 +322,7 @@ async function processGoogleCredential(result: UserCredential): Promise<{
   } else {
     const data = snap.data() as any;
     hasHandle = !!data.handle;
+    console.log("Existing user, hasHandle:", hasHandle);
 
     const updates: Record<string, any> = {};
     if (!data.email && user.email) updates.email = user.email;
@@ -387,66 +381,60 @@ async function processGoogleCredential(result: UserCredential): Promise<{
 }
 
 /**
- * Google sign-in - uses popup on desktop, redirect on mobile
- * 
- * On desktop: Returns the result directly
- * On mobile: Returns null (page will redirect to Google)
+ * Wait for auth state to be confirmed after sign-in
+ * This is crucial for mobile Safari where auth state can be flaky
+ */
+function waitForAuthState(auth: Auth, expectedUid: string, timeoutMs: number = 10000): Promise<User> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      unsubscribe();
+      reject(new Error("Auth state confirmation timed out"));
+    }, timeoutMs);
+
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user && user.uid === expectedUid) {
+        clearTimeout(timeout);
+        unsubscribe();
+        console.log("✅ Auth state confirmed for:", user.email);
+        resolve(user);
+      }
+    });
+  });
+}
+
+/**
+ * Google sign-in with proper mobile handling
+ * Waits for auth state to be confirmed before returning
  */
 export async function signInWithGoogleAndCreateProfile(): Promise<{
   user: User;
   isNewUser: boolean;
   hasHandle: boolean;
-} | null> {
-  const auth = getFirebaseAuth();
+}> {
+  const auth = await getFirebaseAuth();
 
-  if (isMobile()) {
-    console.log("📱 Mobile detected - using redirect");
-    // Mark that we're starting a redirect flow
-    setRedirectPending();
-    // Set persistence to LOCAL to survive the redirect
-    await setPersistence(auth, browserLocalPersistence);
-    await signInWithRedirect(auth, googleProvider);
-    return null; // Page redirects, this never executes
-  }
-
-  console.log("🖥️ Desktop detected - using popup");
-  const result = await signInWithPopup(auth, googleProvider);
-  return processGoogleCredential(result);
-}
-
-/**
- * Check if returning from Google redirect (call on page load)
- * Returns null if not returning from redirect, otherwise returns user info
- */
-export async function getGoogleRedirectResult(): Promise<{
-  user: User;
-  isNewUser: boolean;
-  hasHandle: boolean;
-} | null> {
-  const auth = getFirebaseAuth();
+  console.log("🔐 Starting Google sign-in popup...");
+  console.log("📱 Is mobile:", isMobile());
   
-  try {
-    console.log("🔍 Checking for redirect result...");
-    const result = await getRedirectResult(auth);
-    
-    // Clear the pending flag regardless of result
-    clearRedirectPending();
-    
-    if (result && result.user) {
-      console.log("✅ Got redirect result, processing...");
-      const processed = await processGoogleCredential(result);
-      // Store the result so AuthContext can use it for navigation
-      setRedirectResult({ isNewUser: processed.isNewUser, hasHandle: processed.hasHandle });
-      return processed;
-    }
-    
-    console.log("ℹ️ No redirect result found");
-    return null;
-  } catch (error: any) {
-    clearRedirectPending();
-    console.error("Redirect result error:", error);
-    throw error;
-  }
+  // Perform the sign-in
+  const result = await signInWithPopup(auth, googleProvider);
+  console.log("✅ Popup completed, user:", result.user.email);
+  
+  // CRITICAL: Wait for onAuthStateChanged to confirm the auth state
+  // This ensures the auth state is persisted before we continue
+  console.log("⏳ Waiting for auth state confirmation...");
+  await waitForAuthState(auth, result.user.uid);
+  
+  // Now process the credential and create/update profile
+  console.log("📝 Processing user profile...");
+  const processed = await processGoogleCredential(result);
+  
+  console.log("✅ Sign-in complete:", {
+    isNewUser: processed.isNewUser,
+    hasHandle: processed.hasHandle
+  });
+  
+  return processed;
 }
 
 /**
@@ -457,7 +445,7 @@ export async function emailSignUpAndCreateProfile(
   password: string,
   username: string
 ) {
-  const auth = getFirebaseAuth();
+  const auth = await getFirebaseAuth();
   const db = getFirebaseDb();
 
   const cred = await createUserWithEmailAndPassword(auth, email, password);
@@ -484,7 +472,7 @@ export async function emailSignUpAndCreateProfile(
  * Email sign-in
  */
 export async function emailSignIn(email: string, password: string) {
-  const auth = getFirebaseAuth();
+  const auth = await getFirebaseAuth();
   const cred = await signInWithEmailAndPassword(auth, email, password);
   await ensureUserProfile(cred.user);
   return cred;

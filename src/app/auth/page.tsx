@@ -1,16 +1,12 @@
 "use client";
 
-import { FormEvent, useEffect, useState, useRef, useCallback } from "react";
+import { FormEvent, useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   emailSignIn,
   signInWithGoogleAndCreateProfile,
-  getGoogleRedirectResult,
   getFirebaseAuth,
   getFirebaseDb,
-  isRedirectPending,
-  getStoredRedirectResult,
-  clearRedirectPending,
 } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
@@ -47,163 +43,124 @@ export default function AuthPage() {
   const [submitting, setSubmitting] = useState(false);
   const [mounted, setMounted] = useState(false);
   
-  // Track redirect states
-  const [redirectChecked, setRedirectChecked] = useState(false);
-  const [isNavigating, setIsNavigating] = useState(false);
-  const redirectCheckStarted = useRef(false);
+  // Prevent double navigation
+  const isNavigatingRef = useRef(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Navigation helper to prevent double navigation
+  // Safe navigation that prevents double calls
   const navigateTo = useCallback((path: string) => {
-    if (isNavigating) return;
-    setIsNavigating(true);
-    console.log(`🚀 Navigating to: ${path}`);
-    router.replace(path);
-  }, [router, isNavigating]);
+    if (isNavigatingRef.current) {
+      console.log("⚠️ Navigation already in progress, skipping:", path);
+      return;
+    }
+    isNavigatingRef.current = true;
+    console.log("🚀 Navigating to:", path);
+    
+    // Use window.location for more reliable navigation on mobile
+    window.location.href = path;
+  }, []);
 
-  // Check for Google redirect result on mount (for mobile)
+  // Redirect if already logged in
   useEffect(() => {
-    // Only run once
-    if (redirectCheckStarted.current) return;
-    redirectCheckStarted.current = true;
-
-    const checkRedirect = async () => {
-      // Check if we're returning from a redirect
-      const wasPending = isRedirectPending();
-      console.log("🔍 Redirect pending flag:", wasPending);
-
-      // If no redirect was pending, skip the check quickly
-      if (!wasPending) {
-        console.log("ℹ️ No redirect was pending, skipping redirect check");
-        setRedirectChecked(true);
-        return;
-      }
-
-      // Add timeout so we don't hang forever
-      const timeout = setTimeout(() => {
-        console.log("⏰ Redirect check timed out");
-        clearRedirectPending();
-        setRedirectChecked(true);
-      }, 10000); // Increased timeout for slower connections
-
+    if (authLoading || !user || isNavigatingRef.current) return;
+    
+    console.log("👤 User already logged in:", user.email);
+    
+    const checkAndRedirect = async () => {
       try {
-        console.log("🔍 Checking for redirect result...");
-        const result = await getGoogleRedirectResult();
+        const db = getFirebaseDb();
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
         
-        clearTimeout(timeout);
-        
-        if (result) {
-          console.log("✅ Redirect sign-in complete!", {
-            isNewUser: result.isNewUser,
-            hasHandle: result.hasHandle
-          });
-          
-          const destination = result.isNewUser || !result.hasHandle 
-            ? "/onboarding/handle" 
-            : "/";
-          
-          navigateTo(destination);
-          return; // Don't set redirectChecked - we're navigating away
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const hasHandle = !!userData.handle;
+          console.log("User hasHandle:", hasHandle);
+          navigateTo(hasHandle ? "/" : "/onboarding/handle");
+        } else {
+          navigateTo("/onboarding/handle");
         }
-        
-        console.log("ℹ️ No redirect result (user may have cancelled)");
-      } catch (err: any) {
-        clearTimeout(timeout);
-        console.error("Redirect error:", err);
-        
-        if (err?.code === "auth/account-exists-with-different-credential") {
-          setError("An account already exists with this email using a different sign-in method.");
-        } else if (err?.code !== "auth/popup-closed-by-user") {
-          setError("Sign in was interrupted. Please try again.");
-        }
+      } catch (err) {
+        console.error("Error checking user:", err);
+        navigateTo("/");
       }
-      
-      setRedirectChecked(true);
     };
-
-    checkRedirect();
-  }, [navigateTo]);
-
-  // Handle already logged-in users (but NOT if we're processing a redirect)
-  useEffect(() => {
-    // Don't redirect if:
-    // 1. Redirect hasn't been checked yet
-    // 2. Auth is still loading
-    // 3. No user is logged in
-    // 4. We're already navigating somewhere
-    if (!redirectChecked || authLoading || !user || isNavigating) {
-      return;
-    }
-
-    // Check if there's a stored redirect result from processGoogleCredential
-    const storedResult = getStoredRedirectResult();
-    if (storedResult) {
-      console.log("📦 Found stored redirect result:", storedResult);
-      const destination = storedResult.isNewUser || !storedResult.hasHandle 
-        ? "/onboarding/handle" 
-        : "/";
-      navigateTo(destination);
-      return;
-    }
-
-    // User was already logged in before visiting this page
-    console.log("👤 User already logged in, redirecting to home");
-    navigateTo("/");
-  }, [user, authLoading, redirectChecked, isNavigating, navigateTo]);
+    
+    checkAndRedirect();
+  }, [user, authLoading, navigateTo]);
 
   const handleGoogle = async () => {
-    if (submitting || isNavigating) return;
+    if (submitting || isNavigatingRef.current) return;
     
     try {
       setSubmitting(true);
       setError(null);
       
+      console.log("🔐 Starting Google sign-in...");
+      
+      // This now waits for auth state to be confirmed
       const result = await signInWithGoogleAndCreateProfile();
       
-      // On mobile, result is null (page redirects to Google)
-      if (!result) {
-        // Keep loading state - we're redirecting to Google
-        console.log("📱 Redirecting to Google...");
-        return;
-      }
-      
-      // Desktop popup flow
-      console.log("🖥️ Desktop sign-in complete:", {
+      console.log("✅ Google sign-in complete:", {
+        email: result.user.email,
         isNewUser: result.isNewUser,
         hasHandle: result.hasHandle
       });
       
+      // Small delay to ensure state is fully persisted
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       const destination = result.isNewUser || !result.hasHandle 
         ? "/onboarding/handle" 
         : "/";
+      
       navigateTo(destination);
+      
     } catch (err: any) {
+      console.error("❌ Google sign-in error:", err);
       const code = err?.code;
       
+      // User cancelled - not an error
       if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+        console.log("User cancelled sign-in");
         setSubmitting(false);
         return;
       }
       
+      // Popup blocked
       if (code === "auth/popup-blocked") {
-        setError("Pop-up was blocked. Please enable pop-ups or try on mobile.");
-      } else if (code === "auth/account-exists-with-different-credential") {
+        setError("Pop-up was blocked. Please allow pop-ups for this site in your browser settings, then try again.");
+      } 
+      // Account exists with different provider
+      else if (code === "auth/account-exists-with-different-credential") {
         setError("An account already exists with this email using a different sign-in method.");
-      } else if (code === "auth/network-request-failed") {
+      } 
+      // Network error
+      else if (code === "auth/network-request-failed") {
         setError("Network error. Please check your connection and try again.");
-      } else {
-        setError(err?.message ?? "Failed to sign in with Google.");
       }
+      // Unauthorized domain
+      else if (code === "auth/unauthorized-domain") {
+        setError("This domain is not authorized for sign-in. Please contact support.");
+      }
+      // Auth state timeout
+      else if (err?.message?.includes("timed out")) {
+        setError("Sign-in timed out. Please try again.");
+      }
+      // Generic error
+      else {
+        setError(err?.message ?? "Failed to sign in with Google. Please try again.");
+      }
+      
       setSubmitting(false);
     }
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (submitting || isNavigating) return;
+    if (submitting || isNavigatingRef.current) return;
   
     setError(null);
   
@@ -225,18 +182,15 @@ export default function AuthPage() {
         
         if (!userData.emailVerified) {
           setError("Please verify your email before signing in. Check your inbox!");
-          const authInstance = getFirebaseAuth();
+          const authInstance = await getFirebaseAuth();
           await signOut(authInstance);
           setSubmitting(false);
           return;
         }
 
-        // Check if user has a handle
         const hasHandle = !!userData.handle;
-        const destination = !hasHandle ? "/onboarding/handle" : "/";
-        navigateTo(destination);
+        navigateTo(hasHandle ? "/" : "/onboarding/handle");
       } else {
-        // No user doc, send to onboarding
         navigateTo("/onboarding/handle");
       }
   
@@ -259,29 +213,14 @@ export default function AuthPage() {
     }
   };
 
-  // Determine loading state
-  const showLoadingScreen = !redirectChecked || authLoading || (user && !isNavigating);
-  
-  // Determine loading message
-  const getLoadingMessage = () => {
-    if (!redirectChecked) {
-      if (isRedirectPending()) {
-        return "Completing sign in…";
-      }
-      return "Loading…";
-    }
-    if (authLoading) return "Checking your session…";
-    if (user) return "Redirecting…";
-    return "Loading…";
-  };
-
-  if (showLoadingScreen) {
+  // Show loading while auth is initializing or user is logged in (redirecting)
+  if (authLoading || user) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="flex items-center gap-2 text-sm text-neutral-400">
             <span className="h-2 w-2 rounded-full bg-[var(--brand)] animate-pulse" />
-            <span>{getLoadingMessage()}</span>
+            <span>{authLoading ? "Loading..." : "Redirecting..."}</span>
           </div>
         </div>
       </div>
@@ -336,7 +275,6 @@ export default function AuthPage() {
       </section>
 
       <section className="w-full max-w-sm sm:max-w-md">
-        {/* Solid bg on mobile for performance, blur on desktop */}
         <div className="rounded-2xl border border-white/10 bg-neutral-900 sm:bg-white/[0.02] sm:backdrop-blur-xl p-6 sm:p-8 shadow-2xl shadow-black/50">
           
           <div className="mb-8 text-center">
@@ -355,7 +293,7 @@ export default function AuthPage() {
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/10 p-0.5">
               <GoogleIcon />
             </span>
-            {submitting ? "Connecting..." : "Continue with Google"}
+            {submitting ? "Signing in..." : "Continue with Google"}
           </button>
 
           <div className="my-6 flex items-center gap-3 text-[10px] sm:text-xs font-medium text-neutral-500 uppercase tracking-widest">
