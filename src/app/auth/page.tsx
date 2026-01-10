@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   emailSignIn,
   signInWithGoogleAndCreateProfile,
+  handleGoogleRedirectResult,
   getFirebaseAuth,
   getFirebaseDb,
 } from "@/lib/firebase";
@@ -42,10 +43,43 @@ export default function AuthPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [checkingRedirect, setCheckingRedirect] = useState(true);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // 👇 Handle Google redirect result on page load (for mobile)
+  useEffect(() => {
+    const checkRedirectResult = async () => {
+      try {
+        console.log("🔍 Checking for Google redirect result...");
+        const result = await handleGoogleRedirectResult();
+
+        if (result) {
+          console.log("✅ Google redirect sign-in successful!");
+          const { isNewUser, hasHandle } = result;
+          router.replace(isNewUser || !hasHandle ? "/onboarding/handle" : "/");
+          return;
+        }
+
+        console.log("ℹ️ No redirect result pending");
+      } catch (err: any) {
+        console.error("❌ Google redirect error:", err);
+        const code = err?.code;
+
+        if (code === "auth/account-exists-with-different-credential") {
+          setError("An account already exists with this email using a different sign-in method.");
+        } else {
+          setError(err?.message ?? "Failed to sign in with Google.");
+        }
+      } finally {
+        setCheckingRedirect(false);
+      }
+    };
+
+    checkRedirectResult();
+  }, [router]);
 
   useEffect(() => {
     if (!loading && user) {
@@ -58,17 +92,25 @@ export default function AuthPage() {
     try {
       setSubmitting(true);
       setError(null);
-      const { isNewUser, hasHandle } = await signInWithGoogleAndCreateProfile();
-      router.replace(isNewUser || !hasHandle ? "/onboarding/handle" : "/");
+
+      const result = await signInWithGoogleAndCreateProfile();
+
+      // On mobile, result is null (page redirects to Google)
+      // On desktop, we get the result immediately
+      if (result) {
+        const { isNewUser, hasHandle } = result;
+        router.replace(isNewUser || !hasHandle ? "/onboarding/handle" : "/");
+      }
+      // If result is null, page is redirecting - don't reset submitting
     } catch (err: any) {
       const code = err?.code;
-      
+
       // Don't show error for popup closed by user - it's intentional
       if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
         setSubmitting(false);
         return;
       }
-      
+
       // Handle other Google sign-in errors
       if (code === "auth/popup-blocked") {
         setError("Pop-up was blocked. Please enable pop-ups for this site.");
@@ -77,7 +119,6 @@ export default function AuthPage() {
       } else {
         setError(err?.message ?? "Failed to sign in with Google.");
       }
-    } finally {
       setSubmitting(false);
     }
   };
@@ -85,31 +126,31 @@ export default function AuthPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (submitting) return;
-  
+
     setError(null);
-  
+
     if (!email.trim()) return setError("Please enter your email.");
     if (password.length < 6)
       return setError("Password must be at least 6 characters.");
-  
+
     try {
       setSubmitting(true);
-  
+
       console.log('🔐 Attempting sign in...');
-  
+
       const cred = await emailSignIn(email.trim(), password);
       const signedInUser = cred.user;
-  
+
       console.log('✅ Firebase Auth sign in successful:', signedInUser.uid);
-  
+
       const db = getFirebaseDb();
       const userDoc = await getDoc(doc(db, 'users', signedInUser.uid));
-      
+
       if (userDoc.exists()) {
         const userData = userDoc.data();
-        
+
         console.log('📧 Email verified status:', userData.emailVerified);
-        
+
         if (!userData.emailVerified) {
           console.log('❌ Email not verified - blocking sign in');
           setError("Please verify your email before signing in. Check your inbox!");
@@ -119,16 +160,16 @@ export default function AuthPage() {
           return;
         }
       }
-  
+
       console.log('✅ Email verified - proceeding to home');
-  
+
       setEmail("");
       setPassword("");
-      
+
     } catch (err: any) {
       console.error('❌ Sign in error:', err);
       const code = err?.code;
-  
+
       if (code === "auth/user-not-found") {
         setError("No account found with that email. Try creating one instead.");
       } else if (code === "auth/wrong-password" || code === "auth/invalid-credential") {
@@ -142,12 +183,19 @@ export default function AuthPage() {
     }
   };
 
-  if (loading || user) {
+  // Show loading while checking redirect result OR auth state
+  if (loading || checkingRedirect || user) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <div className="flex items-center gap-2 text-sm text-neutral-400">
           <span className="h-2 w-2 rounded-full bg-[var(--brand)] animate-pulse" />
-          <span>{loading ? "Checking your session…" : "Redirecting…"}</span>
+          <span>
+            {checkingRedirect
+              ? "Completing sign in…"
+              : loading
+              ? "Checking your session…"
+              : "Redirecting…"}
+          </span>
         </div>
       </div>
     );
@@ -202,7 +250,7 @@ export default function AuthPage() {
 
       <section className="w-full max-w-sm sm:max-w-md">
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-xl p-6 sm:p-8 shadow-2xl shadow-black/50">
-          
+
           <div className="mb-8 text-center">
             <h2 className="text-2xl font-bold text-white">Welcome Back</h2>
             <p className="mt-2 text-sm text-neutral-400">
