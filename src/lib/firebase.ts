@@ -5,7 +5,6 @@ import {
   GoogleAuthProvider,
   Auth,
   signInWithPopup,
-  signInWithRedirect,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
@@ -68,10 +67,8 @@ export function getFirebaseDb() {
       db = initializeFirestore(app, {
         localCache: memoryLocalCache(),
       });
-      console.log("✓ Firestore initialized with memory-only cache (no persistence)");
     } catch (error) {
       db = getFirestore(app);
-      console.log("✓ Using existing Firestore instance");
     }
   }
   return db;
@@ -88,71 +85,21 @@ export function getFirebaseStorage() {
 // ---- helpers ----
 const googleProvider = new GoogleAuthProvider();
 
-/**
- * Detect if we're on a mobile device
- */
-export function isMobile(): boolean {
-  if (typeof window === "undefined") return false;
-  return /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(
-    navigator.userAgent
-  );
-}
-
-// Key for tracking redirect state in sessionStorage
-const GOOGLE_REDIRECT_KEY = "google_auth_redirect_pending";
-
-/**
- * Mark that we're about to redirect for Google auth
- */
-export function setGoogleRedirectPending() {
-  if (typeof window !== "undefined") {
-    sessionStorage.setItem(GOOGLE_REDIRECT_KEY, "true");
-    console.log("📱 Marked Google redirect as pending");
-  }
-}
-
-/**
- * Check if we have a pending Google redirect
- */
-export function isGoogleRedirectPending(): boolean {
-  if (typeof window === "undefined") return false;
-  return sessionStorage.getItem(GOOGLE_REDIRECT_KEY) === "true";
-}
-
-/**
- * Clear the Google redirect pending flag
- */
-export function clearGoogleRedirectPending() {
-  if (typeof window !== "undefined") {
-    sessionStorage.removeItem(GOOGLE_REDIRECT_KEY);
-    console.log("📱 Cleared Google redirect pending flag");
-  }
-}
-
-/**
- * Delete all existing profile photos for a user
- */
 async function deleteAllUserPhotos(uid: string): Promise<void> {
   try {
     const storage = getFirebaseStorage();
     const userPhotoDir = ref(storage, `profile-photos/${uid}`);
-
     const listResult = await listAll(userPhotoDir);
 
     if (listResult.items.length > 0) {
-      console.log(`Deleting ${listResult.items.length} old photo(s) for user ${uid}`);
       const deletePromises = listResult.items.map((itemRef) => deleteObject(itemRef));
       await Promise.all(deletePromises);
-      console.log("Old photos deleted successfully");
     }
   } catch (err) {
     console.log("Could not delete old photos (non-critical):", err);
   }
 }
 
-/**
- * Try to upgrade Google avatar URL to a higher-resolution variant
- */
 function buildHighResGoogleUrl(googlePhotoURL: string): string {
   let url = googlePhotoURL;
 
@@ -169,9 +116,6 @@ function buildHighResGoogleUrl(googlePhotoURL: string): string {
   return url;
 }
 
-/**
- * Download Google profile photo and upload to Firebase Storage.
- */
 async function migratePhotoToFirebaseStorage(
   uid: string,
   googlePhotoURL: string | null
@@ -179,12 +123,10 @@ async function migratePhotoToFirebaseStorage(
   if (!googlePhotoURL) return null;
 
   if (googlePhotoURL.includes("firebasestorage.googleapis.com")) {
-    console.log("Photo already in Firebase Storage, skipping migration");
     return googlePhotoURL;
   }
 
   if (!googlePhotoURL.includes("googleusercontent.com")) {
-    console.log("Photo is not from Google, skipping migration");
     return null;
   }
 
@@ -193,21 +135,10 @@ async function migratePhotoToFirebaseStorage(
     const storagePath = `profile-photos/${uid}/profile.jpg`;
     const storageRef = ref(storage, storagePath);
 
-    console.log("Migrating Google photo to Firebase Storage:", storagePath);
-
     const highResUrl = buildHighResGoogleUrl(googlePhotoURL);
-    console.log("Using Google photo URL:", highResUrl);
-
     const response = await fetch(highResUrl);
 
-    if (!response.ok) {
-      console.error("Failed to fetch photo from Google", {
-        url: highResUrl,
-        status: response.status,
-        statusText: response.statusText,
-      });
-      return null;
-    }
+    if (!response.ok) return null;
 
     const blob = await response.blob();
     await deleteAllUserPhotos(uid);
@@ -217,19 +148,13 @@ async function migratePhotoToFirebaseStorage(
       cacheControl: "public, max-age=31536000",
     });
 
-    const firebasePhotoURL = await getDownloadURL(storageRef);
-    console.log("✓ Photo migrated successfully:", firebasePhotoURL);
-
-    return firebasePhotoURL;
+    return await getDownloadURL(storageRef);
   } catch (error) {
     console.error("Failed to migrate profile photo:", error);
     return null;
   }
 }
 
-/**
- * Ensure a basic user document exists.
- */
 export async function ensureUserProfile(user: User) {
   const db = getFirebaseDb();
   const userRef = doc(db, "users", user.uid);
@@ -254,16 +179,9 @@ export async function ensureUserProfile(user: User) {
   const data = snap.data() as any;
   const updates: Record<string, any> = {};
 
-  if (!data.email && user.email) {
-    updates.email = user.email;
-  }
-  if (!data.username && user.displayName) {
-    updates.username = user.displayName;
-  }
-
-  if (data.emailVerified === undefined) {
-    updates.emailVerified = false;
-  }
+  if (!data.email && user.email) updates.email = user.email;
+  if (!data.username && user.displayName) updates.username = user.displayName;
+  if (data.emailVerified === undefined) updates.emailVerified = false;
 
   const firestorePhotoURL: string | null = data.photoURL ?? null;
   const photoMigrationFailed: boolean = !!data.photoMigrationFailed;
@@ -276,17 +194,10 @@ export async function ensureUserProfile(user: User) {
     typeof firestorePhotoURL === "string" &&
     firestorePhotoURL.includes("googleusercontent.com");
 
-  const hasNoPhoto = !firestorePhotoURL;
-
   if (!hasFirebasePhoto && !photoMigrationFailed) {
     const sourceGoogleUrl = (hasGooglePhoto ? firestorePhotoURL : null) ?? user.photoURL;
 
     if (sourceGoogleUrl && sourceGoogleUrl.includes("googleusercontent.com")) {
-      console.log(
-        "Attempting photo migration for existing user. Reason:",
-        hasNoPhoto ? "no photo" : "google URL stored"
-      );
-
       const firebasePhotoURL = await migratePhotoToFirebaseStorage(user.uid, sourceGoogleUrl);
 
       if (firebasePhotoURL) {
@@ -299,9 +210,7 @@ export async function ensureUserProfile(user: User) {
     }
   }
 
-  if (hasGooglePhoto && !updates.photoURL) {
-    updates.photoURL = null;
-  }
+  if (hasGooglePhoto && !updates.photoURL) updates.photoURL = null;
 
   if (Object.keys(updates).length > 0) {
     await updateDoc(userRef, updates);
@@ -309,24 +218,20 @@ export async function ensureUserProfile(user: User) {
 }
 
 /**
- * Process Google user after sign-in (works for both popup and redirect)
- * Called from AuthContext when handling redirect result
+ * Google sign-in using popup (works on mobile too - opens in new tab)
  */
-export async function processGoogleUser(user: User): Promise<{
-  isNewUser: boolean;
-  hasHandle: boolean;
-}> {
+export async function signInWithGoogleAndCreateProfile() {
+  const auth = getFirebaseAuth();
   const db = getFirebaseDb();
 
-  console.log("=== Processing Google User ===");
-  console.log("User ID:", user.uid);
-  console.log("Google Photo URL (Auth):", user.photoURL);
+  const result = await signInWithPopup(auth, googleProvider);
+  const user = result.user;
 
   const userRef = doc(db, "users", user.uid);
   const snap = await getDoc(userRef);
 
   let hasHandle = false;
-  let isNewUser = false;
+  let createdDoc = false;
 
   if (!snap.exists()) {
     const firebasePhotoURL = await migratePhotoToFirebaseStorage(user.uid, user.photoURL);
@@ -337,12 +242,11 @@ export async function processGoogleUser(user: User): Promise<{
       handle: null,
       photoURL: firebasePhotoURL ?? null,
       photoMigrationFailed: firebasePhotoURL === null,
-      emailVerified: true, // Google users are pre-verified
+      emailVerified: true,
       publishedIdeaIds: [],
       createdAt: serverTimestamp(),
     });
-    isNewUser = true;
-    console.log("✓ New user document created");
+    createdDoc = true;
   } else {
     const data = snap.data() as any;
     hasHandle = !!data.handle;
@@ -350,10 +254,7 @@ export async function processGoogleUser(user: User): Promise<{
     const updates: Record<string, any> = {};
     if (!data.email && user.email) updates.email = user.email;
     if (!data.username && user.displayName) updates.username = user.displayName;
-
-    if (!data.emailVerified) {
-      updates.emailVerified = true;
-    }
+    if (!data.emailVerified) updates.emailVerified = true;
 
     const firestorePhotoURL: string | null = data.photoURL ?? null;
     const photoMigrationFailed: boolean = !!data.photoMigrationFailed;
@@ -366,17 +267,10 @@ export async function processGoogleUser(user: User): Promise<{
       typeof firestorePhotoURL === "string" &&
       firestorePhotoURL.includes("googleusercontent.com");
 
-    const hasNoPhoto = !firestorePhotoURL;
-
     if (!hasFirebasePhoto && !photoMigrationFailed) {
       const sourceGoogleUrl = (hasGooglePhoto ? firestorePhotoURL : null) ?? user.photoURL;
 
       if (sourceGoogleUrl && sourceGoogleUrl.includes("googleusercontent.com")) {
-        console.log(
-          "Attempting photo migration on sign-in. Reason:",
-          hasNoPhoto ? "no photo" : "google URL stored"
-        );
-
         const firebasePhotoURL = await migratePhotoToFirebaseStorage(user.uid, sourceGoogleUrl);
 
         if (firebasePhotoURL) {
@@ -389,54 +283,22 @@ export async function processGoogleUser(user: User): Promise<{
       }
     }
 
-    if (hasGooglePhoto && !updates.photoURL) {
-      updates.photoURL = null;
-    }
+    if (hasGooglePhoto && !updates.photoURL) updates.photoURL = null;
 
     if (Object.keys(updates).length > 0) {
       await updateDoc(userRef, updates);
-      console.log("✓ User document updated");
     }
   }
 
-  return { isNewUser, hasHandle };
-}
-
-/**
- * Google sign-in - uses redirect on mobile, popup on desktop
- */
-export async function signInWithGoogleAndCreateProfile() {
-  const auth = getFirebaseAuth();
-
-  // Mobile: use redirect flow
-  if (isMobile()) {
-    console.log("📱 Mobile detected - using redirect flow");
-    setGoogleRedirectPending();
-    await signInWithRedirect(auth, googleProvider);
-    // Page will redirect - this code won't continue
-    return null;
-  }
-
-  // Desktop: use popup flow
-  console.log("🖥️ Desktop detected - using popup flow");
-  const result = await signInWithPopup(auth, googleProvider);
-  const user = result.user;
-
-  const { isNewUser, hasHandle } = await processGoogleUser(user);
-
   const info = getAdditionalUserInfo(result);
-  const isNewUserFromAuth = info?.isNewUser ?? false;
 
   return {
     user,
-    isNewUser: isNewUserFromAuth || isNewUser,
+    isNewUser: info?.isNewUser ?? createdDoc,
     hasHandle,
   };
 }
 
-/**
- * Email sign-up
- */
 export async function emailSignUpAndCreateProfile(
   email: string,
   password: string,
@@ -462,14 +324,9 @@ export async function emailSignUpAndCreateProfile(
     createdAt: serverTimestamp(),
   });
 
-  console.log("✓ User created in Firebase Auth and Firestore");
-
   return cred;
 }
 
-/**
- * Email sign-in
- */
 export async function emailSignIn(email: string, password: string) {
   const auth = getFirebaseAuth();
   const cred = await signInWithEmailAndPassword(auth, email, password);

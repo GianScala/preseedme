@@ -35,7 +35,7 @@ const GoogleIcon = () => (
 
 export default function AuthPage() {
   const router = useRouter();
-  const { user, loading, redirectResult, clearRedirectResult } = useAuth();
+  const { user, loading } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -47,48 +47,27 @@ export default function AuthPage() {
     setMounted(true);
   }, []);
 
-  // Handle redirect result from AuthContext (for mobile Google sign-in)
   useEffect(() => {
-    if (redirectResult) {
-      console.log("📱 AuthPage: Handling redirect result from context", redirectResult);
-      const { isNewUser, hasHandle } = redirectResult;
-      clearRedirectResult();
-      router.replace(isNewUser || !hasHandle ? "/onboarding/handle" : "/");
-    }
-  }, [redirectResult, clearRedirectResult, router]);
-
-  // Redirect if already signed in (and no redirect result pending)
-  useEffect(() => {
-    if (!loading && user && !redirectResult) {
+    if (!loading && user) {
       router.replace("/");
     }
-  }, [user, loading, redirectResult, router]);
+  }, [user, loading, router]);
 
   const handleGoogle = async () => {
     if (submitting) return;
     try {
       setSubmitting(true);
       setError(null);
-
-      const result = await signInWithGoogleAndCreateProfile();
-
-      // On mobile, result is null (page redirects to Google)
-      // On desktop, we get the result immediately
-      if (result) {
-        const { isNewUser, hasHandle } = result;
-        router.replace(isNewUser || !hasHandle ? "/onboarding/handle" : "/");
-      }
-      // If result is null, page is redirecting to Google - don't reset submitting
+      const { isNewUser, hasHandle } = await signInWithGoogleAndCreateProfile();
+      router.replace(isNewUser || !hasHandle ? "/onboarding/handle" : "/");
     } catch (err: any) {
       const code = err?.code;
-
-      // Don't show error for popup closed by user - it's intentional
+      
       if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
         setSubmitting(false);
         return;
       }
-
-      // Handle other Google sign-in errors
+      
       if (code === "auth/popup-blocked") {
         setError("Pop-up was blocked. Please enable pop-ups for this site.");
       } else if (code === "auth/account-exists-with-different-credential") {
@@ -96,6 +75,7 @@ export default function AuthPage() {
       } else {
         setError(err?.message ?? "Failed to sign in with Google.");
       }
+    } finally {
       setSubmitting(false);
     }
   };
@@ -103,33 +83,26 @@ export default function AuthPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (submitting) return;
-
+  
     setError(null);
-
+  
     if (!email.trim()) return setError("Please enter your email.");
     if (password.length < 6)
       return setError("Password must be at least 6 characters.");
-
+  
     try {
       setSubmitting(true);
-
-      console.log("🔐 Attempting sign in...");
-
+  
       const cred = await emailSignIn(email.trim(), password);
       const signedInUser = cred.user;
-
-      console.log("✅ Firebase Auth sign in successful:", signedInUser.uid);
-
+  
       const db = getFirebaseDb();
-      const userDoc = await getDoc(doc(db, "users", signedInUser.uid));
-
+      const userDoc = await getDoc(doc(db, 'users', signedInUser.uid));
+      
       if (userDoc.exists()) {
         const userData = userDoc.data();
-
-        console.log("📧 Email verified status:", userData.emailVerified);
-
+        
         if (!userData.emailVerified) {
-          console.log("❌ Email not verified - blocking sign in");
           setError("Please verify your email before signing in. Check your inbox!");
           const authInstance = getFirebaseAuth();
           await signOut(authInstance);
@@ -137,15 +110,13 @@ export default function AuthPage() {
           return;
         }
       }
-
-      console.log("✅ Email verified - proceeding to home");
-
+  
       setEmail("");
       setPassword("");
+      
     } catch (err: any) {
-      console.error("❌ Sign in error:", err);
       const code = err?.code;
-
+  
       if (code === "auth/user-not-found") {
         setError("No account found with that email. Try creating one instead.");
       } else if (code === "auth/wrong-password" || code === "auth/invalid-credential") {
@@ -159,7 +130,6 @@ export default function AuthPage() {
     }
   };
 
-  // Show loading while auth is initializing
   if (loading || user) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
@@ -183,7 +153,7 @@ export default function AuthPage() {
     >
       <section className="w-full max-w-md space-y-6 text-center lg:text-left">
         <div className="inline-flex items-center gap-2 rounded-full border border-[var(--brand)]/20 bg-[var(--brand)]/5 px-3 py-1 text-[10px] sm:text-xs font-bold text-[var(--brand)] uppercase tracking-wider">
-          <span className="relative flex h-2 w-2">
+           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--brand)] opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--brand)]"></span>
           </span>
@@ -192,9 +162,7 @@ export default function AuthPage() {
 
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.1]">
           Where ideas get <br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--brand-light)] to-[var(--brand)]">
-            funded first.
-          </span>
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--brand-light)] to-[var(--brand)]">funded first.</span>
         </h1>
 
         <p className="text-base sm:text-lg text-neutral-400 leading-relaxed max-w-sm mx-auto lg:mx-0">
@@ -203,26 +171,31 @@ export default function AuthPage() {
         </p>
 
         <ul className="hidden sm:block space-y-3 pt-2">
-          {["Post ideas in seconds", "Connect with micro-investors", "Get discovered on the leaderboard"].map(
-            (item, i) => (
-              <li key={i} className="flex items-center gap-3 text-sm text-neutral-300 justify-center lg:justify-start">
-                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--brand)]/10 text-[var(--brand)]">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                {item}
-              </li>
-            )
-          )}
+          {[
+            "Post ideas in seconds",
+            "Connect with micro-investors",
+            "Get discovered on the leaderboard"
+          ].map((item, i) => (
+            <li key={i} className="flex items-center gap-3 text-sm text-neutral-300 justify-center lg:justify-start">
+              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--brand)]/10 text-[var(--brand)]">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              {item}
+            </li>
+          ))}
         </ul>
       </section>
 
       <section className="w-full max-w-sm sm:max-w-md">
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-xl p-6 sm:p-8 shadow-2xl shadow-black/50">
+          
           <div className="mb-8 text-center">
             <h2 className="text-2xl font-bold text-white">Welcome Back</h2>
-            <p className="mt-2 text-sm text-neutral-400">Sign in to continue your journey</p>
+            <p className="mt-2 text-sm text-neutral-400">
+              Sign in to continue your journey
+            </p>
           </div>
 
           <button
@@ -245,7 +218,9 @@ export default function AuthPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-neutral-300 ml-1">Email</label>
+              <label className="text-xs font-semibold text-neutral-300 ml-1">
+                Email
+              </label>
               <input
                 type="email"
                 placeholder="founder@example.com"
@@ -258,10 +233,12 @@ export default function AuthPage() {
 
             <div className="space-y-1.5">
               <div className="flex justify-between items-center ml-1">
-                <label className="text-xs font-semibold text-neutral-300">Password</label>
+                 <label className="text-xs font-semibold text-neutral-300">
+                  Password
+                </label>
                 <button
                   type="button"
-                  onClick={() => router.push("/auth/forgot-password")}
+                  onClick={() => router.push('/auth/forgot-password')}
                   className="text-xs text-[var(--brand)] hover:underline"
                 >
                   Forgot password?
@@ -280,14 +257,7 @@ export default function AuthPage() {
 
             {error && (
               <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-300 flex items-start gap-2">
-                <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
+                <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 <span>{error}</span>
               </div>
             )}
