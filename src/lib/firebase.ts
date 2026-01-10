@@ -155,24 +155,52 @@ async function migratePhotoToFirebaseStorage(
   }
 }
 
+/**
+ * Background photo migration (fire and forget - doesn't block sign-in)
+ */
+function migratePhotoInBackground(uid: string, photoURL: string | null) {
+  if (!photoURL) return;
+
+  migratePhotoToFirebaseStorage(uid, photoURL)
+    .then(async (firebasePhotoURL) => {
+      const db = getFirebaseDb();
+      const userRef = doc(db, "users", uid);
+
+      if (firebasePhotoURL) {
+        await updateDoc(userRef, {
+          photoURL: firebasePhotoURL,
+          photoMigrationFailed: false,
+        });
+        console.log("✓ Photo migrated in background");
+      } else {
+        await updateDoc(userRef, { photoMigrationFailed: true });
+      }
+    })
+    .catch((err) => {
+      console.error("Background photo migration failed:", err);
+    });
+}
+
 export async function ensureUserProfile(user: User) {
   const db = getFirebaseDb();
   const userRef = doc(db, "users", user.uid);
   const snap = await getDoc(userRef);
 
   if (!snap.exists()) {
-    const firebasePhotoURL = await migratePhotoToFirebaseStorage(user.uid, user.photoURL);
-
+    // Create doc immediately without waiting for photo
     await setDoc(userRef, {
       email: user.email ?? "",
       username: user.displayName ?? "",
       handle: null,
-      photoURL: firebasePhotoURL ?? null,
-      photoMigrationFailed: firebasePhotoURL === null,
+      photoURL: null,
+      photoMigrationFailed: false,
       emailVerified: false,
       publishedIdeaIds: [],
       createdAt: serverTimestamp(),
     });
+
+    // Migrate photo in background
+    migratePhotoInBackground(user.uid, user.photoURL);
     return;
   }
 
@@ -183,6 +211,11 @@ export async function ensureUserProfile(user: User) {
   if (!data.username && user.displayName) updates.username = user.displayName;
   if (data.emailVerified === undefined) updates.emailVerified = false;
 
+  if (Object.keys(updates).length > 0) {
+    await updateDoc(userRef, updates);
+  }
+
+  // Migrate photo in background if needed
   const firestorePhotoURL: string | null = data.photoURL ?? null;
   const photoMigrationFailed: boolean = !!data.photoMigrationFailed;
 
@@ -190,35 +223,22 @@ export async function ensureUserProfile(user: User) {
     typeof firestorePhotoURL === "string" &&
     firestorePhotoURL.includes("firebasestorage.googleapis.com");
 
-  const hasGooglePhoto =
-    typeof firestorePhotoURL === "string" &&
-    firestorePhotoURL.includes("googleusercontent.com");
-
   if (!hasFirebasePhoto && !photoMigrationFailed) {
+    const hasGooglePhoto =
+      typeof firestorePhotoURL === "string" &&
+      firestorePhotoURL.includes("googleusercontent.com");
+
     const sourceGoogleUrl = (hasGooglePhoto ? firestorePhotoURL : null) ?? user.photoURL;
 
     if (sourceGoogleUrl && sourceGoogleUrl.includes("googleusercontent.com")) {
-      const firebasePhotoURL = await migratePhotoToFirebaseStorage(user.uid, sourceGoogleUrl);
-
-      if (firebasePhotoURL) {
-        updates.photoURL = firebasePhotoURL;
-        updates.photoMigrationFailed = false;
-      } else {
-        updates.photoURL = null;
-        updates.photoMigrationFailed = true;
-      }
+      migratePhotoInBackground(user.uid, sourceGoogleUrl);
     }
-  }
-
-  if (hasGooglePhoto && !updates.photoURL) updates.photoURL = null;
-
-  if (Object.keys(updates).length > 0) {
-    await updateDoc(userRef, updates);
   }
 }
 
 /**
- * Google sign-in using popup (works on mobile too - opens in new tab)
+ * Google sign-in using popup (works on mobile too)
+ * Photo migration happens in background - doesn't block sign-in
  */
 export async function signInWithGoogleAndCreateProfile() {
   const auth = getFirebaseAuth();
@@ -234,19 +254,21 @@ export async function signInWithGoogleAndCreateProfile() {
   let createdDoc = false;
 
   if (!snap.exists()) {
-    const firebasePhotoURL = await migratePhotoToFirebaseStorage(user.uid, user.photoURL);
-
+    // Create doc immediately WITHOUT waiting for photo
     await setDoc(userRef, {
       email: user.email ?? "",
       username: user.displayName ?? "",
       handle: null,
-      photoURL: firebasePhotoURL ?? null,
-      photoMigrationFailed: firebasePhotoURL === null,
+      photoURL: null,
+      photoMigrationFailed: false,
       emailVerified: true,
       publishedIdeaIds: [],
       createdAt: serverTimestamp(),
     });
     createdDoc = true;
+
+    // Migrate photo in background (don't await)
+    migratePhotoInBackground(user.uid, user.photoURL);
   } else {
     const data = snap.data() as any;
     hasHandle = !!data.handle;
@@ -256,6 +278,11 @@ export async function signInWithGoogleAndCreateProfile() {
     if (!data.username && user.displayName) updates.username = user.displayName;
     if (!data.emailVerified) updates.emailVerified = true;
 
+    if (Object.keys(updates).length > 0) {
+      await updateDoc(userRef, updates);
+    }
+
+    // Migrate photo in background if needed
     const firestorePhotoURL: string | null = data.photoURL ?? null;
     const photoMigrationFailed: boolean = !!data.photoMigrationFailed;
 
@@ -263,30 +290,8 @@ export async function signInWithGoogleAndCreateProfile() {
       typeof firestorePhotoURL === "string" &&
       firestorePhotoURL.includes("firebasestorage.googleapis.com");
 
-    const hasGooglePhoto =
-      typeof firestorePhotoURL === "string" &&
-      firestorePhotoURL.includes("googleusercontent.com");
-
     if (!hasFirebasePhoto && !photoMigrationFailed) {
-      const sourceGoogleUrl = (hasGooglePhoto ? firestorePhotoURL : null) ?? user.photoURL;
-
-      if (sourceGoogleUrl && sourceGoogleUrl.includes("googleusercontent.com")) {
-        const firebasePhotoURL = await migratePhotoToFirebaseStorage(user.uid, sourceGoogleUrl);
-
-        if (firebasePhotoURL) {
-          updates.photoURL = firebasePhotoURL;
-          updates.photoMigrationFailed = false;
-        } else {
-          updates.photoURL = null;
-          updates.photoMigrationFailed = true;
-        }
-      }
-    }
-
-    if (hasGooglePhoto && !updates.photoURL) updates.photoURL = null;
-
-    if (Object.keys(updates).length > 0) {
-      await updateDoc(userRef, updates);
+      migratePhotoInBackground(user.uid, user.photoURL);
     }
   }
 
