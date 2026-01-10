@@ -14,28 +14,16 @@ import { doc, getDoc } from "firebase/firestore";
 
 const GoogleIcon = () => (
   <svg className="h-5 w-5" viewBox="0 0 48 48" aria-hidden="true">
-    <path
-      fill="#EA4335"
-      d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.2C12.31 13.02 17.7 9.5 24 9.5z"
-    />
-    <path
-      fill="#4285F4"
-      d="M46.98 24.55c0-1.59-.14-3.12-.39-4.55H24v9.02h12.94c-.56 2.86-2.27 5.29-4.81 6.92l7.78 6.04C44.33 38.51 46.98 32.02 46.98 24.55z"
-    />
-    <path
-      fill="#FBBC05"
-      d="M10.54 28.58A14.44 14.44 0 0 1 9.76 24c0-1.59.27-3.13.76-4.58l-7.98-6.2A23.88 23.88 0 0 0 0 24c0 3.87.93 7.52 2.56 10.78l7.98-6.2z"
-    />
-    <path
-      fill="#34A853"
-      d="M24 48c6.48 0 11.92-2.13 15.89-5.8l-7.78-6.04C30.28 37.66 27.39 38.5 24 38.5c-6.3 0-11.69-3.52-14.46-8.72l-7.98 6.2C6.51 42.62 14.62 48 24 48z"
-    />
+    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.2C12.31 13.02 17.7 9.5 24 9.5z" />
+    <path fill="#4285F4" d="M46.98 24.55c0-1.59-.14-3.12-.39-4.55H24v9.02h12.94c-.56 2.86-2.27 5.29-4.81 6.92l7.78 6.04C44.33 38.51 46.98 32.02 46.98 24.55z" />
+    <path fill="#FBBC05" d="M10.54 28.58A14.44 14.44 0 0 1 9.76 24c0-1.59.27-3.13.76-4.58l-7.98-6.2A23.88 23.88 0 0 0 0 24c0 3.87.93 7.52 2.56 10.78l7.98-6.2z" />
+    <path fill="#34A853" d="M24 48c6.48 0 11.92-2.13 15.89-5.8l-7.78-6.04C30.28 37.66 27.39 38.5 24 38.5c-6.3 0-11.69-3.52-14.46-8.72l-7.98 6.2C6.51 42.62 14.62 48 24 48z" />
   </svg>
 );
 
 export default function AuthPage() {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading, redirectResult, clearRedirectResult } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -47,27 +35,42 @@ export default function AuthPage() {
     setMounted(true);
   }, []);
 
+  // Handle mobile redirect result
   useEffect(() => {
-    if (!loading && user) {
+    if (redirectResult) {
+      const { isNewUser, hasHandle } = redirectResult;
+      clearRedirectResult();
+      router.replace(isNewUser || !hasHandle ? "/onboarding/handle" : "/");
+    }
+  }, [redirectResult, clearRedirectResult, router]);
+
+  // Redirect if already signed in
+  useEffect(() => {
+    if (!loading && user && !redirectResult) {
       router.replace("/");
     }
-  }, [user, loading, router]);
+  }, [user, loading, redirectResult, router]);
 
   const handleGoogle = async () => {
     if (submitting) return;
     try {
       setSubmitting(true);
       setError(null);
-      const { isNewUser, hasHandle } = await signInWithGoogleAndCreateProfile();
-      router.replace(isNewUser || !hasHandle ? "/onboarding/handle" : "/");
+
+      const result = await signInWithGoogleAndCreateProfile();
+
+      // Mobile: result is null (page redirects to Google)
+      // Desktop: result contains user data
+      if (result) {
+        const { isNewUser, hasHandle } = result;
+        router.replace(isNewUser || !hasHandle ? "/onboarding/handle" : "/");
+      }
     } catch (err: any) {
       const code = err?.code;
-      
       if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
         setSubmitting(false);
         return;
       }
-      
       if (code === "auth/popup-blocked") {
         setError("Pop-up was blocked. Please enable pop-ups for this site.");
       } else if (code === "auth/account-exists-with-different-credential") {
@@ -75,7 +78,6 @@ export default function AuthPage() {
       } else {
         setError(err?.message ?? "Failed to sign in with Google.");
       }
-    } finally {
       setSubmitting(false);
     }
   };
@@ -83,40 +85,29 @@ export default function AuthPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (submitting) return;
-  
+
     setError(null);
-  
     if (!email.trim()) return setError("Please enter your email.");
-    if (password.length < 6)
-      return setError("Password must be at least 6 characters.");
-  
+    if (password.length < 6) return setError("Password must be at least 6 characters.");
+
     try {
       setSubmitting(true);
-  
       const cred = await emailSignIn(email.trim(), password);
-      const signedInUser = cred.user;
-  
+
       const db = getFirebaseDb();
-      const userDoc = await getDoc(doc(db, 'users', signedInUser.uid));
-      
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        
-        if (!userData.emailVerified) {
-          setError("Please verify your email before signing in. Check your inbox!");
-          const authInstance = getFirebaseAuth();
-          await signOut(authInstance);
-          setSubmitting(false);
-          return;
-        }
+      const userDoc = await getDoc(doc(db, "users", cred.user.uid));
+
+      if (userDoc.exists() && !userDoc.data().emailVerified) {
+        setError("Please verify your email before signing in. Check your inbox!");
+        await signOut(getFirebaseAuth());
+        setSubmitting(false);
+        return;
       }
-  
+
       setEmail("");
       setPassword("");
-      
     } catch (err: any) {
       const code = err?.code;
-  
       if (code === "auth/user-not-found") {
         setError("No account found with that email. Try creating one instead.");
       } else if (code === "auth/wrong-password" || code === "auth/invalid-credential") {
@@ -153,7 +144,7 @@ export default function AuthPage() {
     >
       <section className="w-full max-w-md space-y-6 text-center lg:text-left">
         <div className="inline-flex items-center gap-2 rounded-full border border-[var(--brand)]/20 bg-[var(--brand)]/5 px-3 py-1 text-[10px] sm:text-xs font-bold text-[var(--brand)] uppercase tracking-wider">
-           <span className="relative flex h-2 w-2">
+          <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--brand)] opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--brand)]"></span>
           </span>
@@ -171,11 +162,7 @@ export default function AuthPage() {
         </p>
 
         <ul className="hidden sm:block space-y-3 pt-2">
-          {[
-            "Post ideas in seconds",
-            "Connect with micro-investors",
-            "Get discovered on the leaderboard"
-          ].map((item, i) => (
+          {["Post ideas in seconds", "Connect with micro-investors", "Get discovered on the leaderboard"].map((item, i) => (
             <li key={i} className="flex items-center gap-3 text-sm text-neutral-300 justify-center lg:justify-start">
               <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--brand)]/10 text-[var(--brand)]">
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -190,12 +177,9 @@ export default function AuthPage() {
 
       <section className="w-full max-w-sm sm:max-w-md">
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-xl p-6 sm:p-8 shadow-2xl shadow-black/50">
-          
           <div className="mb-8 text-center">
             <h2 className="text-2xl font-bold text-white">Welcome Back</h2>
-            <p className="mt-2 text-sm text-neutral-400">
-              Sign in to continue your journey
-            </p>
+            <p className="mt-2 text-sm text-neutral-400">Sign in to continue your journey</p>
           </div>
 
           <button
@@ -218,9 +202,7 @@ export default function AuthPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-neutral-300 ml-1">
-                Email
-              </label>
+              <label className="text-xs font-semibold text-neutral-300 ml-1">Email</label>
               <input
                 type="email"
                 placeholder="founder@example.com"
@@ -233,14 +215,8 @@ export default function AuthPage() {
 
             <div className="space-y-1.5">
               <div className="flex justify-between items-center ml-1">
-                 <label className="text-xs font-semibold text-neutral-300">
-                  Password
-                </label>
-                <button
-                  type="button"
-                  onClick={() => router.push('/auth/forgot-password')}
-                  className="text-xs text-[var(--brand)] hover:underline"
-                >
+                <label className="text-xs font-semibold text-neutral-300">Password</label>
+                <button type="button" onClick={() => router.push("/auth/forgot-password")} className="text-xs text-[var(--brand)] hover:underline">
                   Forgot password?
                 </button>
               </div>
@@ -257,7 +233,9 @@ export default function AuthPage() {
 
             {error && (
               <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-300 flex items-start gap-2">
-                <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
                 <span>{error}</span>
               </div>
             )}
