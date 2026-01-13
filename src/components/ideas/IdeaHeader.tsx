@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import type { IdeaWithLikes } from "@/app/ideas/[id]/page";
+import type { IdeaWithLikes } from "@/app/(app)/ideas/[id]/page";
 
 interface AuthUser {
   uid: string;

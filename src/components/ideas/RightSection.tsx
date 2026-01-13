@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { MessageSquare, Share2, ChevronDown, Lock } from "lucide-react";
-import type { IdeaWithLikes } from "@/app/ideas/[id]/page";
+import type { IdeaWithLikes } from "@/app/(app)/ideas/[id]/page";
 import { getFirebaseDb } from "@/lib/firebase";
 
 // Modular Sub-components

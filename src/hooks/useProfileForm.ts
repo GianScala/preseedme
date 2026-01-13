@@ -8,8 +8,8 @@ import {
   deleteObject,
   listAll,
 } from "firebase/storage";
-import { ProfileFormData, StatusState } from "@/app/profile//utils/types";
-import { normalizeUrl } from "@/app/profile/utils/urlHelpers";
+import { ProfileFormData, StatusState } from "@/app/(app)/profile/utils/types";
+import { normalizeUrl } from "@/app/(app)/profile/utils/urlHelpers";
 
 export function useProfileForm(
   userId: string | undefined,

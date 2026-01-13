@@ -180,7 +180,7 @@ function HeroSection({
               placeholder="Search startups..."
               // IMPORTANT: iOS Safari zooms inputs with font-size < 16px.
               // So we force 16px on mobile to keep it fixed (no page zoom).
-              className="h-12 w-full rounded-xl border border-white/10 bg-neutral-900/80 pl-12 pr-12 text-[16px] text-white placeholder-neutral-500 shadow-lg shadow-black/20 backdrop-blur-md transition-all duration-200 hover:border-white/20 focus:border-brand/50 focus:outline-none focus:ring-brand/40 sm:h-14 sm:text-base"
+              className="h-12 w-full rounded-xl border border-white/10 bg-neutral-900/20 pl-12 pr-12 text-[16px] text-white placeholder-neutral-500 shadow-lg shadow-black/20 backdrop-blur-md transition-all duration-200 hover:border-white/20 sm:h-14 sm:text-base"
             />
 
             {/* Icon AFTER input + z-index to avoid being “invisible” */}

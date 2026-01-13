@@ -2,7 +2,7 @@ import { Globe, Linkedin, Github } from "lucide-react";
 import { XIcon } from "@/components/icons/XIcon";
 import SectionCard from "../shared/SectionCard";
 import IconInput from "../shared/IconInput";
-import { ProfileFormData } from "@/app/profile/utils/types";
+import { ProfileFormData } from "@/app/(app)/profile/utils/types";
 
 type LinksTabProps = {
   formData: ProfileFormData;

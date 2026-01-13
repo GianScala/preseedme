@@ -2,7 +2,7 @@ import { Phone, MapPin } from "lucide-react";
 import { MailIcon } from "@/components/icons/MailIcon";
 import SectionCard from "../shared/SectionCard";
 import IconInput from "../shared/IconInput";
-import { ProfileFormData } from "@/app/profile/utils/types";
+import { ProfileFormData } from "@/app/(app)/profile/utils/types";
 
 type ContactTabProps = {
   formData: ProfileFormData;

@@ -1,23 +1,60 @@
 /* src/app/globals.css */
 @import "tailwindcss";
 
-/* Design tokens */
+/* ============================================
+   DESIGN TOKENS / CSS VARIABLES
+   ============================================
+   These defaults ensure SSR/initial paint works
+   before ThemeProvider hydrates on the client.
+*/
 :root {
   /* Core Background Colors */
-  --background: #000000;
+  --background: #e5e5e5;
   --foreground: #e5e5e5;
 
-  /* Brand Colors - Your "preseedme" Identity */
+  /* Brand Colors - Your "PreseedMe" Identity */
   --brand: #21ddc0;
   --brand-light: #7fffd4;
   --brand-dark: #126356;
 
-  /* Secondary Accent */
+  /* Accent Colors */
   --accent-blob: #4c1d95;
+  --accent-purple: #8b5cf6;
+
+  /* Surface Colors (cards, modals, overlays) */
+  --surface: rgba(255, 255, 255, 0.03);
+  --surface-hover: rgba(255, 255, 255, 0.06);
+  --surface-border: rgba(255, 255, 255, 0.1);
+  --surface-elevated: rgba(255, 255, 255, 0.08);
+
+  /* Text Colors */
+  --text-primary: #e5e5e5;
+  --text-secondary: #a3a3a3;
+  --text-muted: #737373;
+
+  /* Semantic Colors */
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #3b82f6;
+
+  /* Spacing */
+  --navbar-height: 4rem;
+
+  /* Animation Durations */
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+  --duration-slow: 600ms;
 }
 
-/* Tailwind v4 Configuration */
+/* ============================================
+   TAILWIND V4 THEME CONFIGURATION
+   ============================================
+   Maps CSS variables to Tailwind utility classes.
+   Usage: bg-brand, text-brand-light, bg-surface, etc.
+*/
 @theme inline {
+  /* Colors */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 
@@ -25,14 +62,32 @@
   --color-brand-light: var(--brand-light);
   --color-brand-dark: var(--brand-dark);
 
-  --font-sans: var(--font-titillium), sans-serif;
+  --color-accent-blob: var(--accent-blob);
+  --color-accent-purple: var(--accent-purple);
+
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-border: var(--surface-border);
+  --color-surface-elevated: var(--surface-elevated);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  --color-info: var(--info);
+
+  /* Typography */
+  --font-sans: var(--font-titillium), ui-sans-serif, system-ui, sans-serif;
 }
 
 /* ============================================
    GLOBAL RESET & STRUCTURE
    ============================================ */
 
-/* Make FIRST PAINT black (avoid white flash) */
+/* Prevent white flash on initial load */
 html,
 body {
   background-color: var(--background);
@@ -40,14 +95,13 @@ body {
   min-height: 100%;
 }
 
-/* Keep your existing html options */
 html {
   height: 100%;
   overscroll-behavior-y: contain;
   touch-action: pan-y;
+  scroll-behavior: smooth;
 }
 
-/* Body should NOT be transparent if you want no white flash */
 body {
   font-family: var(--font-sans);
   min-height: 100vh;
@@ -58,12 +112,18 @@ body {
 }
 
 /* ============================================
-   UTILITIES & EFFECTS
+   UTILITY CLASSES
    ============================================ */
 
-.text-brand { color: var(--brand); }
-.bg-brand { background-color: var(--brand); }
+/* Legacy support (prefer Tailwind classes: text-brand, bg-brand) */
+.text-brand {
+  color: var(--brand);
+}
+.bg-brand {
+  background-color: var(--brand);
+}
 
+/* Scrollbar utilities */
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -72,25 +132,321 @@ body {
   display: none;
 }
 
+/* Custom scrollbar styling */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-border) transparent;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: var(--surface-border);
+  border-radius: 3px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-muted);
+}
+
+/* Glass morphism effect */
+.glass {
+  background: var(--surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--surface-border);
+}
+
+/* Gradient text utility */
+.text-gradient-brand {
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-light) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Focus ring utility */
+.focus-ring {
+  outline: none;
+}
+.focus-ring:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
 /* ============================================
    ANIMATIONS
    ============================================ */
 
+/* Blob animation for background effects */
 @keyframes blob {
-  0% { transform: translate(0px, 0px) scale(1); }
-  33% { transform: translate(30px, -50px) scale(1.1); }
-  66% { transform: translate(-20px, 20px) scale(0.9); }
-  100% { transform: translate(0px, 0px) scale(1); }
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
 }
-
 .animate-blob {
   animation: blob 20s infinite;
 }
 
+/* Staggered blob animation */
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+/* Fade in animation */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .animate-fade-in {
-  animation: fadeIn 0.6s ease-out forwards;
+  animation: fadeIn var(--duration-slow) ease-out forwards;
+}
+
+/* Fade in up animation (more dramatic) */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in-up {
+  animation: fadeInUp var(--duration-slow) ease-out forwards;
+}
+
+/* Slide in from left */
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.animate-slide-in-left {
+  animation: slideInLeft var(--duration-normal) ease-out forwards;
+}
+
+/* Slide in from right */
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.animate-slide-in-right {
+  animation: slideInRight var(--duration-normal) ease-out forwards;
+}
+
+/* Scale in animation */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.animate-scale-in {
+  animation: scaleIn var(--duration-normal) ease-out forwards;
+}
+
+/* Pulse glow effect for brand elements */
+@keyframes pulseGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(33, 221, 192, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(33, 221, 192, 0.6);
+  }
+}
+.animate-pulse-glow {
+  animation: pulseGlow 3s ease-in-out infinite;
+}
+
+/* Shimmer loading effect */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--surface) 25%,
+    var(--surface-hover) 50%,
+    var(--surface) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Spin animation (for loaders) */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.animate-spin-slow {
+  animation: spin 3s linear infinite;
+}
+
+/* ============================================
+   COMPONENT BASE STYLES
+   ============================================ */
+
+/* Card base style */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: 0.75rem;
+  transition: all var(--duration-normal) ease;
+}
+.card:hover {
+  background: var(--surface-hover);
+  border-color: var(--brand-dark);
+}
+
+/* Button base style */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  transition: all var(--duration-fast) ease;
+  cursor: pointer;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--brand);
+  color: var(--background);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--brand-light);
+}
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--foreground);
+  border: 1px solid var(--surface-border);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--brand-dark);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--foreground);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--surface);
+}
+
+/* Input base style */
+.input {
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: 0.5rem;
+  color: var(--foreground);
+  transition: all var(--duration-fast) ease;
+}
+.input::placeholder {
+  color: var(--text-muted);
+}
+.input:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(33, 221, 192, 0.1);
+}
+
+/* ============================================
+   ACCESSIBILITY
+   ============================================ */
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-blob,
+  .animate-pulse-glow,
+  .animate-shimmer {
+    animation: none;
+  }
+}
+
+/* Focus visible for keyboard navigation */
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* Skip to content link (add to layout if needed) */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--brand);
+  color: var(--background);
+  padding: 8px;
+  z-index: 100;
+  transition: top var(--duration-fast) ease;
+}
+.skip-link:focus {
+  top: 0;
 }

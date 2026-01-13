@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, X, Loader2 } from "lucide-react";
 import { performAccountArchivalAndCleanup } from "@/lib/accountUtils";
-import { StatusState } from "@/app/profile/utils/types";
+import { StatusState } from "@/app/(app)/profile/utils/types";
 
 type DeleteAccountModalProps = {
   onClose: () => void;

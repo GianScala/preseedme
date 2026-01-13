@@ -1,5 +1,5 @@
 import { FormEvent, ChangeEvent } from "react";
-import { ProfileFormData, ProfileTab, StatusState } from "@/app/profile/utils/types";
+import { ProfileFormData, ProfileTab, StatusState } from "@/app/(app)/profile/utils/types";
 import BasicInfoTab from "./BasicInfoTab";
 import ContactTab from "./ContactTab";
 import LinksTab from "./LinksTab";

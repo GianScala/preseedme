@@ -25,11 +25,8 @@ export default function LatestIdeas({
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-2xl sm:text-3xl font-bold text-white mb-1">
-              Latest Ideas
+              Latest Startups
             </h2>
-            <p className="text-neutral-500 text-sm">
-              Fresh projects looking for their first believers
-            </p>
           </div>
 
           <Link

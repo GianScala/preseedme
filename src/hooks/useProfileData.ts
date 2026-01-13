@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getFirebaseDb } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
-import { INITIAL_DATA, ProfileFormData } from "@/app/profile/utils/types";
-import { normalizeUrl } from "@/app/profile/utils/urlHelpers";
+import { INITIAL_DATA, ProfileFormData } from "@/app/(app)/profile/utils/types";
+import { normalizeUrl } from "@/app/(app)/profile/utils/urlHelpers";
 
 export function useProfileData(userId: string | undefined, authLoading: boolean) {
   const router = useRouter();

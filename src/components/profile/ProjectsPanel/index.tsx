@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Idea } from "@/types";
-import { ProjectsView } from "@/app/profile/utils/types";
+import { ProjectsView } from "@/app/(app)/profile/utils/types";
 import CreatedProjects from "./CreatedProjects";
 import LikedProjects from "./LikedProjects";
 

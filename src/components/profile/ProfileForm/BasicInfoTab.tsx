@@ -3,7 +3,7 @@ import { CameraIcon } from "@/components/icons/CameraIcon";
 import { ProfileIcon } from "@/components/icons/ProfileIcon";
 import SectionCard from "../shared/SectionCard";
 import IconInput from "../shared/IconInput";
-import { ProfileFormData } from "@/app/profile/utils/types";
+import { ProfileFormData } from "@/app/(app)/profile/utils/types";
 
 type BasicInfoTabProps = {
   formData: ProfileFormData;

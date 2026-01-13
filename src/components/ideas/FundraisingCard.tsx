@@ -1,7 +1,7 @@
 // src/components/ideas/FundraisingCard.tsx
 "use client";
 
-import type { IdeaWithLikes } from "@/app/ideas/[id]/page";
+import type { IdeaWithLikes } from "@/app/(app)/ideas/[id]/page";
 import { formatCurrency } from "@/lib/utils";
 import { Target, TrendingUp, Wallet, LucideIcon } from "lucide-react";
 

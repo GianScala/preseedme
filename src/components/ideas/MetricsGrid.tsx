@@ -1,7 +1,7 @@
 // src/components/ideas/MetricsGrid.tsx
 "use client";
 
-import type { IdeaWithLikes } from "@/app/ideas/[id]/page";
+import type { IdeaWithLikes } from "@/app/(app)/ideas/[id]/page";
 import { formatCurrencyShort, formatNumberShort } from "@/lib/formatters";
 import { DollarSign, Users, TrendingUp, Calendar, LucideIcon } from "lucide-react";
 

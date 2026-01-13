@@ -205,7 +205,7 @@ export default function PublicWeeklyWinner({
   };
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-white/5 bg-neutral-900/40 backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:bg-neutral-900/80 shadow-2xl">
+    <div className="group relative overflow-hidden rounded-2xl border border-white/5 bg-neutral-900/20 backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:bg-neutral-900/40 shadow-2xl">
       <div className="flex flex-col md:flex-row min-h-[160px]">
         {/* LEFT: IMAGE SECTION */}
         <div className="relative w-full md:w-52 h-40 md:h-auto flex-shrink-0 overflow-hidden border-b md:border-b-0 md:border-r border-white/5">

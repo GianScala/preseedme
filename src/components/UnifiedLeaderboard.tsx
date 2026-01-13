@@ -174,7 +174,7 @@ const UnifiedLeaderboard = memo(function UnifiedLeaderboard({
   }, [ideas, weeklyWinners, sortBy]);
 
   return (
-    <div className="rounded-2xl border border-white/5 bg-neutral-900/40 backdrop-blur-xl overflow-hidden shadow-2xl">
+    <div className="rounded-2xl border border-white/5 bg-neutral-900/30 backdrop-blur-xl overflow-hidden shadow-2xl">
       <div className="px-6 py-5 flex items-center justify-between border-b border-white/5">
         <h2 className="text-xl font-black text-white tracking-tight">
           Leaderboard

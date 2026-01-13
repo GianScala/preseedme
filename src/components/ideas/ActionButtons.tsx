@@ -5,7 +5,7 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getFirebaseDb } from "@/lib/firebase";
 import { doc, deleteDoc, updateDoc, arrayRemove } from "firebase/firestore";
-import type { IdeaWithLikes } from "@/app/ideas/[id]/page";
+import type { IdeaWithLikes } from "@/app/(app)/ideas/[id]/page";
 import SignInModal from "@/components/common/modal/SignInModal";
 import { MessageCircle, Info, CheckCircle2, Loader2 } from "lucide-react";
 

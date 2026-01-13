@@ -1,6 +1,6 @@
 "use client";
 
-import type { IdeaWithLikes } from "@/app/ideas/[id]/page";
+import type { IdeaWithLikes } from "@/app/(app)/ideas/[id]/page";
 import type { ReactNode } from "react";
 
 type TagVariant = "sector" | "audience" | "demographic" | "pricing" | "misc";

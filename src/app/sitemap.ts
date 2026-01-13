@@ -17,7 +17,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "daily",
       priority: 0.8,
     },
-    // add other important routes here:
-    // { url: `${baseUrl}/about`, lastModified: new Date(), priority: 0.6 },
   ];
 }
